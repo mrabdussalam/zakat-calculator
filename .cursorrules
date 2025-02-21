@@ -1,0 +1,208 @@
+# Zakat Guide Component Guidelines
+
+Please follow architecture guidelines as specififed in @README.md
+
+1. First, systematically go through EACH point in the cursorrules checklist
+2. For each point, explicitly verify:
+    - Is it implemented?
+    - Is it working correctly?
+    - Is it properly tested?
+3. Document any gaps found
+4. Fix ALL identified issues before confirming completion
+
+# Value Verification Checklist
+
+## 1. UI State Synchronization
+□ Check state updates:
+[ ] Initial values loaded from store
+[ ] Values update when accessibility changes
+[ ] Values update when withdrawn status changes
+[ ] Values update when amounts change
+[ ] Values update when tax/penalty rates change
+[ ] Values sync between calculator and summary
+
+## 2. Summary Display
+□ Verify displayed values:
+[ ] Total Assets shows gross balance
+[ ] Zakatable Amount shows net amount
+[ ] Zakat Due shows correct 2.5% calculation
+[ ] Breakdown items match stored values
+[ ] Asset distribution percentages are accurate
+[ ] Nisab status updates correctly
+[ ] Currency formatting is consistent
+[ ] All tooltips show correct information
+
+## 3. Edge Cases
+□ Test boundary conditions:
+[ ] Zero values
+[ ] Negative values (should be prevented)
+[ ] Maximum value limits
+[ ] Invalid input handling
+[ ] Extremely large numbers
+[ ] Decimal precision handling
+[ ] Multiple assets with small percentages
+[ ] Empty state handling
+
+## 4. Store Updates
+□ Verify store synchronization:
+[ ] Values persist after page refresh
+[ ] Values clear on reset
+[ ] Values update in real-time
+[ ] No unnecessary re-renders
+[ ] Store updates trigger correct UI updates
+[ ] Computed values update correctly
+[ ] State history maintained properly
+
+## 5. Cross-Component Verification
+□ Check value consistency:
+[ ] Summary component
+[ ] Dashboard totals
+[ ] Asset breakdown
+[ ] Asset distribution chart
+[ ] Percentage calculations
+[ ] Nisab threshold display
+[ ] Combined totals across all assets
+[ ] Color consistency across components
+    - Asset list colors
+    - Distribution chart colors
+    - Breakdown dot colors
+    - Icon colors
+[+] Asset Type Inclusion Check:
+    [ ] All registered asset types included in totals
+    [ ] Each asset type's total properly added to summary
+    [ ] Cross-reference individual asset totals with summary
+    [ ] Verify percentage distribution includes all assets
+
+## 6. Hawl Status
+□ Verify hawl handling:
+[ ] Persists through state updates
+[ ] Correctly affects calculations
+[ ] Visual indicators update properly
+[ ] Affects zakatable amounts correctly
+[ ] Persists after page refresh
+
+## 7. Error Prevention
+□ Validate input handling:
+[ ] Number formatting
+[ ] Decimal precision
+[ ] Currency display
+[ ] Input validation
+[ ] Error messages are clear
+[ ] Invalid calculations prevented
+[ ] Edge case handling
+[ ] Type validation
+
+## 8. Reset Functionality
+□ Verify reset behavior:
+[ ] All values clear properly
+[ ] State resets to initial
+[ ] UI updates accordingly
+[ ] No lingering values
+[ ] Store completely cleared
+[ ] Local storage cleared
+[ ] All computed values reset
+
+## 9. Performance Verification
+□ Check optimization:
+[ ] No unnecessary calculations
+[ ] Memoization working correctly
+[ ] Render optimization
+[ ] State updates are batched
+[ ] Network calls optimized
+[ ] Large dataset handling
+
+
+## 10. Data Persistence
+□ Check data handling:
+[ ] Local storage working
+[ ] State hydration correct
+[ ] Version migration handling
+[ ] Data corruption handling
+[ ] Backup/restore functionality
+
+## 11. Currency Handling
+□ Verify currency display:
+[ ] Format consistent
+[ ] Decimal places correct
+[ ] Large numbers formatted
+[ ] Currency symbol placement
+[ ] International format support
+
+## 12. Validation Requirements
+□ Implement calculator validation:
+[ ] Use calculator validation template
+[ ] Define required fields
+[ ] Specify numerical fields
+[ ] Add boolean fields if applicable
+[ ] Implement custom validations
+[ ] Override zakatable amount validation
+
+## 13. Testing Requirements
+□ Verify test coverage:
+[ ] Initial state validation
+[ ] Value type checking
+[ ] Calculation accuracy
+[ ] Zakatable amount rules
+[ ] Edge cases handling
+[ ] Custom validation rules
+
+## 14. New Calculator Checklist
+□ Implementation requirements:
+[ ] Define types in store/types.ts
+[ ] Create calculator validation file
+[ ] Add calculator-specific tests
+[ ] Document validation rules
+[ ] Add pre-commit hooks
+[ ] Update test coverage
+
+## 15. Validation Rules
+□ Check implementation:
+[ ] No negative values
+[ ] Required fields present
+[ ] Correct value types
+[ ] Valid calculations
+[ ] Proper hawl status
+[ ] Accurate breakdowns
+[ ] Correct zakatable amounts
+
+## 16. Type Verification
+□ Check type implementation:
+[ ] All interfaces properly extend base types
+[ ] Required properties explicitly defined
+[ ] Breakdown items include all display properties
+[ ] Validation module implements calculator template
+[ ] Type exports properly defined
+[ ] Generic types properly constrained
+[ ] Type guards implemented where needed
+
+## 17. Asset Display Validation
+□ Verify display properties:
+[ ] Breakdown items include label property
+[ ] isExempt property defined where needed
+[ ] zakatable property properly calculated
+[ ] All required display fields present
+[ ] Asset colors consistently defined
+[ ] Asset icons properly mapped
+[ ] Display names internationalized
+
+## 18. Testing Coverage
+□ Verify test implementation:
+[ ] Unit tests for all calculators
+[ ] Integration tests for store updates
+[ ] Validation tests for all asset types
+[ ] Edge case coverage
+[ ] Breakdown validation tests
+[ ] Display property tests
+[ ] Type checking tests
+[ ] Custom validation tests
+
+## 19. Breakdown Validation
+□ Test breakdown implementation:
+[ ] All items have required display properties
+[ ] Exempt status properly reflected
+[ ] Zakatable amounts correctly calculated
+[ ] Labels present and correct
+[ ] Totals match individual items
+[ ] Percentage calculations accurate
+[ ] Currency formatting consistent
+[ ] Nested breakdowns properly structured

@@ -1,0 +1,140 @@
+import { StateCreator } from 'zustand'
+import { RetirementValues, ZakatState } from '../types'
+import { getAssetType } from '@/lib/assets/registry'
+import { roundCurrency, isValidCurrencyAmount } from '@/lib/utils/currency'
+import { AssetBreakdown } from '@/lib/assets/types'
+import { AssetValidation } from '@/lib/validation/assetValidation'
+
+export interface RetirementSlice {
+  retirement: RetirementValues
+  retirementHawlMet: boolean
+  setRetirementValue: (key: keyof RetirementValues, value: number) => void
+  setRetirementHawlMet: (hawlMet: boolean) => void
+  resetRetirement: () => void
+  getRetirementTotal: () => number
+  getRetirementZakatable: () => number
+  getRetirementBreakdown: () => AssetBreakdown
+}
+
+const initialRetirementValues: RetirementValues = {
+  traditional_401k: 0,
+  traditional_ira: 0,
+  roth_401k: 0,
+  roth_ira: 0,
+  pension: 0,
+  other_retirement: 0
+}
+
+export const createRetirementSlice: StateCreator<
+  ZakatState,
+  [["zustand/persist", unknown]],
+  [],
+  RetirementSlice
+> = (set, get) => ({
+  retirement: initialRetirementValues,
+  retirementHawlMet: false,
+  
+  setRetirementValue: (key: keyof RetirementValues, value: number) => {
+    // First validate the new value in context of current values
+    const currentValues = get().retirement
+    const newValues = {
+      ...currentValues,
+      [key]: value
+    }
+    
+    const validationResult = AssetValidation.validateInput('retirement', newValues)
+    if (!validationResult.isValid) {
+      console.error('Retirement validation failed:', validationResult.errors)
+      // Optionally throw or handle errors
+      return
+    }
+
+    // If validation passes, update the store
+    set((state: ZakatState) => ({
+      retirement: {
+        ...state.retirement,
+        [key]: roundCurrency(value)
+      }
+    }))
+
+    // After updating, validate calculations
+    const state = get()
+    const retirementAsset = getAssetType('retirement')
+    if (retirementAsset) {
+      const total = retirementAsset.calculateTotal(newValues)
+      const zakatable = retirementAsset.calculateZakatable(
+        newValues,
+        undefined,
+        state.retirementHawlMet
+      )
+      const breakdown = retirementAsset.getBreakdown(
+        newValues,
+        undefined,
+        state.retirementHawlMet
+      )
+
+      // Validate calculations
+      const calcValidation = AssetValidation.validateCalculations({
+        assetType: 'retirement',
+        values: newValues,
+        breakdown,
+        calculatedTotal: total,
+        calculatedZakatable: zakatable
+      })
+
+      if (!calcValidation.isValid) {
+        console.error('Retirement calculation validation failed:', calcValidation.errors)
+        // Handle calculation errors
+      }
+    }
+  },
+
+  setRetirementHawlMet: (hawlMet: boolean) => 
+    set(() => ({
+      retirementHawlMet: hawlMet
+    })),
+
+  resetRetirement: () => 
+    set(() => ({
+      retirement: initialRetirementValues,
+      retirementHawlMet: false
+    })),
+
+  getRetirementTotal: () => {
+    const state = get()
+    const retirementAsset = getAssetType('retirement')
+    if (!retirementAsset) return 0
+    const total = retirementAsset.calculateTotal(state.retirement)
+    return roundCurrency(total)
+  },
+
+  getRetirementZakatable: () => {
+    const state = get()
+    const retirementAsset = getAssetType('retirement')
+    if (!retirementAsset) return 0
+    const zakatable = retirementAsset.calculateZakatable(
+      state.retirement,
+      undefined,
+      state.retirementHawlMet
+    )
+    return roundCurrency(zakatable)
+  },
+
+  getRetirementBreakdown: () => {
+    const state = get()
+    const retirementAsset = getAssetType('retirement')
+    if (!retirementAsset) {
+      return {
+        total: 0,
+        zakatable: 0,
+        zakatDue: 0,
+        items: {}
+      }
+    }
+    return retirementAsset.getBreakdown(
+      state.retirement,
+      undefined,
+      state.retirementHawlMet
+    )
+  }
+}) 
