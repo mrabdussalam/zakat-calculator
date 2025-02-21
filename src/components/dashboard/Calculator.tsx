@@ -10,12 +10,37 @@ import { memo, useCallback, useEffect } from 'react'
 import { useZakatStore } from '@/store/zakatStore'
 import { formatCurrency, cn } from '@/lib/utils'
 import { InfoIcon } from 'lucide-react'
+import { motion, AnimatePresence, useSpring, useMotionValue, useTransform, animate } from 'framer-motion'
 import {
   TooltipProvider,
   Tooltip,
   TooltipTrigger,
   TooltipContent
 } from '@/components/ui/tooltip'
+
+// Animation variants for the slide effect
+const slideAnimation = {
+  initial: { 
+    opacity: 0, 
+    x: 4,
+  },
+  animate: { 
+    opacity: 1, 
+    x: 0,
+    transition: {
+      type: "tween",
+      duration: 0.2,
+      ease: [0.4, 0.0, 0.2, 1]
+    }
+  },
+  exit: { 
+    opacity: 0, 
+    x: -4,
+    transition: {
+      duration: 0.1
+    }
+  }
+}
 
 // Add Nisab constants
 const NISAB = {
@@ -32,12 +57,52 @@ interface CalculatorProps {
   initialHawlMet?: boolean
 }
 
-const CashCalculatorMemo = memo(CashCalculator)
-const PersonalJewelryFormMemo = memo(PersonalJewelryForm)
-const StockCalculatorMemo = memo(StockCalculator)
-const RetirementCalculatorMemo = memo(RetirementCalculator)
-const RealEstateCalculatorMemo = memo(RealEstateCalculator)
-const CryptoCalculatorMemo = memo(CryptoCalculator)
+interface CommonCalculatorProps {
+  currency: string
+  onUpdateValues: (values: Record<string, number>) => void
+  onHawlUpdate: (hawlMet: boolean) => void
+  initialValues?: Record<string, number>
+  initialHawlMet?: boolean
+}
+
+const CashCalculatorMemo = memo(CashCalculator) as React.FC<CommonCalculatorProps>
+const PersonalJewelryFormMemo = memo(PersonalJewelryForm) as React.FC<CommonCalculatorProps>
+const StockCalculatorMemo = memo(StockCalculator) as React.FC<CommonCalculatorProps>
+const RetirementCalculatorMemo = memo(RetirementCalculator) as React.FC<CommonCalculatorProps>
+const RealEstateCalculatorMemo = memo(RealEstateCalculator) as React.FC<CommonCalculatorProps>
+const CryptoCalculatorMemo = memo(CryptoCalculator) as React.FC<CommonCalculatorProps>
+
+// Animated number component
+function AnimatedNumber({ value }: { value: number }) {
+  const motionValue = useMotionValue(value)
+  const rounded = useTransform(motionValue, latest => {
+    return formatCurrency(Math.round(latest * 100) / 100)
+  })
+
+  useEffect(() => {
+    const controls = animate(motionValue, value, {
+      type: "tween",
+      duration: 0.5,
+      ease: [0.32, 0.72, 0, 1], // Custom easing for smooth counter effect
+      onComplete: () => {
+        // Ensure we end up with the exact value
+        motionValue.set(value)
+      }
+    })
+
+    return controls.stop
+  }, [value, motionValue])
+
+  return (
+    <motion.span
+      initial={false}
+      animate={{ scale: [1, 1.02, 1] }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+    >
+      {rounded}
+    </motion.span>
+  )
+}
 
 export function Calculator({ 
   selectedAsset, 
@@ -55,15 +120,8 @@ export function Calculator({
     onHawlUpdate(hawlMet)
   }, [onHawlUpdate])
 
-  const {
-    getTotalAssets,
-    getTotalZakatable,
-    getZakatDue,
-    cashHawlMet,
-    metalsHawlMet
-  } = useZakatStore()
+  const { getBreakdown } = useZakatStore()
 
-  // Debug logging
   useEffect(() => {
     console.log('Calculator received props:', {
       selectedAsset,
@@ -88,52 +146,48 @@ export function Calculator({
     initialHawlMet
   }
 
-  switch (selectedAsset) {
-    case 'cash':
-      return <CashCalculatorMemo {...commonProps} key={selectedAsset} />
-    case 'precious-metals':
-      return <PersonalJewelryFormMemo {...commonProps} key={selectedAsset} />
-    case 'stocks':
-      return <StockCalculatorMemo 
-        {...commonProps}
-        key={selectedAsset} 
-      />
-    case 'retirement':
-      return <RetirementCalculatorMemo 
-        {...commonProps}
-        key={selectedAsset} 
-      />
-    case 'real-estate':
-      return <RealEstateCalculatorMemo
-        {...commonProps}
-        key={selectedAsset}
-      />
-    case 'crypto':
-      return <CryptoCalculatorMemo
-        {...commonProps}
-        key={selectedAsset}
-      />
-    default:
-      return (
-        <div className="text-gray-500 text-sm">
-          Calculator for {selectedAsset} coming soon
-        </div>
-      )
+  const renderCalculator = () => {
+    switch (selectedAsset) {
+      case 'cash':
+        return <CashCalculatorMemo {...commonProps} />
+      case 'precious-metals':
+        return <PersonalJewelryFormMemo {...commonProps} />
+      case 'stocks':
+        return <StockCalculatorMemo {...commonProps} />
+      case 'retirement':
+        return <RetirementCalculatorMemo {...commonProps} />
+      case 'real-estate':
+        return <RealEstateCalculatorMemo {...commonProps} />
+      case 'crypto':
+        return <CryptoCalculatorMemo {...commonProps} />
+      default:
+        return (
+          <div className="text-gray-500 text-sm">
+            Calculator for {selectedAsset} coming soon
+          </div>
+        )
+    }
   }
+
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={selectedAsset}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        variants={slideAnimation}
+        className="w-full"
+      >
+        {renderCalculator()}
+      </motion.div>
+    </AnimatePresence>
+  )
 }
 
 export function CalculatorSummary() {
-  const { 
-    getTotalAssets,
-    getTotalZakatable,
-    getZakatDue,
-    getNisabStatus
-  } = useZakatStore()
-
-  const totalAssets = getTotalAssets()
-  const totalZakatable = getTotalZakatable()
-  const zakatDue = getZakatDue()
-  const nisabStatus = getNisabStatus()
+  const { getBreakdown } = useZakatStore()
+  const breakdown = getBreakdown()
 
   return (
     <TooltipProvider>
@@ -150,15 +204,15 @@ export function CalculatorSummary() {
                 <div className="flex items-center gap-2">
                   <span className={cn(
                     "font-medium",
-                    nisabStatus ? "text-green-600" : "text-gray-600"
+                    breakdown.combined.meetsNisab.meetsNisab ? "text-green-600" : "text-gray-600"
                   )}>
                     Nisab Status:
                   </span>
                   <span className={cn(
                     "text-sm",
-                    nisabStatus ? "text-green-600" : "text-gray-500"
+                    breakdown.combined.meetsNisab.meetsNisab ? "text-green-600" : "text-gray-500"
                   )}>
-                    {nisabStatus ? "Meets Nisab" : "Below Nisab"}
+                    {breakdown.combined.meetsNisab.meetsNisab ? "Meets Nisab" : "Below Nisab"}
                   </span>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -181,7 +235,7 @@ export function CalculatorSummary() {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Total Assets</span>
                 <span className="text-sm font-medium text-gray-900">
-                  {formatCurrency(totalAssets)}
+                  <AnimatedNumber value={breakdown.combined.totalValue} />
                 </span>
               </div>
 
@@ -206,7 +260,7 @@ export function CalculatorSummary() {
                   </Tooltip>
                 </div>
                 <span className="text-sm font-medium text-gray-900">
-                  {formatCurrency(totalZakatable)}
+                  <AnimatedNumber value={breakdown.combined.zakatableValue} />
                 </span>
               </div>
 
@@ -217,7 +271,7 @@ export function CalculatorSummary() {
                     Zakat Due (2.5%)
                   </span>
                   <span className="text-sm font-medium text-green-600">
-                    {formatCurrency(zakatDue)}
+                    <AnimatedNumber value={breakdown.combined.zakatDue} />
                   </span>
                 </div>
               </div>

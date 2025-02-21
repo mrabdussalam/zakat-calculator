@@ -4,6 +4,7 @@ import { getAssetType } from '@/lib/assets/registry'
 import { roundCurrency, isValidCurrencyAmount } from '@/lib/utils/currency'
 import { AssetBreakdown } from '@/lib/assets/types'
 import { AssetValidation } from '@/lib/validation/assetValidation'
+import { DEFAULT_HAWL_STATUS } from '../constants'
 
 export interface RetirementSlice {
   retirement: RetirementValues
@@ -32,7 +33,7 @@ export const createRetirementSlice: StateCreator<
   RetirementSlice
 > = (set, get) => ({
   retirement: initialRetirementValues,
-  retirementHawlMet: false,
+  retirementHawlMet: DEFAULT_HAWL_STATUS.retirement,
   
   setRetirementValue: (key: keyof RetirementValues, value: number) => {
     // First validate the new value in context of current values
@@ -97,7 +98,7 @@ export const createRetirementSlice: StateCreator<
   resetRetirement: () => 
     set(() => ({
       retirement: initialRetirementValues,
-      retirementHawlMet: false
+      retirementHawlMet: DEFAULT_HAWL_STATUS.retirement
     })),
 
   getRetirementTotal: () => {

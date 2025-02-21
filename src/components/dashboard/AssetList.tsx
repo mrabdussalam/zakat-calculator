@@ -4,16 +4,12 @@ import { cn } from "@/lib/utils"
 import { CashIcon } from "@/components/ui/icons/cash"
 import { GoldIcon } from "@/components/ui/icons/gold"
 import { StocksIcon } from "@/components/ui/icons/stocks"
+import { RetirementIcon } from "@/components/ui/icons/retirement"
 import { RealEstateIcon } from "@/components/ui/icons/realestate"
 import { CryptoIcon } from "@/components/ui/icons/crypto"
-import { DebtIcon } from "@/components/ui/icons/debt"
-import { RetirementIcon } from "@/components/ui/icons/retirement"
+import { motion } from "framer-motion"
 
-interface AssetListProps {
-  selectedAsset: string | null
-  onAssetSelect: (assetId: string) => void
-}
-
+// Asset types with their display properties
 export const ASSETS = [
   {
     id: 'cash',
@@ -50,13 +46,7 @@ export const ASSETS = [
     name: 'Cryptocurrencies',
     description: 'Digital assets and tokens',
     icon: CryptoIcon,
-  },
-  {
-    id: 'debt-receivable',
-    name: 'Debt Receivables',
-    description: 'Money owed to you by others',
-    icon: DebtIcon,
-  },
+  }
 ]
 
 // Color mapping for different asset types (using the same colors as AssetBreakdown)
@@ -102,15 +92,13 @@ const assetColors = {
     selectedBg: 'bg-cyan-100',
     selectedIcon: 'text-cyan-900',
     base: '#06B6D4', // Cyan
-  },
-  'debt-receivable': {
-    bg: 'bg-violet-50',
-    icon: 'text-violet-600',
-    selectedBg: 'bg-violet-100',
-    selectedIcon: 'text-violet-900',
-    base: '#8B5CF6', // Violet
-  },
+  }
 } as const
+
+interface AssetListProps {
+  selectedAsset: string | null
+  onAssetSelect: (assetId: string) => void
+}
 
 export function AssetList({ selectedAsset, onAssetSelect }: AssetListProps) {
   return (
@@ -131,22 +119,32 @@ export function AssetList({ selectedAsset, onAssetSelect }: AssetListProps) {
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400",
               "before:absolute before:inset-0 before:rounded-lg before:border before:transition-all",
               isSelected 
-                ? "bg-gray-50 shadow-xs before:border-gray-900" 
+                ? "bg-white shadow-sm ring-1 ring-gray-200 before:border-transparent" 
                 : "bg-white shadow-xs before:border-gray-100 hover:before:border-gray-200"
             )}
           >
-            <div className={cn(
-              "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
-              isSelected ? colors.selectedBg : colors.bg
-            )}>
+            <motion.div 
+              className={cn(
+                "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 shadow-sm",
+                isSelected ? colors.selectedBg : "bg-gray-50"
+              )}
+              initial={false}
+              animate={{ 
+                scale: isSelected ? [1, 0.9, 1] : 1,
+              }}
+              transition={{ 
+                duration: 0.2,
+                times: [0, 0.5, 1]
+              }}
+            >
               <Icon 
                 size={20} 
                 className={cn(
-                  "transition-colors",
-                  isSelected ? colors.selectedIcon : colors.icon
+                  "transition-all",
+                  isSelected ? colors.selectedIcon : "text-gray-600"
                 )} 
               />
-            </div>
+            </motion.div>
             <div className="flex-1 min-w-0">
               <div className={cn(
                 "text-sm font-medium transition-colors",

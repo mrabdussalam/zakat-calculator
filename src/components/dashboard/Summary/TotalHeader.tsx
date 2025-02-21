@@ -5,6 +5,42 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { motion, useMotionValue, useTransform, animate } from "framer-motion"
+import { useEffect } from "react"
+
+// Animated number component
+function AnimatedNumber({ value }: { value: number }) {
+  const motionValue = useMotionValue(value)
+  const rounded = useTransform(motionValue, latest => {
+    return formatCurrency(Math.round(latest * 100) / 100)
+  })
+
+  useEffect(() => {
+    const controls = animate(motionValue, value, {
+      type: "tween",
+      duration: 0.2,
+      ease: [0.4, 0.0, 0.2, 1], // Ultra smooth easing
+      onComplete: () => {
+        motionValue.set(value)
+      }
+    })
+
+    return controls.stop
+  }, [value, motionValue])
+
+  return (
+    <motion.span
+      initial={false}
+      animate={{ 
+        scale: value === 0 ? 1 : [1, 1.005, 1],
+        color: value === 0 ? "#6B7280" : undefined // gray-500 if zero
+      }}
+      transition={{ duration: 0.15 }}
+    >
+      {rounded}
+    </motion.span>
+  )
+}
 
 interface TotalHeaderProps {
   totalAssets: number
@@ -27,7 +63,7 @@ export function TotalHeader({ totalAssets, breakdown, nisabStatus, currency }: T
         <div>
           <div className="text-sm text-gray-500">Total Assets</div>
           <div className="text-2xl font-medium text-gray-900">
-            {formatCurrency(totalAssets)}
+            <AnimatedNumber value={totalAssets} />
           </div>
         </div>
         <div>
@@ -36,7 +72,7 @@ export function TotalHeader({ totalAssets, breakdown, nisabStatus, currency }: T
             <TooltipTrigger asChild>
               <div>
                 <div className="text-2xl font-medium text-green-600">
-                  {formatCurrency(breakdown.combined.zakatDue)}
+                  <AnimatedNumber value={breakdown.combined.zakatDue} />
                 </div>
                 <div className="text-sm text-gray-500">
                   {!nisabStatus.meetsNisab ? 'No Zakat due (Below Nisab)' : '2.5% of eligible assets'}

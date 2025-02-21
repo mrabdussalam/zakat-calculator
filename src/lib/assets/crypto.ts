@@ -22,7 +22,17 @@ export const crypto: AssetType = {
         total: 0,
         zakatable: 0,
         zakatDue: 0,
-        items: {}
+        items: {
+          cryptocurrency: {
+            value: 0,
+            isZakatable: false,
+            zakatable: 0,
+            zakatDue: 0,
+            label: 'Cryptocurrency',
+            tooltip: 'No cryptocurrencies added yet',
+            percentage: 0
+          }
+        }
       }
     }
 
@@ -55,24 +65,37 @@ export const crypto: AssetType = {
       percentage?: number
     }> = {}
 
-    // Create items from aggregated coins
-    Object.entries(aggregatedCoins).forEach(([symbol, data]) => {
-      const itemZakatable = hawlMet ? data.marketValue : 0
-      const itemZakatDue = itemZakatable * ZAKAT_RATE
-      
-      items[symbol.toLowerCase()] = {
-        value: data.marketValue,
-        isZakatable: hawlMet,
-        zakatable: itemZakatable,
-        zakatDue: itemZakatDue,
-        label: `${symbol} (${data.quantity} coins)`,
-        tooltip: `${data.quantity} ${symbol} at ${data.currentPrice.toLocaleString('en-US', {
-          style: 'currency',
-          currency: 'USD'
-        })} each`,
-        percentage: total > 0 ? (data.marketValue / total) * 100 : 0
+    // If no coins, add a default item
+    if (Object.keys(aggregatedCoins).length === 0) {
+      items.cryptocurrency = {
+        value: 0,
+        isZakatable: false,
+        zakatable: 0,
+        zakatDue: 0,
+        label: 'Cryptocurrency',
+        tooltip: 'No cryptocurrencies added yet',
+        percentage: 0
       }
-    })
+    } else {
+      // Create items from aggregated coins
+      Object.entries(aggregatedCoins).forEach(([symbol, data]) => {
+        const itemZakatable = hawlMet ? data.marketValue : 0
+        const itemZakatDue = itemZakatable * ZAKAT_RATE
+        
+        items[symbol.toLowerCase()] = {
+          value: data.marketValue,
+          isZakatable: hawlMet,
+          zakatable: itemZakatable,
+          zakatDue: itemZakatDue,
+          label: `${symbol} (${data.quantity} coins)`,
+          tooltip: `${data.quantity} ${symbol} at ${data.currentPrice.toLocaleString('en-US', {
+            style: 'currency',
+            currency: 'USD'
+          })} each`,
+          percentage: total > 0 ? (data.marketValue / total) * 100 : 0
+        }
+      })
+    }
 
     return {
       total,

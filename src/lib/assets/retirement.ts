@@ -52,7 +52,17 @@ export const retirement: AssetType = {
         total: 0,
         zakatable: 0,
         zakatDue: 0,
-        items: {}
+        items: {
+          retirement_accounts: {
+            value: 0,
+            isZakatable: false,
+            zakatable: 0,
+            zakatDue: 0,
+            label: 'Retirement Accounts',
+            tooltip: 'No retirement accounts added yet',
+            isExempt: false
+          }
+        }
       }
     }
 
@@ -97,56 +107,30 @@ export const retirement: AssetType = {
     // Create breakdown with detailed information
     const items: Record<string, AssetBreakdownItem> = {}
 
-    // Only add traditional accounts if they have value
-    if (traditionalTotal > 0) {
-      items.traditional_accounts = {
-        value: traditionalTotal,
-        isZakatable: hawlMet,
-        zakatable: netAmount, // Use net amount for zakatable value
-        zakatDue: netAmount * ZAKAT_RATE,
-        label: 'Accessible Funds',
-        tooltip: 'Gross amount before taxes and penalties. Zakat is due on net amount after deductions.',
-        isExempt: false
-      }
+    // Always add traditional accounts, even if zero
+    items.traditional_accounts = {
+      value: traditionalTotal,
+      isZakatable: hawlMet,
+      zakatable: netAmount,
+      zakatDue: netAmount * ZAKAT_RATE,
+      label: 'Accessible Funds',
+      tooltip: traditionalTotal > 0 
+        ? 'Gross amount before taxes and penalties. Zakat is due on net amount after deductions.'
+        : 'No accessible funds added yet',
+      isExempt: false
     }
 
-    // Only add pension if it has value
-    if (pension > 0) {
-      items.pension = {
-        value: pension,
-        isZakatable: false,
-        zakatable: 0,
-        zakatDue: 0,
-        label: 'Locked Funds',
-        tooltip: 'Funds are locked until retirement - Zakat is deferred',
-        isExempt: true
-      }
-    }
-
-    // Only add Roth accounts if they have value AND we're showing all accounts
-    if (rothTotal > 0 && false) { // Disabled for now
-      items.roth_accounts = {
-        value: rothTotal,
-        isZakatable: false,
-        zakatable: rothZakatable,
-        zakatDue: rothZakatDue,
-        label: 'Roth Accounts (Exempt)',
-        tooltip: 'Roth accounts are exempt from Zakat',
-        isExempt: true
-      }
-    }
-
-    // Only add other retirement if it has value AND we're showing all accounts
-    if (otherRetirement > 0 && false) { // Disabled for now
-      items.other_retirement = {
-        value: otherRetirement,
-        isZakatable: hawlMet,
-        zakatable: otherZakatable,
-        zakatDue: otherZakatDue,
-        label: 'Withdrawn Funds',
-        tooltip: 'Amounts already withdrawn from retirement accounts',
-        isExempt: false
-      }
+    // Always add pension, even if zero
+    items.pension = {
+      value: pension,
+      isZakatable: false,
+      zakatable: 0,
+      zakatDue: 0,
+      label: 'Locked Funds',
+      tooltip: pension > 0 
+        ? 'Funds are locked until retirement - Zakat is deferred'
+        : 'No locked funds added yet',
+      isExempt: true
     }
 
     return {

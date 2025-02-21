@@ -12,6 +12,17 @@ export const NISAB = {
   }
 }
 
+// Add default Hawl status
+export const DEFAULT_HAWL_STATUS = {
+  cash: true,
+  metals: true,
+  stocks: true,
+  retirement: true,
+  real_estate: true,
+  crypto: true,
+  debt_receivable: true
+} as const
+
 export const initialRetirementValues: RetirementValues = {
   traditional_401k: 0,
   traditional_ira: 0,

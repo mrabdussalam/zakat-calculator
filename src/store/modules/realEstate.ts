@@ -53,6 +53,7 @@ export interface RealEstateSlice {
       label: string
       tooltip?: string
       zakatable?: number
+      zakatDue: number
     }>
   }
 }
@@ -98,7 +99,7 @@ export const createRealEstateSlice: StateCreator<
   // State
   realEstateValues: initialRealEstateValues,
   realEstateErrors: {},
-  realEstateHawlMet: DEFAULT_HAWL_STATUS.realEstate,
+  realEstateHawlMet: DEFAULT_HAWL_STATUS.real_estate,
   isValid: true,
 
   // Actions
@@ -133,7 +134,7 @@ export const createRealEstateSlice: StateCreator<
     set({
       realEstateValues: initialRealEstateValues,
       realEstateErrors: {},
-      realEstateHawlMet: DEFAULT_HAWL_STATUS.realEstate,
+      realEstateHawlMet: DEFAULT_HAWL_STATUS.real_estate,
       isValid: true
     })
   },
@@ -211,6 +212,11 @@ export const createRealEstateSlice: StateCreator<
 
     const zakatDue = roundCurrency(zakatable * ZAKAT_RATE)
 
+    // Calculate individual zakatDue values
+    const rentalZakatDue = realEstateHawlMet ? roundCurrency(rentalNet * ZAKAT_RATE) : 0
+    const propertyForSaleZakatDue = (propertyForSaleActive && realEstateHawlMet) ? roundCurrency(propertyForSaleValue * ZAKAT_RATE) : 0
+    const vacantLandZakatDue = (vacantLandSold && realEstateHawlMet) ? roundCurrency(salePrice * ZAKAT_RATE) : 0
+
     return {
       total,
       zakatable,
@@ -220,6 +226,8 @@ export const createRealEstateSlice: StateCreator<
           value: primaryResidenceValue,
           isZakatable: false,
           isExempt: true,
+          zakatable: 0,
+          zakatDue: 0,
           label: 'Primary Residence',
           tooltip: `Primary residence is exempt from Zakat (${formatCurrency(primaryResidenceValue)})`
         },
@@ -227,6 +235,7 @@ export const createRealEstateSlice: StateCreator<
           value: rentalIncome,
           isZakatable: realEstateHawlMet,
           zakatable: realEstateHawlMet ? rentalNet : 0,
+          zakatDue: rentalZakatDue,
           label: 'Rental Property',
           tooltip: `Rental income: ${formatCurrency(rentalIncome)}, Expenses: ${formatCurrency(rentalExpenses)}, Net: ${formatCurrency(rentalNet)}`
         },
@@ -234,6 +243,7 @@ export const createRealEstateSlice: StateCreator<
           value: propertyForSaleValue,
           isZakatable: propertyForSaleActive && realEstateHawlMet,
           zakatable: (propertyForSaleActive && realEstateHawlMet) ? propertyForSaleValue : 0,
+          zakatDue: propertyForSaleZakatDue,
           label: 'Property for Sale',
           tooltip: propertyForSaleActive 
             ? `Property is actively listed for sale (${formatCurrency(propertyForSaleValue)})` 
@@ -243,6 +253,7 @@ export const createRealEstateSlice: StateCreator<
           value: vacantLandSold ? salePrice : vacantLandValue,
           isZakatable: vacantLandSold && realEstateHawlMet,
           zakatable: (vacantLandSold && realEstateHawlMet) ? salePrice : 0,
+          zakatDue: vacantLandZakatDue,
           label: vacantLandSold ? 'Vacant Land (Sold)' : 'Vacant Land',
           tooltip: vacantLandSold 
             ? `Land has been sold for ${formatCurrency(salePrice)}` 

@@ -13,12 +13,10 @@ export function RetirementIcon({ size = 24, className }: IconProps) {
       strokeLinejoin="round"
       className={className}
     >
-      <path d="M11 8V14M15 8V14" />
-      <path d="M7 14L18 14" />
-      <path d="M16 14L18 20" />
-      <path d="M4 2L8 14L6 20" />
-      <path d="M6 8H16.5C17.3284 8 18 8.67157 18 9.5" />
-      <path d="M4 18C5.72574 20.412 8.66464 22 12 22C15.3354 22 18.2743 20.412 20 18" />
+      <path opacity="0.4" d="M12 3.5C11.0608 3.5 7.52791 7.29323 6.97182 12.2037C5.89285 12.4691 3.38792 12.7 2 11.5C2.94545 6.93552 7.06333 3.5 12 3.5C16.9367 3.5 21.0545 6.93552 22 11.5C20.6123 12.7 18.1073 12.4691 17.0282 12.2037C16.4721 7.29322 12.9392 3.5 12 3.5Z" fill="currentColor" />
+      <path d="M12 3.5V2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 3.5C11.0608 3.5 7.52791 7.29323 6.97182 12.2037M12 3.5C12.9392 3.5 16.4721 7.29322 17.0282 12.2037M12 3.5C16.9367 3.5 21.0545 6.93552 22 11.5C20.6123 12.7 18.1073 12.4691 17.0282 12.2037M12 3.5C7.06333 3.5 2.94545 6.93552 2 11.5C3.38792 12.7 5.89285 12.4691 6.97182 12.2037M6.97182 12.2037C8.4559 13.0288 10.1718 13.5 12 13.5C13.8282 13.5 15.5441 13.0288 17.0282 12.2037" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 13.5V20.5C12 21.3284 11.3284 22 10.5 22C9.67157 22 9 21.3284 9 20.5V20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

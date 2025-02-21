@@ -52,9 +52,12 @@ export function AssetRow({
   const zakatDue = hawlMet ? breakdown.zakatDue : 0
 
   return (
-    <div className="border-b border-gray-100">
+    <div>
       <div 
-        className={cn("px-2 py-2.5", hasDetails && "cursor-pointer hover:bg-gray-50")}
+        className={cn(
+          "px-2 py-2.5 rounded-lg", 
+          hasDetails && "cursor-pointer hover:bg-gray-50"
+        )}
         onClick={handleClick}
         onKeyDown={handleKeyPress}
         role={hasDetails ? "button" : undefined}
@@ -88,13 +91,13 @@ export function AssetRow({
             </div>
           </div>
           <div className="flex items-center gap-4 text-xs">
-            <span className="w-[140px] text-right text-gray-500">
+            <span className="w-[140px] text-right text-gray-900">
               {total.toLocaleString(undefined, { style: 'currency', currency })}
             </span>
-            <span className="w-[140px] text-right text-gray-500">
+            <span className="w-[140px] text-right text-gray-900">
               {zakatableAmount.toLocaleString(undefined, { style: 'currency', currency })}
             </span>
-            <span className="w-[100px] text-right text-gray-500">
+            <span className="w-[100px] text-right text-gray-900">
               {zakatDue.toLocaleString(undefined, { style: 'currency', currency })}
             </span>
           </div>

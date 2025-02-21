@@ -32,13 +32,13 @@ const DEFAULT_STATE: DashboardState = {
     'debt-receivable': {}
   },
   hawlMet: {
-    cash: DEFAULT_HAWL_STATUS.cash,
-    'precious-metals': DEFAULT_HAWL_STATUS.metals,
-    stocks: DEFAULT_HAWL_STATUS.stocks,
-    retirement: DEFAULT_HAWL_STATUS.retirement,
-    'real-estate': DEFAULT_HAWL_STATUS.realEstate,
-    crypto: DEFAULT_HAWL_STATUS.crypto,
-    'debt-receivable': DEFAULT_HAWL_STATUS.debtReceivable
+    cash: true,
+    'precious-metals': true,
+    stocks: true,
+    retirement: true,
+    'real-estate': true,
+    crypto: true,
+    'debt-receivable': true
   },
   currency: 'USD'
 }
@@ -292,7 +292,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Right Column - Dashboard/Summary */}
-          <div className="min-h-0 border-l border-gray-100 bg-gray-50">
+          <div className="min-h-0 border-l border-gray-100">
             <div className="h-full flex flex-col">
               <div className="p-6 flex-none">
                 <div className="flex items-center justify-between">

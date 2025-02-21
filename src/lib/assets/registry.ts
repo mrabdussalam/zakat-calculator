@@ -4,6 +4,7 @@ import { preciousMetals } from './precious-metals'
 import { stocks } from './stocks'
 import { retirement } from './retirement'
 import { realEstate } from './real-estate'
+import { crypto } from './crypto'
 
 // Registry of all asset types
 const assetTypes: AssetType[] = [
@@ -11,7 +12,8 @@ const assetTypes: AssetType[] = [
   preciousMetals,
   stocks,
   retirement,
-  realEstate
+  realEstate,
+  crypto
 ]
 
 // Map for quick lookups
@@ -46,7 +48,8 @@ export const assetTypesRecord: Record<string, AssetType> = {
   retirement,
   stocks,
   'precious-metals': preciousMetals,  // Use correct key
-  'real-estate': realEstate
+  'real-estate': realEstate,
+  crypto
 }
 
 // Helper function to get asset type by ID

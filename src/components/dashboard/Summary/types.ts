@@ -6,8 +6,10 @@ export interface AssetBreakdown {
     value: number
     isZakatable: boolean
     zakatable: number
+    zakatDue: number
     label: string
     tooltip?: string
+    isExempt?: boolean
   }>
 }
 

@@ -197,7 +197,15 @@ export interface ZakatBreakdown {
     total: number
     zakatable: number
     zakatDue: number
-    items: Record<string, { value: number; isZakatable?: boolean; isExempt?: boolean }>
+    items: Record<string, { 
+      value: number
+      isZakatable?: boolean
+      isExempt?: boolean
+      label: string
+      tooltip?: string
+      zakatable?: number
+      zakatDue: number
+    }>
   }
   crypto: {
     total: number

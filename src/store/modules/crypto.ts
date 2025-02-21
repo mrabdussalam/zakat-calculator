@@ -39,7 +39,7 @@ export const createCryptoSlice: StateCreator<
 > = (set, get, store) => ({
   // Initial state
   cryptoValues: initialCryptoValues,
-  cryptoHawlMet: true,
+  cryptoHawlMet: DEFAULT_HAWL_STATUS.crypto,
 
   // Actions
   addCoin: async (symbol: string, quantity: number) => {
@@ -96,7 +96,10 @@ export const createCryptoSlice: StateCreator<
     })
   },
 
-  resetCryptoValues: () => set({ cryptoValues: initialCryptoValues }),
+  resetCryptoValues: () => set({ 
+    cryptoValues: initialCryptoValues,
+    cryptoHawlMet: DEFAULT_HAWL_STATUS.crypto
+  }),
 
   setCryptoHawl: (value: boolean) => {
     set((state) => ({
@@ -136,11 +139,28 @@ export const createCryptoSlice: StateCreator<
         [coin.symbol.toLowerCase()]: {
           value: roundCurrency(coin.marketValue),
           isZakatable: state.cryptoHawlMet,
+          zakatable: state.cryptoHawlMet ? roundCurrency(coin.marketValue) : 0,
+          zakatDue: state.cryptoHawlMet ? roundCurrency(coin.marketValue * ZAKAT_RATE) : 0,
           label: `${coin.symbol} (${coin.quantity} coins)`,
           tooltip: `${coin.quantity} ${coin.symbol} at ${formatCurrency(coin.currentPrice)} each`,
-          percentage: total > 0 ? roundCurrency((coin.marketValue / total) * 100) : 0
+          percentage: total > 0 ? roundCurrency((coin.marketValue / total) * 100) : 0,
+          isExempt: false
         }
       }), {})
+    }
+
+    // If no coins, add a default item
+    if (Object.keys(breakdown.items).length === 0) {
+      breakdown.items.cryptocurrency = {
+        value: 0,
+        isZakatable: false,
+        zakatable: 0,
+        zakatDue: 0,
+        label: 'Cryptocurrency',
+        tooltip: 'No cryptocurrencies added yet',
+        percentage: 0,
+        isExempt: false
+      }
     }
 
     return breakdown

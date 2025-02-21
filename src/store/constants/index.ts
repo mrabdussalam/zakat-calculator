@@ -75,7 +75,7 @@ export const DEFAULT_HAWL_STATUS = {
   metals: true,
   stocks: true,
   retirement: true,
-  realEstate: true,
+  real_estate: true,
   crypto: true,
-  debtReceivable: true
+  debt_receivable: true
 } as const 
