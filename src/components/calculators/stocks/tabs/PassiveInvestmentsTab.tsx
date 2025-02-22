@@ -260,7 +260,13 @@ export function PassiveInvestmentsTab({
       marketValue: 0
     }]
   )
-  const [rawMarketValue, setRawMarketValue] = useState('')
+  const [rawMarketValue, setRawMarketValue] = useState(() => {
+    // Initialize with the first investment's market value from passiveInvestments
+    if (validatedState?.investments?.[0]?.marketValue) {
+      return validatedState.investments[0].marketValue.toString()
+    }
+    return ''
+  })
   const [errors, setErrors] = useState<ValidationError[]>([])
   const previousValues = useRef({
     investments,
@@ -310,6 +316,28 @@ export function PassiveInvestmentsTab({
     }, 300),
     [updatePassiveInvestments]
   )
+
+  // Add effect to sync rawMarketValue with store
+  useEffect(() => {
+    if (validatedState?.investments?.[0]?.marketValue) {
+      setRawMarketValue(validatedState.investments[0].marketValue.toString())
+    }
+  }, [validatedState?.investments])
+
+  // Add effect to handle store reset
+  useEffect(() => {
+    if (!validatedState?.investments?.length) {
+      setRawMarketValue('')
+      setInvestments([{
+        id: Date.now().toString(),
+        name: '',
+        shares: 0,
+        pricePerShare: 0,
+        marketValue: 0
+      }])
+      setErrors([])
+    }
+  }, [validatedState])
 
   // Effect to update calculations when values change
   useEffect(() => {
@@ -453,17 +481,19 @@ export function PassiveInvestmentsTab({
     setErrors([])
     
     if (newMethod === 'quick') {
+      // Preserve existing investments or initialize with current market value
       const currentInvestments = investments.length ? investments : [{
         id: Date.now().toString(),
-        name: '',
-        shares: 0,
-        pricePerShare: 0,
-        marketValue: 0
+        name: 'Total Passive Investments',
+        shares: 1,
+        pricePerShare: Number(rawMarketValue) || 0,
+        marketValue: Number(rawMarketValue) || 0
       }]
       setInvestments(currentInvestments)
     } else {
+      // Preserve values when switching to detailed
       if (!inputValues.passive_shares) {
-        const event = { target: { value: '0' } } as React.ChangeEvent<HTMLInputElement>
+        const event = { target: { value: rawMarketValue || '0' } } as React.ChangeEvent<HTMLInputElement>
         onValueChange('passive_shares', event)
         onValueChange('company_cash', event)
         onValueChange('company_receivables', event)

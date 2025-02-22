@@ -482,8 +482,33 @@ export const createStocksSlice: StateCreator<
 
   resetStockValues: () => {
     set({ 
-      stockValues: initialStockValues,
-      stockHawlMet: DEFAULT_HAWL_STATUS.stocks
+      stockValues: {
+        ...initialStockValues,
+        passiveInvestments: {
+          version: '2.0',
+          method: 'quick',
+          investments: [{
+            id: Date.now().toString(),
+            name: '',
+            shares: 0,
+            pricePerShare: 0,
+            marketValue: 0
+          }],
+          marketValue: 0,
+          zakatableValue: 0,
+          hawlStatus: {
+            isComplete: false,
+            startDate: new Date().toISOString(),
+          },
+          displayProperties: {
+            currency: 'USD',
+            method: '30% Rule',
+            totalLabel: 'Total Investments'
+          }
+        }
+      },
+      stockHawlMet: DEFAULT_HAWL_STATUS.stocks,
+      passiveInvestments: null
     })
   },
 
