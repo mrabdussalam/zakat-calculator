@@ -24,9 +24,11 @@ import { PlusIcon } from 'lucide-react'
 import { CURRENCY_NAMES } from '@/lib/services/currency'
 import { CurrencySelector } from '@/components/CurrencySelector'
 import { CashValues, ForeignCurrencyEntry } from '@/store/types'
+import { CalculatorNav } from '@/components/ui/calculator-nav'
 
 interface CashCalculatorProps {
   currency: string
+  onCalculatorChange: (calculator: string) => void
 }
 
 type InputValues = Record<keyof Omit<CashValues, 'foreign_currency_entries'>, string>
@@ -94,7 +96,7 @@ const EXPENSES = [
   }
 ]
 
-export function CashCalculator({ currency }: CashCalculatorProps) {
+export function CashCalculator({ currency, onCalculatorChange }: CashCalculatorProps) {
   const {
     cashValues,
     setCashValue,
@@ -130,7 +132,7 @@ export function CashCalculator({ currency }: CashCalculatorProps) {
         currency: currency
       }]
     }
-    return [{ amount: 0, currency: 'EUR' }]
+    return [{ amount: 0, currency: 'EUR', rawInput: '' }]
   })
   
   const { rates, fetchRates, convertAmount, isLoading } = useCurrencyStore()
@@ -236,13 +238,24 @@ export function CashCalculator({ currency }: CashCalculatorProps) {
     return `${currency} ${formatNumber(num)}`
   }
 
+  // Format currency helper
+  const formatCurrency = (value: number): string => {
+    if (value === 0) return '-'
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value)
+  }
+
   // Sync with store when foreign currency entries change
   useEffect(() => {
     if (Array.isArray(cashValues.foreign_currency_entries) && cashValues.foreign_currency_entries.length > 0) {
       setForeignCurrencies(prev => {
         // Only update if entries are different
         const areEntriesDifferent = cashValues.foreign_currency_entries.length !== prev.length ||
-          cashValues.foreign_currency_entries.some((entry, i) => 
+          cashValues.foreign_currency_entries.some((entry: ForeignCurrencyEntry, i: number) => 
             entry.amount !== prev[i]?.amount || entry.currency !== prev[i]?.currency
           )
         
@@ -267,7 +280,7 @@ export function CashCalculator({ currency }: CashCalculatorProps) {
     if (Math.abs(totalInBaseCurrency - (cashValues.foreign_currency || 0)) > 0.01 ||
         !Array.isArray(cashValues.foreign_currency_entries) ||
         entries.length !== cashValues.foreign_currency_entries.length ||
-        entries.some((entry, i) => 
+        entries.some((entry: ForeignCurrencyEntry, i: number) => 
           entry.amount !== cashValues.foreign_currency_entries[i]?.amount ||
           entry.currency !== cashValues.foreign_currency_entries[i]?.currency
         )) {
@@ -292,17 +305,17 @@ export function CashCalculator({ currency }: CashCalculatorProps) {
       const updated = [...prev]
       if (field === 'amount') {
         try {
-          // Allow empty input
+          // Always store the raw input value first
+          updated[index] = {
+            ...updated[index],
+            rawInput: value
+          }
+
+          // Handle empty input
           if (!value) {
             updated[index].amount = 0
             updateForeignCurrencyStore(updated)
             return updated
-          }
-
-          // Store the raw input value
-          updated[index] = {
-            ...updated[index],
-            rawInput: value
           }
 
           // Only evaluate if the expression is complete (not ending with an operator)
@@ -332,7 +345,7 @@ export function CashCalculator({ currency }: CashCalculatorProps) {
       const updated = prev.filter((_, i) => i !== index)
       
       if (updated.length === 0) {
-        const defaultEntries = [{ amount: 0, currency: 'EUR' }]
+        const defaultEntries = [{ amount: 0, currency: 'EUR', rawInput: '' }]
         updateForeignCurrencyStore(defaultEntries)
         return defaultEntries
       }
@@ -345,14 +358,14 @@ export function CashCalculator({ currency }: CashCalculatorProps) {
   // Update addForeignCurrency to use the new store update function
   const addForeignCurrency = () => {
     setForeignCurrencies(prev => {
-      const updated = [...prev, { amount: 0, currency: 'EUR' }]
+      const updated = [...prev, { amount: 0, currency: 'EUR', rawInput: '' }]
       updateForeignCurrencyStore(updated)
       return updated
     })
   }
 
   return (
-    <TooltipProvider delayDuration={50}>
+    <TooltipProvider>
       <div className="space-y-8">
         {/* Main Content */}
         <div className="space-y-10">
@@ -374,22 +387,36 @@ export function CashCalculator({ currency }: CashCalculatorProps) {
                   </div>
                   {category.id === 'foreign_currency' ?
                     <div className="space-y-4">
-                      {foreignCurrencies.map((entry, index) => (
+                      {foreignCurrencies.map((entry: ForeignCurrencyEntry, index: number) => (
                         <div key={index} className="flex gap-2 items-start group">
                           <div className="flex-grow flex gap-2">
                             <CurrencySelector
                               value={entry.currency}
                               onValueChange={(value) => handleForeignCurrencyChange(index, 'currency', value)}
                             />
-                            <Input
-                              type="text"
-                              inputMode="decimal"
-                              pattern="[\d+\-*/.() ]*"
-                              className="bg-white"
-                              value={entry.rawInput || entry.amount.toString()}
-                              onChange={(e) => handleForeignCurrencyChange(index, 'amount', e.target.value)}
-                              placeholder="Enter amount or calculation"
-                            />
+                            <div className="relative w-full">
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                pattern="[\d+\-*/.() ]*"
+                                className="bg-white w-full"
+                                value={entry.rawInput || (entry.amount > 0 ? entry.amount.toString() : '')}
+                                onChange={(e) => handleForeignCurrencyChange(index, 'amount', e.target.value)}
+                                placeholder="Enter amount"
+                              />
+                              <div className="absolute inset-y-0 right-3 flex items-center gap-2">
+                                {isLoading ? (
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+                                    <span className="text-sm text-gray-500">Converting...</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-sm text-gray-500">
+                                    ≈ {formatCurrency(convertAmount?.(entry.amount, entry.currency, currency) || 0)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                           {foreignCurrencies.length > 1 && (
                             <Button
@@ -490,7 +517,7 @@ export function CashCalculator({ currency }: CashCalculatorProps) {
           </section>
           */}
 
-          {/* Summary Section - Only show if there are values */}
+          {/* Temporarily hidden calculator summary
           {getTotalCash() > 0 && (
             <CalculatorSummary
               title="Cash Holdings Summary"
@@ -532,7 +559,14 @@ export function CashCalculator({ currency }: CashCalculatorProps) {
               }}
             />
           )}
+          */}
         </div>
+
+        {/* Navigation */}
+        <CalculatorNav 
+          currentCalculator="cash" 
+          onCalculatorChange={onCalculatorChange}
+        />
       </div>
     </TooltipProvider>
   )

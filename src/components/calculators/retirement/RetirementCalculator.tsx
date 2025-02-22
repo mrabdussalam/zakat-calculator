@@ -20,6 +20,7 @@ import { CalculatorSummary } from '@/components/ui/calculator-summary'
 import { retirement } from '@/lib/assets/retirement'
 import { AssetValidation } from '@/lib/validation/assetValidation'
 import { toast } from '@/components/ui/toast'
+import { CalculatorNav } from '@/components/ui/calculator-nav'
 
 interface AccountDetails {
   balance: number
@@ -31,9 +32,21 @@ interface AccountDetails {
 
 interface RetirementCalculatorProps {
   currency: string
+  onUpdateValues: (values: Record<string, number>) => void
+  onHawlUpdate: (hawlMet: boolean) => void
+  onCalculatorChange: (calculator: string) => void
+  initialValues?: Record<string, number>
+  initialHawlMet?: boolean
 }
 
-export function RetirementCalculator({ currency }: RetirementCalculatorProps) {
+export function RetirementCalculator({ 
+  currency,
+  onUpdateValues,
+  onHawlUpdate,
+  onCalculatorChange,
+  initialValues = {},
+  initialHawlMet = true
+}: RetirementCalculatorProps) {
   const {
     retirement: retirementValues,
     setRetirementValue,
@@ -332,7 +345,7 @@ export function RetirementCalculator({ currency }: RetirementCalculatorProps) {
   ]
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
         <FAQ
           title="Retirement Accounts"
@@ -546,7 +559,7 @@ export function RetirementCalculator({ currency }: RetirementCalculatorProps) {
           </section>
         )}
 
-        {/* Calculator Summary */}
+        {/* Temporarily hidden calculator summary
         {(accessibility === 'accessible' || accountDetails.isWithdrawn || accountDetails.balance > 0) && breakdown && (
           <section>
             <CalculatorSummary
@@ -568,7 +581,14 @@ export function RetirementCalculator({ currency }: RetirementCalculatorProps) {
             />
           </section>
         )}
+        */}
       </div>
+
+      {/* Navigation */}
+      <CalculatorNav 
+        currentCalculator="retirement" 
+        onCalculatorChange={onCalculatorChange}
+      />
     </div>
   )
 } 

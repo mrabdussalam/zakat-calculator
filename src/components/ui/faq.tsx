@@ -1,16 +1,17 @@
 'use client'
 
 import * as React from 'react'
-import * as AccordionPrimitive from '@radix-ui/react-accordion'
-import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FAQIcon } from '@/components/ui/icons'
-import { FAQItem } from '@/config/faqs'
+import { FAQItem, FAQSection } from '@/config/faqs'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Sources } from './sources'
+import { SOURCES, SourceKey } from '@/config/sources'
 
 interface FAQProps {
   title: string
   description: string
-  items?: FAQItem[]
+  items?: FAQItem[] | FAQSection
   className?: string
   defaultOpen?: boolean
 }
@@ -20,12 +21,13 @@ export function FAQ({
   description, 
   items = [], 
   className,
-  defaultOpen = true
+  defaultOpen = false
 }: FAQProps) {
   const [isOpen, setIsOpen] = React.useState(defaultOpen)
   
-  // Create array of default values for all items - always expanded
-  const defaultValues = items.map((_, index) => `item-${index}`)
+  // Handle both array and section formats
+  const faqItems = Array.isArray(items) ? items : items.items || []
+  const sectionSources = !Array.isArray(items) && items.sources ? items.sources : undefined
 
   return (
     <div>
@@ -33,6 +35,7 @@ export function FAQ({
         <div className="flex items-center gap-2">
           <h3 className="text-base font-semibold text-gray-900">{title}</h3>
           <button
+            type="button"
             onClick={() => setIsOpen(!isOpen)}
             className={cn(
               "inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md",
@@ -48,28 +51,64 @@ export function FAQ({
         <p className="text-sm text-gray-600">{description}</p>
       </div>
 
-      {items.length > 0 && (
-        <div className={cn(
-          "overflow-hidden transition-all duration-200 ease-in-out",
-          isOpen ? "max-h-[1000px] opacity-100 my-4" : "max-h-0 opacity-0",
-          className
-        )}>
-          <div className="space-y-4 rounded-lg border border-blue-100 bg-blue-50/50 p-4">
-            {items.map((item, index) => (
-              <div 
-                key={index} 
-                className={cn(
-                  "space-y-1.5",
-                  index > 0 && "pt-4 border-t border-blue-100/50"
+      <AnimatePresence initial={false}>
+        {isOpen && faqItems.length > 0 && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{
+              height: {
+                type: "spring",
+                stiffness: 500,
+                damping: 40,
+                mass: 0.5
+              },
+              opacity: {
+                duration: 0.2,
+                ease: "easeOut"
+              }
+            }}
+            className={cn("overflow-hidden", className)}
+          >
+            <div className="my-4">
+              <div className="space-y-4 rounded-lg border border-blue-100 bg-blue-50/50 p-4">
+                {faqItems.map((item, index) => (
+                  <motion.div 
+                    key={index}
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      duration: 0.15,
+                      delay: index * 0.02,
+                      ease: [0.2, 0.0, 0.0, 1]
+                    }}
+                    className={cn(
+                      "space-y-1.5",
+                      index > 0 && "pt-4 border-t border-blue-100/50"
+                    )}
+                  >
+                    <h4 className="text-sm font-medium text-gray-900">{item.question}</h4>
+                    <p className="text-sm text-gray-600">{item.answer}</p>
+                    {item.sources && (
+                      <Sources 
+                        sources={item.sources.map((key: SourceKey) => SOURCES[key])}
+                        className="mt-2"
+                      />
+                    )}
+                  </motion.div>
+                ))}
+                {sectionSources && (
+                  <Sources 
+                    sources={sectionSources.map((key: SourceKey) => SOURCES[key])}
+                    className="mt-4"
+                  />
                 )}
-              >
-                <h4 className="text-sm font-medium text-gray-900">{item.question}</h4>
-                <p className="text-sm text-gray-600">{item.answer}</p>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 } 

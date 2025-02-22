@@ -11,11 +11,13 @@ import { ASSET_FAQS } from '@/config/faqs'
 import { motion, AnimatePresence } from 'framer-motion'
 import { RefreshIcon } from '@/components/ui/icons/refresh'
 import { cn } from '@/lib/utils'
+import { CalculatorNav } from '@/components/ui/calculator-nav'
 
 interface CryptoCalculatorProps {
   currency: string
   onUpdateValues: (values: Record<string, number>) => void
   onHawlUpdate: (hawlMet: boolean) => void
+  onCalculatorChange: (calculator: string) => void
   initialValues?: Record<string, number>
   initialHawlMet?: boolean
 }
@@ -24,6 +26,7 @@ export function CryptoCalculator({
   currency,
   onUpdateValues,
   onHawlUpdate,
+  onCalculatorChange,
   initialValues = {},
   initialHawlMet = true
 }: CryptoCalculatorProps) {
@@ -319,11 +322,29 @@ export function CryptoCalculator({
                 </motion.div>
               ))}
             </motion.div>
+            <p className="mt-2 text-xs text-gray-500">
+              Cryptocurrency Zakat is calculated at 2.5% of the total market value.
+            </p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Summary Section - Only show if there are values */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mt-4"
+          >
+            <motion.div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-800">{error}</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Temporarily hidden calculator summary
       {getTotalCrypto() > 0 && (
         <CalculatorSummary
           title="Cryptocurrency Portfolio Summary"
@@ -336,6 +357,13 @@ export function CryptoCalculator({
           }}
         />
       )}
+      */}
+
+      {/* Navigation */}
+      <CalculatorNav 
+        currentCalculator="crypto" 
+        onCalculatorChange={onCalculatorChange}
+      />
     </div>
   )
 } 

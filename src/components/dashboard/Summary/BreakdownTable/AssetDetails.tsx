@@ -46,7 +46,7 @@ export function AssetDetails({ items, currency, hawlMet }: AssetDetailsProps) {
             <div className="flex items-center gap-2">
               <span className="text-gray-500">{item.label}</span>
               {item.isExempt && (
-                <span className="text-xs text-gray-500">(Exempt)</span>
+                <span className="text-xs text-green-600">(Exempt)</span>
               )}
             </div>
             <div className="flex items-center gap-4">

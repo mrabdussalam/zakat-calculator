@@ -282,6 +282,7 @@ export default function DashboardPage() {
                       currency={state.currency}
                       onUpdateValues={handleUpdateValues}
                       onHawlUpdate={handleHawlUpdate}
+                      onAssetSelect={handleAssetSelect}
                       initialValues={state.selectedAsset ? state.assetValues[state.selectedAsset] : {}}
                       initialHawlMet={state.selectedAsset ? state.hawlMet[state.selectedAsset] : true}
                     />

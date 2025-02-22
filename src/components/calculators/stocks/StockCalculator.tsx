@@ -22,11 +22,13 @@ import { PassiveInvestmentsTab, type PassiveCalculations } from './tabs/PassiveI
 import { DividendEarningsTab } from './tabs/DividendEarningsTab'
 import { CalculatorSummary } from '@/components/ui/calculator-summary'
 import { getAssetType } from '@/lib/assets/registry'
+import { CalculatorNav } from '@/components/ui/calculator-nav'
 
 interface StockCalculatorProps {
   currency: string
   onUpdateValues: (values: Record<string, number>) => void
   onHawlUpdate: (hawlMet: boolean) => void
+  onCalculatorChange: (calculator: string) => void
   initialValues?: Record<string, number>
   initialHawlMet?: boolean
 }
@@ -42,6 +44,7 @@ export function StockCalculator({
   currency,
   onUpdateValues,
   onHawlUpdate,
+  onCalculatorChange,
   initialValues = {},
   initialHawlMet = true
 }: StockCalculatorProps) {
@@ -365,18 +368,11 @@ export function StockCalculator({
         defaultTab="active"
       />
 
-      {/* Summary Section - Only show if there are values */}
-      {(activeStocksValue + passiveValue + dividendValue) > 0 && (
-        <CalculatorSummary
-          {...summaryData}
-          hawlMet={stockHawlMet}
-          zakatAmount={totalZakatable * 0.025}
-          footnote={{
-            text: "Different calculation methods apply to different types of investments.",
-            tooltip: "Active trading uses full market value, while passive investments may use 30% or CRI method."
-          }}
-        />
-      )}
+      {/* Navigation */}
+      <CalculatorNav 
+        currentCalculator="stocks" 
+        onCalculatorChange={onCalculatorChange}
+      />
     </div>
   )
 } 

@@ -4,11 +4,8 @@ import { BaseIcon } from './base-icon'
 export function FAQIcon({ size = 20, ...props }: IconProps) {
   return (
     <BaseIcon viewBox="0 0 24 24" width="20" height="20" fill="none" {...props}>
-      <path d="M20.5 16.9286V10C20.5 6.22876 20.5 4.34315 19.3284 3.17157C18.1569 2 16.2712 2 12.5 2H11.5C7.72876 2 5.84315 2 4.67157 3.17157C3.5 4.34315 3.5 6.22876 3.5 10V19.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M20.5 17H6C4.61929 17 3.5 18.1193 3.5 19.5C3.5 20.8807 4.61929 22 6 22H20.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M20.5 22C19.1193 22 18 20.8807 18 19.5C18 18.1193 19.1193 17 20.5 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M15 7L9 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M12 11L9 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 6L12 20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M5.98056 3.28544C9.32175 3.9216 11.3131 5.25231 12 6.01628C12.6869 5.25231 14.6782 3.9216 18.0194 3.28544C19.7121 2.96315 20.5584 2.80201 21.2792 3.41964C22 4.03727 22 5.04022 22 7.04612V14.255C22 16.0891 22 17.0061 21.5374 17.5787C21.0748 18.1512 20.0564 18.3451 18.0194 18.733C16.2037 19.0787 14.7866 19.6295 13.7608 20.1831C12.7516 20.7277 12.247 21 12 21C11.753 21 11.2484 20.7277 10.2392 20.1831C9.21344 19.6295 7.79633 19.0787 5.98056 18.733C3.94365 18.3451 2.9252 18.1512 2.4626 17.5787C2 17.0061 2 16.0891 2 14.255V7.04612C2 5.04022 2 4.03727 2.72078 3.41964C3.44157 2.80201 4.2879 2.96315 5.98056 3.28544Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </BaseIcon>
   )
 }

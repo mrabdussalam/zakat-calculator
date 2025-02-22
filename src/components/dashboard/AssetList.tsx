@@ -52,44 +52,44 @@ export const ASSETS = [
 // Color mapping for different asset types (using the same colors as AssetBreakdown)
 const assetColors = {
   'cash': {
-    bg: 'bg-purple-50',
-    icon: 'text-[#7C3AED]',
-    selectedBg: 'bg-purple-200',
+    bg: 'bg-purple-100/70',
+    icon: 'text-[#5B21B6]',
+    selectedBg: 'bg-purple-200/80',
     selectedIcon: 'text-[#5B21B6]',
     base: '#7C3AED', // Purple
   },
   'precious-metals': {
-    bg: 'bg-amber-50',
-    icon: 'text-[#F59E0B]',
-    selectedBg: 'bg-amber-200',
+    bg: 'bg-amber-100/70',
+    icon: 'text-[#B45309]',
+    selectedBg: 'bg-amber-200/80',
     selectedIcon: 'text-[#B45309]',
     base: '#F59E0B', // Amber
   },
   'stocks': {
-    bg: 'bg-blue-50',
-    icon: 'text-[#3B82F6]',
-    selectedBg: 'bg-blue-200',
-    selectedIcon: 'text-[#1D4ED8]',
+    bg: 'bg-blue-100/70',
+    icon: 'text-[#1E40AF]',
+    selectedBg: 'bg-blue-200/80',
+    selectedIcon: 'text-[#1E40AF]',
     base: '#3B82F6', // Blue
   },
   'retirement': {
-    bg: 'bg-emerald-50/80',
-    icon: 'text-[#059669]',
-    selectedBg: 'bg-emerald-100',
+    bg: 'bg-emerald-100/70',
+    icon: 'text-[#047857]',
+    selectedBg: 'bg-emerald-200/80',
     selectedIcon: 'text-[#047857]',
     base: '#059669', // Emerald 600
   },
   'real-estate': {
-    bg: 'bg-pink-50',
-    icon: 'text-[#EC4899]',
-    selectedBg: 'bg-pink-200',
+    bg: 'bg-pink-100/70',
+    icon: 'text-[#BE185D]',
+    selectedBg: 'bg-pink-200/80',
     selectedIcon: 'text-[#BE185D]',
     base: '#EC4899', // Pink
   },
   'crypto': {
-    bg: 'bg-cyan-50',
-    icon: 'text-[#06B6D4]',
-    selectedBg: 'bg-cyan-200',
+    bg: 'bg-cyan-100/70',
+    icon: 'text-[#0E7490]',
+    selectedBg: 'bg-cyan-200/80',
     selectedIcon: 'text-[#0E7490]',
     base: '#06B6D4', // Cyan
   }

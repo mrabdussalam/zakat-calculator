@@ -53,6 +53,7 @@ interface CalculatorProps {
   currency: string
   onUpdateValues: (values: Record<string, number>) => void
   onHawlUpdate: (hawlMet: boolean) => void
+  onAssetSelect: (assetId: string) => void
   initialValues?: Record<string, number>
   initialHawlMet?: boolean
 }
@@ -61,6 +62,7 @@ interface CommonCalculatorProps {
   currency: string
   onUpdateValues: (values: Record<string, number>) => void
   onHawlUpdate: (hawlMet: boolean) => void
+  onCalculatorChange: (calculator: string) => void
   initialValues?: Record<string, number>
   initialHawlMet?: boolean
 }
@@ -109,6 +111,7 @@ export function Calculator({
   currency, 
   onUpdateValues,
   onHawlUpdate,
+  onAssetSelect,
   initialValues = {},
   initialHawlMet = true
 }: CalculatorProps) {
@@ -119,6 +122,10 @@ export function Calculator({
   const handleHawlUpdate = useCallback((hawlMet: boolean) => {
     onHawlUpdate(hawlMet)
   }, [onHawlUpdate])
+
+  const handleCalculatorChange = useCallback((calculator: string) => {
+    onAssetSelect(calculator)
+  }, [onAssetSelect])
 
   const { getBreakdown } = useZakatStore()
 
@@ -142,6 +149,7 @@ export function Calculator({
     currency,
     onUpdateValues: handleUpdateValues,
     onHawlUpdate: handleHawlUpdate,
+    onCalculatorChange: handleCalculatorChange,
     initialValues,
     initialHawlMet
   }

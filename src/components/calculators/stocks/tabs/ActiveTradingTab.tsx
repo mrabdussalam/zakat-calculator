@@ -413,6 +413,9 @@ export function ActiveTradingTab({
                   </motion.div>
                 ))}
               </motion.div>
+              <p className="mt-2 text-xs text-gray-500">
+                For actively traded stocks, Zakat is due on the full market value at 2.5%.
+              </p>
             </motion.div>
           )}
         </AnimatePresence>

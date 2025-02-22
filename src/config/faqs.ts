@@ -1,6 +1,14 @@
+import { SourceKey } from './sources'
+
 export interface FAQItem {
   question: string
   answer: string
+  sources?: SourceKey[]
+}
+
+export interface FAQSection {
+  items: FAQItem[]
+  sources?: SourceKey[]
 }
 
 export interface RealEstateFAQs {
@@ -15,17 +23,18 @@ export interface StockFAQs {
   passive: FAQItem[]
   dividend: FAQItem[]
   funds: FAQItem[]
+  sources?: SourceKey[]
 }
 
 export interface AssetFAQs {
   realestate: RealEstateFAQs
-  metals: FAQItem[]
+  metals: FAQSection
   stocks: StockFAQs
-  retirement: FAQItem[]
-  cash: FAQItem[]
+  retirement: FAQSection
+  cash: FAQSection
 }
 
-export const ASSET_FAQS = {
+export const ASSET_FAQS: AssetFAQs = {
   realestate: {
     primary: [
       {
@@ -80,17 +89,28 @@ export const ASSET_FAQS = {
       }
     ]
   },
-  metals: [
-    {
-      question: "How is Zakat calculated on gold and silver?",
-      answer: "Zakat is calculated at 2.5% of the current market value if you own more than the nisab threshold."
-    }
-  ],
+  metals: {
+    items: [
+      {
+        question: "How is Zakat calculated on gold and silver?",
+        answer: "Zakat is calculated at 2.5% of the current market value if you own more than the nisab threshold."
+      },
+      {
+        question: "Is personal jewelry subject to Zakat?",
+        answer: "According to most scholars, jewelry worn regularly for personal use is exempt from Zakat. However, jewelry kept as investment or worn occasionally should be included."
+      }
+    ],
+    sources: ['AMAZON']
+  },
   stocks: {
     active: [
       {
         question: "How is Zakat calculated on actively traded stocks?",
         answer: "For actively traded stocks, Zakat is due on the full market value at 2.5%."
+      },
+      {
+        question: "How is Zakat calculated on stocks?",
+        answer: "For actively traded stocks, Zakat is calculated on the full market value. For long-term investments, some scholars allow using 30% of the market value."
       }
     ],
     passive: [
@@ -110,18 +130,29 @@ export const ASSET_FAQS = {
         question: "How are investment funds calculated?",
         answer: "For mutual funds and ETFs, use either 30% of market value for passive funds or full value for actively traded funds."
       }
-    ]
+    ],
+    sources: ['AMAZON']
   },
-  retirement: [
-    {
-      question: "Do I need to pay Zakat on retirement accounts?",
-      answer: "Zakat is due on the accessible portion of retirement accounts. Early withdrawal penalties may reduce the zakatable amount."
-    }
-  ],
-  cash: [
-    {
-      question: "What cash assets are subject to Zakat?",
-      answer: "All forms of cash including bank accounts, savings, and cash on hand are subject to Zakat if they meet the nisab threshold."
-    }
-  ]
-} satisfies AssetFAQs 
+  retirement: {
+    items: [
+      {
+        question: "Do I need to pay Zakat on retirement accounts?",
+        answer: "Zakat is due on the accessible portion of retirement accounts. Early withdrawal penalties may reduce the zakatable amount."
+      }
+    ],
+    sources: ['AMAZON']
+  },
+  cash: {
+    items: [
+      {
+        question: "What cash assets are subject to Zakat?",
+        answer: "All cash holdings including physical cash, bank accounts, digital wallets, and foreign currency are subject to Zakat if they meet the Nisab threshold."
+      },
+      {
+        question: "How is foreign currency calculated?",
+        answer: "Foreign currency is converted to your local currency at current exchange rates. The total value in your local currency is what's used for Zakat calculation."
+      }
+    ],
+    sources: ['AMAZON']
+  }
+} 

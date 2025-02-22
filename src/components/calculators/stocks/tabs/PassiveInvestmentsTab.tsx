@@ -30,6 +30,8 @@ import { FAQ } from '@/components/ui/faq'
 import { ASSET_FAQS } from '@/config/faqs'
 import { debounce } from 'lodash'
 import { CheckIcon } from '@radix-ui/react-icons'
+import { BrokerInfo } from '@/components/ui/broker-info'
+import { InfoIcon as LucideInfoIcon } from 'lucide-react'
 
 // Constants for validation
 const MAX_SHARE_VALUE = 999999999999
@@ -221,6 +223,33 @@ const createDefaultState = (currency: string): PassiveInvestmentState => ({
     totalLabel: 'Total Investments'
   }
 })
+
+const BROKER_INFO = {
+  title: "Where to find your total investment value:",
+  brokers: [
+    {
+      name: "Schwab",
+      instructions: "Under 'Positions' tab → Sum of 'Market Value' column for stocks, ETFs, and mutual funds held over 1 year"
+    },
+    {
+      name: "Fidelity",
+      instructions: "In 'Positions' view → Total of 'Current Value' column for long-term holdings"
+    },
+    {
+      name: "TD Ameritrade",
+      instructions: "In 'Position Statement' → Add 'Market Value' for stocks and funds held as investments"
+    },
+    {
+      name: "Vanguard",
+      instructions: "Under 'Holdings' → Sum of 'Current Balance' for each investment position"
+    },
+    {
+      name: "Robinhood",
+      instructions: "In 'Investing' tab → Total value minus any stocks marked for active trading"
+    }
+  ],
+  note: "Only include investments you've held or plan to hold long-term (1+ year). Exclude any positions you actively trade."
+}
 
 export function PassiveInvestmentsTab({
   currency,
@@ -586,6 +615,8 @@ export function PassiveInvestmentsTab({
     }
   }
 
+  const [brokerInfoOpen, setBrokerInfoOpen] = useState(false)
+
   return (
     <div className="pt-6">
       <div className="space-y-8">
@@ -609,12 +640,24 @@ export function PassiveInvestmentsTab({
                   onValueChange={handleMethodChange}
                   className="grid grid-cols-2 gap-4"
                 >
-                  <RadioGroupCard 
-                    value="quick" 
-                    title="Quick Estimate (30% Rule)"
-                    description="Calculate using 30% of your investment's market value."
-                    className="text-gray-900"
-                  />
+                  <TooltipProvider>
+                    {/* <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>*/}
+                          <RadioGroupCard 
+                            value="quick" 
+                            title="Quick Estimate (30% Rule)"
+                            description="Calculate using 30% of your investment's market value."
+                            className="text-gray-900"
+                          />
+                        {/*</div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" align="center" className="bg-gray-900 p-3 text-sm max-w-[400px]">
+                        <p className="font-medium text-white mb-1">Quick Estimate Method</p>
+                        <p className="text-gray-400">A simplified calculation that considers 30% of your investment's market value as zakatable, based on typical company asset compositions.</p>
+                      </TooltipContent>
+                    </Tooltip>*/}
+                  </TooltipProvider>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -622,27 +665,13 @@ export function PassiveInvestmentsTab({
                           <RadioGroupCard 
                             value="cri" 
                             title="Detailed CRI Method"
-                            description="A more precise calculation method using company balance sheets."
+                            description="Calculate using company balance sheets."
                             disabled
                           />
                         </div>
                       </TooltipTrigger>
-                      <TooltipContent side="right" align="start" className="bg-gray-900 p-3 text-sm max-w-[400px] space-y-2">
-                        <p className="font-medium mb-2">Coming Soon: A more precise calculation method that considers the company's:</p>
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-white">Cash holdings</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-white">Accounts receivable</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-white">Inventory</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-white">Your ownership percentage</span>
-                          </div>
-                        </div>
+                      <TooltipContent side="top" align="center" className="bg-gray-900 p-3 text-sm max-w-[400px]">
+                        <p className="font-medium text-white">Coming soon</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -657,39 +686,16 @@ export function PassiveInvestmentsTab({
                 <div className="space-y-1.5">
                   <Label htmlFor="total_market_value" className="flex items-center gap-2">
                     Total Market Value
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <InfoIcon className="h-4 w-4 text-gray-500" />
-                        </TooltipTrigger>
-                        <TooltipContent side="right" align="start" className="bg-gray-900 p-3 text-sm max-w-[400px] space-y-2">
-                          <p className="font-medium mb-3">Where to find your total investment value:</p>
-                          <ul className="space-y-3">
-                            <li>
-                              <p className="font-medium text-white mb-1">Schwab</p>
-                              <p className="text-gray-400">Under 'Positions' tab → Sum of 'Market Value' column for stocks, ETFs, and mutual funds held over 1 year</p>
-                            </li>
-                            <li className="pt-3 border-t border-gray-800">
-                              <p className="font-medium text-white mb-1">Fidelity</p>
-                              <p className="text-gray-400">In 'Positions' view → Total of 'Current Value' column for long-term holdings</p>
-                            </li>
-                            <li className="pt-3 border-t border-gray-800">
-                              <p className="font-medium text-white mb-1">TD Ameritrade</p>
-                              <p className="text-gray-400">In 'Position Statement' → Add 'Market Value' for stocks and funds held as investments</p>
-                            </li>
-                            <li className="pt-3 border-t border-gray-800">
-                              <p className="font-medium text-white mb-1">Vanguard</p>
-                              <p className="text-gray-400">Under 'Holdings' → Sum of 'Current Balance' for each investment position</p>
-                            </li>
-                            <li className="pt-3 border-t border-gray-800">
-                              <p className="font-medium text-white mb-1">Robinhood</p>
-                              <p className="text-gray-400">In 'Investing' tab → Total value minus any stocks marked for active trading</p>
-                            </li>
-                          </ul>
-                          <p className="mt-3 pt-3 border-t border-gray-800 text-sm text-gray-400">Note: Only include investments you've held or plan to hold long-term (1+ year). Exclude any positions you actively trade.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setBrokerInfoOpen(true)}
+                        className="h-8 w-8 text-gray-400 hover:text-gray-100 hover:bg-gray-800"
+                      >
+                        <LucideInfoIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </Label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-3 flex items-center">
@@ -861,6 +867,68 @@ export function PassiveInvestmentsTab({
         </div>
       </div>
 
+      {/* Temporarily hidden calculator summary
+      {totalMarketValue > 0 && (
+        <CalculatorSummary
+          title="Passive Investments Summary"
+          sections={[
+            {
+              title: "Investment Breakdown",
+              items: method === 'quick' ? 
+                investments.map(inv => ({
+                  label: inv.name || 'Unnamed Investment',
+                  value: formatCurrency(inv.marketValue),
+                  tooltip: "30% of market value is zakatable",
+                  isExempt: false,
+                  isZakatable: true,
+                  zakatable: inv.marketValue * 0.3
+                })) : 
+                [{
+                  label: "Company Financial Assets",
+                  value: formatCurrency(zakatableValue),
+                  tooltip: "Based on company's liquid assets",
+                  isExempt: false,
+                  isZakatable: true,
+                  zakatable: zakatableValue
+                }]
+            },
+            {
+              title: "Totals",
+              showBorder: true,
+              items: [
+                {
+                  label: "Total Market Value",
+                  value: formatCurrency(marketValue),
+                  tooltip: "Total value of all investments",
+                  isExempt: false,
+                  isZakatable: false
+                },
+                {
+                  label: "Zakatable Amount",
+                  value: formatCurrency(zakatableValue),
+                  tooltip: method === 'quick' ? 
+                    "30% of total market value" : 
+                    "Based on company's liquid assets",
+                  isExempt: false,
+                  isZakatable: true
+                }
+              ]
+            }
+          ]}
+          hawlMet={validatedState?.hawlStatus?.isComplete}
+          zakatAmount={zakatableValue * 0.025}
+          footnote={{
+            text: method === 'quick' ? 
+              "Note: The 30% rule is a simplified method based on typical company asset compositions." :
+              "Note: This calculation is based on the company's actual liquid assets.",
+            tooltip: method === 'quick' ? 
+              "This method assumes approximately 30% of a company's assets are zakatable." :
+              "This uses the company's reported cash, receivables, and inventory values."
+          }}
+        />
+      )}
+      */}
+
       {/* Add error display */}
       {errors.length > 0 && (
         <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -872,6 +940,12 @@ export function PassiveInvestmentsTab({
           </ul>
         </div>
       )}
+
+      <BrokerInfo
+        open={brokerInfoOpen}
+        onOpenChange={setBrokerInfoOpen}
+        {...BROKER_INFO}
+      />
     </div>
   )
 }
