@@ -53,44 +53,44 @@ export const ASSETS = [
 const assetColors = {
   'cash': {
     bg: 'bg-purple-50',
-    icon: 'text-purple-600',
-    selectedBg: 'bg-purple-100',
-    selectedIcon: 'text-purple-900',
+    icon: 'text-[#7C3AED]',
+    selectedBg: 'bg-purple-200',
+    selectedIcon: 'text-[#5B21B6]',
     base: '#7C3AED', // Purple
   },
   'precious-metals': {
     bg: 'bg-amber-50',
-    icon: 'text-amber-600',
-    selectedBg: 'bg-amber-100',
-    selectedIcon: 'text-amber-900',
+    icon: 'text-[#F59E0B]',
+    selectedBg: 'bg-amber-200',
+    selectedIcon: 'text-[#B45309]',
     base: '#F59E0B', // Amber
   },
   'stocks': {
     bg: 'bg-blue-50',
-    icon: 'text-blue-600',
-    selectedBg: 'bg-blue-100',
-    selectedIcon: 'text-blue-900',
+    icon: 'text-[#3B82F6]',
+    selectedBg: 'bg-blue-200',
+    selectedIcon: 'text-[#1D4ED8]',
     base: '#3B82F6', // Blue
   },
   'retirement': {
-    bg: 'bg-emerald-50',
-    icon: 'text-emerald-600',
+    bg: 'bg-emerald-50/80',
+    icon: 'text-[#059669]',
     selectedBg: 'bg-emerald-100',
-    selectedIcon: 'text-emerald-900',
-    base: '#10B981', // Emerald
+    selectedIcon: 'text-[#047857]',
+    base: '#059669', // Emerald 600
   },
   'real-estate': {
     bg: 'bg-pink-50',
-    icon: 'text-pink-600',
-    selectedBg: 'bg-pink-100',
-    selectedIcon: 'text-pink-900',
+    icon: 'text-[#EC4899]',
+    selectedBg: 'bg-pink-200',
+    selectedIcon: 'text-[#BE185D]',
     base: '#EC4899', // Pink
   },
   'crypto': {
     bg: 'bg-cyan-50',
-    icon: 'text-cyan-600',
-    selectedBg: 'bg-cyan-100',
-    selectedIcon: 'text-cyan-900',
+    icon: 'text-[#06B6D4]',
+    selectedBg: 'bg-cyan-200',
+    selectedIcon: 'text-[#0E7490]',
     base: '#06B6D4', // Cyan
   }
 } as const
@@ -113,36 +113,43 @@ export function AssetList({ selectedAsset, onAssetSelect }: AssetListProps) {
             key={asset.id}
             onClick={() => onAssetSelect(asset.id)}
             className={cn(
-              "w-full flex items-center gap-4 px-3 py-3 rounded-lg text-left",
+              "w-full flex items-center gap-4 px-3 py-3 rounded-lg text-left group",
               "relative box-border transition-all duration-200",
-              "hover:bg-gray-50",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400",
               "before:absolute before:inset-0 before:rounded-lg before:border before:transition-all",
               isSelected 
-                ? "bg-white shadow-sm ring-1 ring-gray-200 before:border-transparent" 
-                : "bg-white shadow-xs before:border-gray-100 hover:before:border-gray-200"
+                ? "bg-black/[0.04] before:border-transparent" 
+                : "bg-white before:border-gray-100 hover:before:border-gray-200"
             )}
           >
             <motion.div 
               className={cn(
-                "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 shadow-sm",
-                isSelected ? colors.selectedBg : "bg-gray-50"
+                "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 relative overflow-hidden transition-colors",
+                isSelected 
+                  ? cn(
+                      colors.selectedBg,
+                      "border border-black/[0.08]",
+                      colors.selectedIcon
+                    )
+                  : cn(
+                      colors.bg,
+                      "border-0",
+                      colors.icon
+                    )
               )}
               initial={false}
               animate={{ 
                 scale: isSelected ? [1, 0.9, 1] : 1,
               }}
+              whileHover={!isSelected ? { scale: 1.1 } : undefined}
               transition={{ 
                 duration: 0.2,
                 times: [0, 0.5, 1]
               }}
             >
               <Icon 
-                size={20} 
-                className={cn(
-                  "transition-all",
-                  isSelected ? colors.selectedIcon : "text-gray-600"
-                )} 
+                size={20}
+                className="transition-all relative z-10"
               />
             </motion.div>
             <div className="flex-1 min-w-0">

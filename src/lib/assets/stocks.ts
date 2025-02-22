@@ -3,15 +3,18 @@ import { AssetType, AssetBreakdown, AssetBreakdownItem, ZAKAT_RATE, safeCalculat
 const PASSIVE_FUND_RATE = 0.3 // 30% rule for passive funds
 
 // Stock-specific interfaces
-interface StockValues {
+export interface StockHolding {
+  symbol: string
+  shares: number
+  currentPrice: number
+  marketValue: number
+  zakatDue: number
+  lastUpdated?: string
+}
+
+export interface StockValues {
   // Active Trading
-  activeStocks: Array<{
-    ticker: string
-    shares: number
-    marketValue: number
-    currentPrice: number
-    zakatDue: number
-  }>
+  activeStocks: StockHolding[]
   
   // Passive Investments
   passiveInvestments?: {
@@ -41,14 +44,12 @@ interface StockValues {
   total_dividend_earnings?: number
   fund_value?: number
   is_passive_fund?: boolean
-  market_value?: number
-  zakatable_value?: number
+  market_value: number
+  zakatable_value: number
 }
 
-interface StockPrices {
-  prices: {
-    [ticker: string]: number
-  }
+export interface StockPrices {
+  prices: Record<string, number>
   lastUpdated?: Date
 }
 

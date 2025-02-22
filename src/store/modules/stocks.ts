@@ -1,20 +1,12 @@
-import { StockValues, StockPrices } from '@/lib/assets/stocks'
+import { StockValues, StockPrices, StockHolding } from '@/lib/assets/stocks'
 import { initialStockValues, initialStockPrices, DEFAULT_HAWL_STATUS } from '../constants'
 import { getAssetType } from '@/lib/assets/registry'
 import { getStockPrice, getBatchStockPrices, validateTicker, StockAPIError } from '@/lib/api/stocks'
 import { Investment, PassiveCalculations } from '@/lib/assets/types'
 import { StateCreator } from 'zustand'
-import { ZakatState } from '../types'
+import { ZakatState, ActiveStock } from '../types'
 import { NISAB, ZAKAT_RATE } from '@/lib/constants'
 import { roundCurrency, formatCurrency } from '@/lib/utils/currency'
-
-interface ActiveStock {
-  ticker: string
-  shares: number
-  currentPrice: number
-  marketValue: number
-  zakatDue: number
-}
 
 export interface PassiveInvestmentStateV1 {
   version: '1.0'
@@ -175,13 +167,13 @@ export interface StocksSlice {
   passiveInvestments?: CurrentPassiveInvestmentState
 
   // Active Trading Actions
-  addActiveStock: (ticker: string, shares: number, manualPrice?: number) => Promise<void>
-  updateActiveStock: (ticker: string, shares: number) => Promise<void>
-  removeActiveStock: (ticker: string) => void
+  addActiveStock: (symbol: string, shares: number, manualPrice?: number) => Promise<void>
+  updateActiveStock: (symbol: string, shares: number) => Promise<void>
+  removeActiveStock: (symbol: string) => void
   updateStockPrices: () => Promise<void>
 
   // Legacy Actions
-  setStockValue: <K extends keyof StockValues>(key: K, value: StockValues[K]) => void
+  setStockValue: (key: keyof StockValues, value: number | boolean) => void
   resetStockValues: () => void
   setStockPrices: (prices: StockPrices) => void
   setStockHawl: (value: boolean) => void
@@ -190,13 +182,7 @@ export interface StocksSlice {
   getTotalStocks: () => number
   getTotalZakatableStocks: () => number
   getActiveStocksBreakdown: () => {
-    stocks: {
-      ticker: string
-      shares: number
-      currentPrice: number
-      marketValue: number
-      zakatDue: number
-    }[]
+    stocks: StockHolding[]
     total: {
       marketValue: number
       zakatDue: number
@@ -206,14 +192,14 @@ export interface StocksSlice {
     total: number
     zakatable: number
     zakatDue: number
-    meetsNisab: boolean
-    items: Record<string, { 
+    items: Record<string, {
       value: number
       isZakatable: boolean
       zakatable: number
+      zakatDue: number
       label: string
       tooltip: string
-      percentage?: number 
+      percentage: number
     }>
   }
 
@@ -239,6 +225,26 @@ export interface StocksSlice {
 
   // Add nisab check
   meetsNisabThreshold: () => boolean
+}
+
+// Initial state
+const initialStockValues: StockValues = {
+  active_shares: 0,
+  active_price_per_share: 0,
+  passive_shares: 0,
+  company_cash: 0,
+  company_receivables: 0,
+  company_inventory: 0,
+  total_shares_issued: 0,
+  total_dividend_earnings: 0,
+  dividend_per_share: 0,
+  dividend_shares: 0,
+  fund_value: 0,
+  is_passive_fund: false,
+  activeStocks: [],
+  market_value: 0,
+  zakatable_value: 0,
+  price_per_share: 0
 }
 
 export const createStocksSlice: StateCreator<
@@ -279,86 +285,121 @@ export const createStocksSlice: StateCreator<
   },
 
   // Active Trading Actions
-  addActiveStock: async (ticker: string, shares: number, manualPrice?: number) => {
-    if (typeof shares !== 'number' || !isFinite(shares) || shares < 0) {
-      console.warn(`Invalid shares quantity: ${shares} for ${ticker}`)
-      return
-    }
-
+  addActiveStock: async (symbol: string, shares: number, manualPrice?: number) => {
     try {
-      // Get price data
-      const priceData = manualPrice ? { price: manualPrice } : await getStockPrice(ticker)
-      if (!priceData || typeof priceData.price !== 'number' || !isFinite(priceData.price)) {
-        throw new Error(`Invalid price data received for ${ticker}`)
+      // Validate inputs
+      if (!symbol || typeof symbol !== 'string') {
+        throw new Error('Invalid symbol')
+      }
+      if (typeof shares !== 'number' || shares <= 0) {
+        throw new Error('Invalid number of shares')
       }
 
-      const currentPrice = priceData.price
-      const marketValue = roundCurrency(shares * currentPrice)
+      let price: number
+      let lastUpdated: string
+
+      if (manualPrice && manualPrice > 0) {
+        price = manualPrice
+        lastUpdated = new Date().toISOString()
+      } else {
+        // Fetch current price
+        const priceData = await getStockPrice(symbol)
+        price = priceData.price
+        lastUpdated = new Date(priceData.lastUpdated).toISOString()
+      }
+
+      // Ensure we have a valid price
+      if (typeof price !== 'number' || !isFinite(price) || price <= 0) {
+        throw new Error(`Invalid price for ${symbol}: ${price}`)
+      }
+
+      // Calculate values
+      const marketValue = roundCurrency(shares * price)
       const zakatDue = roundCurrency(marketValue * ZAKAT_RATE)
 
+      // Create validated stock object
+      const validatedStock = {
+        symbol,
+        shares,
+        currentPrice: price,
+        marketValue,
+        zakatDue,
+        lastUpdated
+      }
+
+      console.log('Adding stock with values:', validatedStock)
+
       set((state) => {
-        // Update prices
-        const newPrices = {
-          ...state.stockPrices,
-          prices: {
-            ...state.stockPrices.prices,
-            [ticker.toUpperCase()]: currentPrice
-          },
-          lastUpdated: new Date()
-        }
-
-        // Update active stocks
-        const newStocks = [...(state.stockValues.activeStocks || []), {
-          ticker: ticker.toUpperCase(),
-          shares,
-          currentPrice: roundCurrency(currentPrice),
-          marketValue,
-          zakatDue
-        }]
-
+        const newStocks = [...(state.stockValues?.activeStocks || []), validatedStock]
+        const totalValue = newStocks.reduce((sum, s) => sum + (s.marketValue || 0), 0)
+        
         return {
           stockValues: {
             ...state.stockValues,
             activeStocks: newStocks,
-            total_value: roundCurrency(newStocks.reduce((sum: number, stock) => sum + stock.marketValue, 0))
-          },
-          stockPrices: newPrices
+            market_value: totalValue,
+            zakatable_value: state.stockHawlMet ? totalValue : 0
+          }
         }
       })
     } catch (error) {
       console.error('Error adding stock:', error)
-      throw error instanceof StockAPIError ? error : new StockAPIError(`Failed to add stock ${ticker}`)
+      throw error
     }
   },
 
-  updateActiveStock: async (ticker: string, shares: number) => {
+  updateActiveStock: async (symbol: string, shares: number) => {
     try {
       // Fetch current price
-      const { price, lastUpdated } = await getStockPrice(ticker)
+      const { price, lastUpdated } = await getStockPrice(symbol)
+      
+      // Ensure we have a valid numeric price
+      if (typeof price !== 'number' || !isFinite(price)) {
+        throw new Error(`Invalid price received for ${symbol}: ${price}`)
+      }
 
-      set((state: any) => ({
-        stockValues: {
-          ...state.stockValues,
-          activeStocks: state.stockValues.activeStocks.map((stock: ActiveStock) =>
-            stock.ticker === ticker
-              ? { ...stock, shares, currentPrice: price, lastUpdated }
-              : stock
-          )
+      console.log('Updating stock with price:', { symbol, shares, price })
+
+      // Calculate market value and zakat due
+      const marketValue = roundCurrency(shares * price)
+      const zakatDue = roundCurrency(marketValue * ZAKAT_RATE)
+
+      set((state) => {
+        const updatedStocks = state.stockValues.activeStocks.map((stock) =>
+          stock.symbol === symbol
+            ? { 
+                ...stock, 
+                shares, 
+                currentPrice: price,
+                marketValue,
+                zakatDue,
+                lastUpdated: new Date(lastUpdated).toISOString()
+              }
+            : stock
+        )
+
+        const totalValue = updatedStocks.reduce((sum, s) => sum + (s.marketValue || 0), 0)
+
+        return {
+          stockValues: {
+            ...state.stockValues,
+            activeStocks: updatedStocks,
+            market_value: totalValue,
+            zakatable_value: state.stockHawlMet ? totalValue : 0
+          }
         }
-      }))
+      })
     } catch (error) {
       console.error('Failed to update active stock:', error)
       throw error
     }
   },
 
-  removeActiveStock: (ticker: string) => {
-    set((state: any) => ({
+  removeActiveStock: (symbol: string) => {
+    set((state) => ({
       stockValues: {
         ...state.stockValues,
-        activeStocks: state.stockValues.activeStocks.filter(
-          (stock: ActiveStock) => stock.ticker !== ticker
-        )
+        activeStocks: (state.stockValues?.activeStocks || []).filter(s => s.symbol !== symbol)
       }
     }))
   },
@@ -373,8 +414,8 @@ export const createStocksSlice: StateCreator<
         throw new Error('Invalid stock state')
       }
 
-      // Get all tickers
-      const tickers = stockValues.activeStocks.map((stock: ActiveStock) => stock.ticker)
+      // Get all symbols
+      const symbols = stockValues.activeStocks.map((stock: ActiveStock) => stock.symbol)
       
       // Track failed updates
       const failedUpdates: string[] = []
@@ -383,7 +424,7 @@ export const createStocksSlice: StateCreator<
       const updatedStocks = await Promise.all(
         stockValues.activeStocks.map(async (stock: ActiveStock) => {
           try {
-            const priceUpdate = await getStockPrice(stock.ticker)
+            const priceUpdate = await getStockPrice(stock.symbol)
             return {
               ...stock,
               currentPrice: priceUpdate.price,
@@ -392,7 +433,7 @@ export const createStocksSlice: StateCreator<
             }
           } catch (error) {
             // If price update fails, keep existing price and track failure
-            failedUpdates.push(stock.ticker)
+            failedUpdates.push(stock.symbol)
             return stock
           }
         })
@@ -430,59 +471,19 @@ export const createStocksSlice: StateCreator<
   },
 
   // Legacy Actions
-  setStockValue: (key, value) => 
-    set((state: any) => ({
+  setStockValue: (key: keyof StockValues, value: number | boolean) => {
+    set((state) => ({
       stockValues: {
         ...state.stockValues,
         [key]: value
       }
-    })),
+    }))
+  },
 
   resetStockValues: () => {
     set({ 
-      stockValues: {
-        activeStocks: [],
-        active_shares: 0,
-        active_price_per_share: 0,
-        passive_shares: 0,
-        company_cash: 0,
-        company_receivables: 0,
-        company_inventory: 0,
-        total_shares_issued: 0,
-        total_dividend_earnings: 0,
-        dividend_per_share: 0,
-        dividend_shares: 0,
-        fund_value: 0,
-        is_passive_fund: false,
-        passiveInvestments: {
-          version: '2.0',
-          method: 'quick',
-          investments: [{
-            id: Date.now().toString(),
-            name: '',
-            shares: 0,
-            pricePerShare: 0,
-            marketValue: 0
-          }],
-          marketValue: 0,
-          zakatableValue: 0,
-          hawlStatus: {
-            isComplete: false,
-            startDate: new Date().toISOString(),
-          },
-          displayProperties: {
-            currency: 'USD',
-            method: '30% Rule',
-            totalLabel: 'Total Investments'
-          }
-        },
-        market_value: 0,
-        zakatable_value: 0,
-        price_per_share: 0
-      },
-      stockPrices: initialStockPrices,
-      isLoading: false,
-      lastError: null
+      stockValues: initialStockValues,
+      stockHawlMet: DEFAULT_HAWL_STATUS.stocks
     })
   },
 
@@ -495,131 +496,141 @@ export const createStocksSlice: StateCreator<
     const state = get()
     
     // Get active stocks total
-    const activeTotal = Array.isArray(state.stockValues.activeStocks)
+    const activeTotal = Array.isArray(state.stockValues?.activeStocks)
       ? state.stockValues.activeStocks.reduce(
-          (sum, stock) => sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0),
+          (sum: number, stock: ActiveStock) => sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0),
           0
         )
       : 0
-    
-    // Get passive investments total - use stockValues consistently
-    const passiveTotal = state.stockValues.passiveInvestments?.marketValue || 0
-    
+
+    // Get passive investments total from new state structure
+    const passiveTotal = state.stockValues?.passiveInvestments?.marketValue || 0
+
     // Get dividend total
-    const dividendTotal = Number.isFinite(state.stockValues.total_dividend_earnings)
-      ? state.stockValues.total_dividend_earnings
-      : 0
-    
-    // Get fund total
-    const fundTotal = Number.isFinite(state.stockValues.fund_value)
-      ? state.stockValues.fund_value
-      : 0
-    
-    // Return combined total
-    return activeTotal + passiveTotal + dividendTotal + fundTotal
+    const dividendTotal = state.stockValues?.total_dividend_earnings || 0
+
+    // Return total, ensuring it's a valid number
+    const total = activeTotal + passiveTotal + dividendTotal
+    return Number.isFinite(total) ? roundCurrency(total) : 0
   },
 
   getTotalZakatableStocks: () => {
     const state = get()
     if (!state.stockHawlMet) return 0
-    
-    // Only calculate if nisab is met
-    if (!state.meetsNisabThreshold()) return 0
-    
+
     // Get active stocks total (fully zakatable)
-    const activeZakatable = Array.isArray(state.stockValues.activeStocks)
+    const activeTotal = Array.isArray(state.stockValues?.activeStocks)
       ? state.stockValues.activeStocks.reduce(
-          (sum, stock) => sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0),
+          (sum: number, stock: ActiveStock) => sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0),
           0
         )
       : 0
-    
-    // Get passive investments zakatable amount (30% or CRI method)
-    const passiveZakatable = state.passiveInvestments?.zakatableValue || 0
-    
+
+    // Get passive investments zakatable amount
+    const passiveZakatable = state.stockValues?.passiveInvestments?.zakatableValue || 0
+
     // Get dividend total (fully zakatable)
-    const dividendZakatable = Number.isFinite(state.stockValues.total_dividend_earnings)
-      ? state.stockValues.total_dividend_earnings
-      : 0
-    
-    // Get fund zakatable amount (30% for passive, full for active)
-    const fundTotal = Number.isFinite(state.stockValues.fund_value)
-      ? state.stockValues.fund_value
-      : 0
-    const fundZakatable = state.stockValues.is_passive_fund
-      ? fundTotal * 0.3
-      : fundTotal
-    
-    // Return combined zakatable amount
-    return activeZakatable + passiveZakatable + dividendZakatable + fundZakatable
+    const dividendTotal = state.stockValues?.total_dividend_earnings || 0
+
+    // Return total zakatable amount
+    const total = activeTotal + passiveZakatable + dividendTotal
+    return Number.isFinite(total) ? roundCurrency(total) : 0
   },
 
   getActiveStocksBreakdown: () => {
     const state = get()
-    const stocks = state.stockValues.activeStocks || []
+    const stocks = state.stockValues.activeStocks.map(stock => ({
+      symbol: stock.symbol,
+      shares: typeof stock.shares === 'number' ? stock.shares : 0,
+      currentPrice: typeof stock.currentPrice === 'number' ? stock.currentPrice : 0,
+      marketValue: typeof stock.marketValue === 'number' ? stock.marketValue : 0,
+      zakatDue: typeof stock.zakatDue === 'number' ? stock.zakatDue : 0
+    }))
+
     const total = {
-      marketValue: roundCurrency(stocks.reduce((sum: number, stock) => sum + stock.marketValue, 0)),
-      zakatDue: roundCurrency(stocks.reduce((sum: number, stock) => sum + stock.zakatDue, 0))
+      marketValue: stocks.reduce((sum, stock) => sum + (isFinite(stock.marketValue) ? stock.marketValue : 0), 0),
+      zakatDue: stocks.reduce((sum, stock) => sum + (isFinite(stock.zakatDue) ? stock.zakatDue : 0), 0)
     }
 
-    return {
-      stocks: stocks.map(stock => ({
-        ticker: stock.ticker,
-        shares: stock.shares,
-        currentPrice: roundCurrency(stock.currentPrice),
-        marketValue: roundCurrency(stock.marketValue),
-        zakatDue: roundCurrency(stock.zakatDue)
-      })),
-      total
-    }
+    return { stocks, total }
   },
 
   getStocksBreakdown: () => {
     const state = get()
-    const total = roundCurrency(state.getTotalStocks())
-    const zakatable = roundCurrency(state.getTotalZakatableStocks())
+    const total = state.getTotalStocks()
+    const zakatable = state.getTotalZakatableStocks()
     const zakatDue = roundCurrency(zakatable * ZAKAT_RATE)
-    
-    // Calculate nisab threshold
-    const goldNisab = NISAB.GOLD * (state.metalPrices?.gold || 0)
-    const silverNisab = NISAB.SILVER * (state.metalPrices?.silver || 0)
-    const nisabThreshold = Math.min(goldNisab, silverNisab)
-    const meetsNisab = total >= nisabThreshold
 
-    const activeStocks = state.stockValues.activeStocks || []
     const items: Record<string, {
       value: number
       isZakatable: boolean
       zakatable: number
+      zakatDue: number
       label: string
       tooltip: string
-      percentage?: number
+      percentage: number
     }> = {}
 
-    // Add active stocks
-    activeStocks.forEach(stock => {
-      items[stock.ticker.toLowerCase()] = {
-        value: roundCurrency(stock.marketValue),
+    // Add active trading stocks
+    if (Array.isArray(state.stockValues?.activeStocks) && state.stockValues.activeStocks.length > 0) {
+      items.active_trading = {
+        value: state.stockValues.activeStocks.reduce((sum, stock) => 
+          sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0), 0),
         isZakatable: state.stockHawlMet,
-        zakatable: state.stockHawlMet ? roundCurrency(stock.marketValue) : 0,
-        label: `${stock.ticker} (${stock.shares} shares)`,
-        tooltip: `${stock.shares} shares at ${formatCurrency(stock.currentPrice)} each`,
-        percentage: total > 0 ? roundCurrency((stock.marketValue / total) * 100) : 0
+        zakatable: state.stockHawlMet ? state.stockValues.activeStocks.reduce((sum, stock) => 
+          sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0), 0) : 0,
+        zakatDue: state.stockHawlMet ? roundCurrency(state.stockValues.activeStocks.reduce((sum, stock) => 
+          sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0), 0) * ZAKAT_RATE) : 0,
+        label: 'Active Trading',
+        tooltip: 'Full market value is zakatable',
+        percentage: total > 0 ? roundCurrency((state.stockValues.activeStocks.reduce((sum, stock) => 
+          sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0), 0) / total) * 100) : 0
       }
-    })
+    }
 
-    // Add passive investments if present
-    if (state.passiveInvestments) {
-      const passiveTotal = roundCurrency(state.passiveInvestments.marketValue || 0)
-      const passiveZakatable = roundCurrency(state.passiveInvestments.zakatableValue || 0)
-      
-      items['passive_investments'] = {
-        value: passiveTotal,
+    // Add passive investments
+    if (state.stockValues?.passiveInvestments) {
+      const passiveValue = state.stockValues.passiveInvestments.marketValue
+      const passiveZakatable = state.stockValues.passiveInvestments.zakatableValue
+      const method = state.stockValues.passiveInvestments.method
+
+      items.passive_investments = {
+        value: passiveValue,
         isZakatable: state.stockHawlMet,
         zakatable: state.stockHawlMet ? passiveZakatable : 0,
-        label: 'Passive Investments',
-        tooltip: `Using ${state.passiveInvestments.method} calculation method`,
-        percentage: total > 0 ? roundCurrency((passiveTotal / total) * 100) : 0
+        zakatDue: state.stockHawlMet ? roundCurrency(passiveZakatable * ZAKAT_RATE) : 0,
+        label: `Passive Investments (${method === 'quick' ? '30% Rule' : 'CRI Method'})`,
+        tooltip: method === 'quick' 
+          ? '30% of market value is zakatable'
+          : 'Based on company financials',
+        percentage: total > 0 ? roundCurrency((passiveValue / total) * 100) : 0
+      }
+    }
+
+    // Add dividend earnings
+    const dividendValue = state.stockValues?.total_dividend_earnings || 0
+    if (dividendValue > 0) {
+      items.dividends = {
+        value: dividendValue,
+        isZakatable: state.stockHawlMet,
+        zakatable: state.stockHawlMet ? dividendValue : 0,
+        zakatDue: state.stockHawlMet ? roundCurrency(dividendValue * ZAKAT_RATE) : 0,
+        label: 'Dividend Earnings',
+        tooltip: 'Full dividend amount is zakatable',
+        percentage: total > 0 ? roundCurrency((dividendValue / total) * 100) : 0
+      }
+    }
+
+    // Add default item if no stocks at all
+    if (Object.keys(items).length === 0) {
+      items.stocks = {
+        value: 0,
+        isZakatable: false,
+        zakatable: 0,
+        zakatDue: 0,
+        label: 'Stocks',
+        tooltip: 'No stocks added yet',
+        percentage: 0
       }
     }
 
@@ -627,7 +638,6 @@ export const createStocksSlice: StateCreator<
       total,
       zakatable,
       zakatDue,
-      meetsNisab,
       items
     }
   },

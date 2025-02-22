@@ -8,6 +8,9 @@ import { useZakatStore } from '@/store/zakatStore'
 import { CalculatorSummary } from '@/components/ui/calculator-summary'
 import { FAQ } from '@/components/ui/faq'
 import { ASSET_FAQS } from '@/config/faqs'
+import { motion, AnimatePresence } from 'framer-motion'
+import { RefreshIcon } from '@/components/ui/icons/refresh'
+import { cn } from '@/lib/utils'
 
 interface CryptoCalculatorProps {
   currency: string
@@ -40,6 +43,7 @@ export function CryptoCalculator({
 
   const [newSymbol, setNewSymbol] = useState('')
   const [newQuantity, setNewQuantity] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
   // Initialize component
   useEffect(() => {
@@ -90,7 +94,12 @@ export function CryptoCalculator({
         zakatable_crypto_value: getTotalZakatableCrypto()
       })
     } catch (error) {
-      // Error is handled by the store
+      // Set error message in the component
+      if (error instanceof Error) {
+        setError(error.message)
+      } else {
+        setError('Failed to update prices. Please try again.')
+      }
     }
   }
 
@@ -111,15 +120,19 @@ export function CryptoCalculator({
   const zakatableValue = getTotalZakatableCrypto()
 
   // Type guard for breakdown items
-  const isBreakdownItem = (item: unknown): item is {
+  interface BreakdownItem {
     value: number
     isZakatable: boolean
+    isExempt: boolean
     label?: string
     tooltip?: string
-  } => {
+  }
+
+  const isBreakdownItem = (item: unknown): item is BreakdownItem => {
     return typeof item === 'object' && item !== null &&
       'value' in item && typeof item.value === 'number' &&
-      'isZakatable' in item && typeof item.isZakatable === 'boolean'
+      'isZakatable' in item && typeof item.isZakatable === 'boolean' &&
+      'isExempt' in item && typeof item.isExempt === 'boolean'
   }
 
   // Prepare summary sections
@@ -132,7 +145,9 @@ export function CryptoCalculator({
           {
             label: "Total Portfolio Value",
             value: formatCurrency(totalValue),
-            tooltip: "Combined value of all your cryptocurrency holdings"
+            tooltip: "Combined value of all your cryptocurrency holdings",
+            isZakatable: false,
+            isExempt: false
           }
         ]
       },
@@ -140,12 +155,16 @@ export function CryptoCalculator({
         title: "Holdings Breakdown",
         showBorder: true,
         items: Object.entries(breakdown.items)
-          .filter(([_, item]) => isBreakdownItem(item))
+          .filter((entry): entry is [string, BreakdownItem] => {
+            const [_, item] = entry
+            return isBreakdownItem(item)
+          })
           .map(([key, item]) => ({
             label: item.label || key,
             value: formatCurrency(item.value),
             tooltip: item.tooltip,
-            isZakatable: item.isZakatable
+            isZakatable: item.isZakatable,
+            isExempt: item.isExempt || false
           }))
       }
     ]
@@ -174,7 +193,7 @@ export function CryptoCalculator({
       />
 
       {/* Add New Coin Form */}
-      <form onSubmit={handleAddCoin} className="space-y-4">
+      <form onSubmit={handleAddCoin} className="space-y-5">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="symbol">Coin/Token Symbol</Label>
@@ -199,9 +218,9 @@ export function CryptoCalculator({
           </div>
         </div>
 
-        {lastError && (
+        {error && (
           <div className="text-sm text-red-500">
-            {lastError}
+            {error}
           </div>
         )}
 
@@ -215,55 +234,94 @@ export function CryptoCalculator({
       </form>
 
       {/* Holdings List */}
-      {cryptoValues?.coins && cryptoValues.coins.length > 0 && (
-        <div className="mt-6">
-          <div className="flex justify-between items-center mb-4">
-            <h4 className="text-sm font-medium text-gray-700">Your Holdings</h4>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefreshPrices}
-              disabled={isLoading}
-            >
-              {isLoading ? 'Updating...' : 'Refresh Prices'}
-            </Button>
-          </div>
-          <div className="space-y-2">
-            {cryptoValues.coins.map((coin: {
-              symbol: string
-              quantity: number
-              currentPrice: number
-              marketValue: number
-              zakatDue: number
-            }, index: number) => (
-              <div 
-                key={`${coin.symbol}-${index}`}
-                className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="bg-white px-2 py-1 rounded-md border border-gray-100">
-                    <p className="font-mono text-xs font-medium text-gray-900">{coin.symbol}</p>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    {coin.quantity.toLocaleString()} × {currency} {coin.currentPrice.toFixed(2)}
+      <AnimatePresence>
+        {cryptoValues?.coins && cryptoValues.coins.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ 
+              duration: 0.3,
+              ease: [0.2, 0.4, 0.2, 1]
+            }}
+            className="mt-6 overflow-hidden"
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-sm font-medium text-gray-700">Your Holdings</h4>
+              <div className="flex items-center gap-2">
+                {error && (
+                  <p className="text-xs text-amber-600">
+                    {error}
                   </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <p className="text-xs font-medium text-gray-900">
-                    {formatCurrency(coin.marketValue)}
-                  </p>
-                  <button
-                    onClick={() => handleRemoveCoin(coin.symbol)}
-                    className="text-gray-400 hover:text-red-500 transition-colors text-xs"
-                  >
-                    ×
-                  </button>
-                </div>
+                )}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleRefreshPrices}
+                  disabled={isLoading}
+                  className="h-8 w-8 text-gray-500 hover:text-gray-900"
+                >
+                  <RefreshIcon className={cn("h-4 w-4", isLoading && "animate-spin")} />
+                  <span className="sr-only">Refresh prices</span>
+                </Button>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </div>
+            <motion.div 
+              className="space-y-2"
+              initial="hidden"
+              animate="visible"
+              variants={{
+                visible: {
+                  transition: {
+                    staggerChildren: 0.08
+                  }
+                }
+              }}
+            >
+              {cryptoValues.coins.map((coin: {
+                symbol: string
+                quantity: number
+                currentPrice: number
+                marketValue: number
+                zakatDue: number
+              }, index: number) => (
+                <motion.div
+                  key={`${coin.symbol}-${index}`}
+                  variants={{
+                    hidden: { opacity: 0, y: 15 },
+                    visible: { opacity: 1, y: 0 }
+                  }}
+                  transition={{ 
+                    duration: 0.4,
+                    ease: [0.2, 0.4, 0.2, 1]
+                  }}
+                  className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white px-2 py-1 rounded-md border border-gray-100">
+                      <p className="font-mono text-xs font-medium text-gray-900">{coin.symbol}</p>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {coin.quantity.toLocaleString()} × {currency} {coin.currentPrice.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <p className="text-xs font-medium text-gray-900">
+                      {formatCurrency(coin.marketValue)}
+                    </p>
+                    <button
+                      onClick={() => handleRemoveCoin(coin.symbol)}
+                      className="text-gray-400 hover:text-red-500 transition-colors text-xs"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Summary Section - Only show if there are values */}
       {getTotalCrypto() > 0 && (

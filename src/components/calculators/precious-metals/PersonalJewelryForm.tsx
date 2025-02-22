@@ -19,6 +19,7 @@ import { CalculatorSummary } from '@/components/ui/calculator-summary'
 import { FAQ } from '@/components/ui/faq'
 import { ASSET_FAQS } from '@/config/faqs'
 import { RadioGroup, RadioGroupCard } from '@/components/ui/form/radio-group'
+import { metalsValidation } from '@/lib/validation/calculators/metalsValidation'
 
 interface PersonalJewelryFormProps {
   currency: string
@@ -65,63 +66,87 @@ const METAL_CATEGORIES = [
 
 export function PersonalJewelryForm({ currency }: PersonalJewelryFormProps) {
   const {
-    metalsValues,
+    metalsValues = {
+      gold_regular: 0,
+      gold_occasional: 0,
+      gold_investment: 0,
+      silver_regular: 0,
+      silver_occasional: 0,
+      silver_investment: 0
+    },
     setMetalsValue,
     metalsHawlMet,
     setMetalsHawl,
     getTotalMetals,
     getTotalZakatableMetals,
-    metalPrices,
+    metalPrices = {
+      gold: 65.52,  // Default gold price per gram
+      silver: 0.85, // Default silver price per gram
+      lastUpdated: new Date(),
+      isCache: true
+    },
     setMetalPrices
   } = useZakatStore()
 
   // Keep track of whether to show investment section
-  const [showInvestment, setShowInvestment] = useState(false)
+  const [showInvestment, setShowInvestment] = useState(() => {
+    // Check for existing investment values during initialization
+    return METAL_CATEGORIES
+      .filter(cat => cat.id.includes('investment'))
+      .some(cat => (metalsValues[cat.id as keyof typeof metalsValues] || 0) > 0)
+  })
 
   // Input values state for controlled inputs
-  const [inputValues, setInputValues] = useState<Record<string, string>>(() => 
-    Object.keys(metalsValues).reduce((acc, key) => ({
+  const [inputValues, setInputValues] = useState<Record<string, string>>(() => {
+    return METAL_CATEGORIES.reduce((acc, category) => ({
       ...acc,
-      [key]: metalsValues[key as keyof typeof metalsValues] > 0 
-        ? metalsValues[key as keyof typeof metalsValues].toString()
+      [category.id]: metalsValues[category.id as keyof typeof metalsValues] > 0 
+        ? metalsValues[category.id as keyof typeof metalsValues].toString()
         : ''
-    }), {})
-  )
+    }), {} as Record<string, string>)
+  })
 
-  // Add effect to sync with store values
+  // Update input values when metals values change
   useEffect(() => {
-    setInputValues(
-      Object.keys(metalsValues).reduce((acc, key) => ({
-        ...acc,
-        [key]: metalsValues[key as keyof typeof metalsValues] > 0 
-          ? metalsValues[key as keyof typeof metalsValues].toString()
-          : ''
-      }), {})
-    )
-  }, [metalsValues])
+    const newValues = { ...inputValues }
+    let hasChanges = false
 
-  // Add effect to show investment section if there are investment values
-  useEffect(() => {
-    const hasInvestmentValues = Object.entries(metalsValues)
-      .some(([key, value]) => key.includes('investment') && (value as number) > 0)
-    if (hasInvestmentValues) {
-      setShowInvestment(true)
+    METAL_CATEGORIES.forEach(category => {
+      const storeValue = metalsValues[category.id as keyof typeof metalsValues]
+      const currentInputValue = inputValues[category.id]
+      const newInputValue = storeValue > 0 ? storeValue.toString() : ''
+      
+      if (currentInputValue !== newInputValue) {
+        newValues[category.id] = newInputValue
+        hasChanges = true
+      }
+    })
+
+    if (hasChanges) {
+      setInputValues(newValues)
     }
   }, [metalsValues])
 
   // Add loading state
   const [isPricesLoading, setIsPricesLoading] = useState(true)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   // Update the useEffect
   useEffect(() => {
     const fetchPrices = async () => {
-      setIsPricesLoading(true)
+      // Only show loading if this is first load or it's been more than 30 seconds since last update
+      const shouldShowLoading = !lastUpdated || 
+        (new Date().getTime() - lastUpdated.getTime() > 30000)
+      
+      if (shouldShowLoading) {
+        setIsPricesLoading(true)
+      }
+
       try {
         const response = await fetch(`/api/prices/metals?currency=${currency}`)
         
         if (!response.ok) {
           console.warn(`Using fallback prices. API returned: ${response.status}`)
-          // Use fallback values
           setMetalPrices({
             gold: 65.52,
             silver: 0.85,
@@ -139,9 +164,10 @@ export function PersonalJewelryForm({ currency }: PersonalJewelryFormProps) {
           lastUpdated: new Date(data.lastUpdated || new Date()),
           isCache: data.isCache || false
         })
+        
+        setLastUpdated(new Date())
       } catch (error) {
         console.error('Error fetching metal prices:', error)
-        // Set fallback values if fetch fails
         setMetalPrices({
           gold: 65.52,
           silver: 0.85,
@@ -149,7 +175,9 @@ export function PersonalJewelryForm({ currency }: PersonalJewelryFormProps) {
           isCache: true
         })
       } finally {
-        setIsPricesLoading(false)
+        if (shouldShowLoading) {
+          setIsPricesLoading(false)
+        }
       }
     }
 
@@ -166,11 +194,6 @@ export function PersonalJewelryForm({ currency }: PersonalJewelryFormProps) {
   const handleValueChange = (categoryId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = event.target.value
     
-    // Only allow numbers, decimal points, and basic math operators
-    if (!/^[\d+\-*/.() ]*$/.test(inputValue) && inputValue !== '') {
-      return // Ignore invalid characters
-    }
-    
     // Update display value
     setInputValues(prev => ({
       ...prev,
@@ -178,16 +201,23 @@ export function PersonalJewelryForm({ currency }: PersonalJewelryFormProps) {
     }))
 
     try {
-      // Convert to numeric value (handles calculations)
-      const numericValue = evaluateExpression(inputValue)
+      // Handle empty input
+      if (inputValue === '') {
+        setMetalsValue(categoryId as keyof typeof metalsValues, 0)
+        return
+      }
+
+      // Convert to numeric value
+      const numericValue = parseFloat(inputValue)
       
-      // Only update store if we have a valid number
-      if (!isNaN(numericValue)) {
-        setMetalsValue(categoryId as keyof typeof metalsValues, numericValue)
+      // Only update store if we have a valid number and it's not negative
+      if (!isNaN(numericValue) && numericValue >= 0) {
+        // Round to 3 decimal places to prevent floating point issues
+        const roundedValue = Math.round(numericValue * 1000) / 1000
+        setMetalsValue(categoryId as keyof typeof metalsValues, roundedValue)
       }
     } catch (error) {
-      // Invalid calculation - don't update store
-      console.warn('Invalid calculation:', error)
+      console.warn('Invalid number:', error)
     }
   }
 
@@ -268,21 +298,29 @@ export function PersonalJewelryForm({ currency }: PersonalJewelryFormProps) {
                       </div>
                       <Input
                         id={category.id}
-                        type="text"
+                        type="number"
                         inputMode="decimal"
-                        pattern="[\d+\-*/.() ]*"
+                        step="0.001"
+                        min="0"
                         className="pl-10 text-sm bg-white"
                         value={inputValues[category.id] || ''}
                         onChange={(e) => handleValueChange(category.id, e)}
                         placeholder="Enter weight in grams"
                       />
                       <div className="absolute inset-y-0 right-3 flex items-center gap-2">
-                        <span className="text-sm text-gray-500">
-                          ≈ {formatCurrency(
-                            (metalsValues[category.id as keyof typeof metalsValues] || 0) * 
-                            (category.id.includes('gold') ? metalPrices.gold : metalPrices.silver)
-                          )}
-                        </span>
+                        {isPricesLoading ? (
+                          <div className="flex items-center gap-2">
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+                            <span className="text-sm text-gray-500">Fetching price...</span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-500">
+                            ≈ {formatCurrency(
+                              (metalsValues[category.id as keyof typeof metalsValues] || 0) * 
+                              (category.id.includes('gold') ? metalPrices.gold : metalPrices.silver)
+                            )}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -351,27 +389,59 @@ export function PersonalJewelryForm({ currency }: PersonalJewelryFormProps) {
                         </div>
                         <Input
                           id={category.id}
-                          type="text"
+                          type="number"
                           inputMode="decimal"
-                          pattern="[\d+\-*/.() ]*"
+                          step="0.001"
+                          min="0"
                           className="pl-10 text-sm bg-white"
                           value={inputValues[category.id] || ''}
                           onChange={(e) => handleValueChange(category.id, e)}
                           placeholder="Enter weight in grams"
                         />
                         <div className="absolute inset-y-0 right-3 flex items-center gap-2">
-                          <span className="text-sm text-gray-500">
-                            ≈ {formatCurrency(
-                              (metalsValues[category.id as keyof typeof metalsValues] || 0) * 
-                              (category.id.includes('gold') ? metalPrices.gold : metalPrices.silver)
-                            )}
-                          </span>
+                          {isPricesLoading ? (
+                            <div className="flex items-center gap-2">
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+                              <span className="text-sm text-gray-500">Fetching price...</span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-500">
+                              ≈ {formatCurrency(
+                                (metalsValues[category.id as keyof typeof metalsValues] || 0) * 
+                                (category.id.includes('gold') ? metalPrices.gold : metalPrices.silver)
+                              )}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
                   ))}
               </div>
             )}
+          </div>
+
+          {/* Price Source Indicator - Compact Version */}
+          <div className="mt-6 p-2 bg-gray-50/50 rounded-lg text-xs">
+            <div className="flex items-center gap-4">
+              {metalPrices.isCache ? (
+                <span className="text-amber-600 text-[10px]">Cached</span>
+              ) : (
+                <div className="flex items-center gap-1 bg-green-50 py-0.5 px-1.5 rounded-full">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 animate-[ping_2s_ease-in-out_infinite]"></span>
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-50 animate-[ping_2s_ease-in-out_infinite_1s]"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+                  </span>
+                  <span className="text-green-600 font-medium text-[10px]">LIVE</span>
+                </div>
+              )}
+              <span className="text-gray-600">Gold: {formatCurrency(metalPrices.gold)}/g</span>
+              <span className="text-gray-400">•</span>
+              <span className="text-gray-600">Silver: {formatCurrency(metalPrices.silver)}/g</span>
+              <div className="ml-auto text-gray-500">
+                Updated: {new Date(metalPrices.lastUpdated).toLocaleString()}
+              </div>
+            </div>
           </div>
 
           {/* Summary Section - Only show if there are values */}
@@ -391,7 +461,9 @@ export function PersonalJewelryForm({ currency }: PersonalJewelryFormProps) {
                       label: category.name,
                       value: formatCurrency(value),
                       subValue: weight > 0 ? `${weight.toFixed(2)}g` : '-g',
-                      tooltip: !category.isZakatable ? "This item may be exempt from Zakat" : undefined
+                      tooltip: !category.isZakatable ? "This item may be exempt from Zakat" : undefined,
+                      isExempt: !category.isZakatable,
+                      isZakatable: category.isZakatable
                     }
                   })
                 },
@@ -404,12 +476,16 @@ export function PersonalJewelryForm({ currency }: PersonalJewelryFormProps) {
                       value: formatCurrency(NISAB.SILVER.GRAMS * metalPrices.silver),
                       tooltip: getTotalZakatableMetals().total >= (NISAB.SILVER.GRAMS * metalPrices.silver) ? 
                         "Your holdings meet or exceed the Nisab threshold" : 
-                        "Your holdings are below the Nisab threshold"
+                        "Your holdings are below the Nisab threshold",
+                      isExempt: false,
+                      isZakatable: true
                     },
                     {
                       label: "Total Eligible Metals Value",
                       value: formatCurrency(getTotalZakatableMetals().total),
-                      tooltip: "This is the total value of your metals that are eligible for Zakat"
+                      tooltip: "This is the total value of your metals that are eligible for Zakat",
+                      isExempt: false,
+                      isZakatable: true
                     }
                   ]
                 }

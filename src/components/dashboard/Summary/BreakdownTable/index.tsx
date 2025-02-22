@@ -53,7 +53,7 @@ export function BreakdownTable({
       <div className="bg-gray-50 rounded-2xl p-2">
         <TableHeader />
         
-        <div className="bg-white rounded-xl overflow-hidden">
+        <div className="bg-white rounded-xl overflow-hidden border border-gray-100 shadow-[0_1px_2px_0_rgba(0,0,0,0.03)]">
           {/* Asset Categories Container */}
           <div className="divide-y divide-gray-100 p-2">
             {/* Cash */}
@@ -95,19 +95,6 @@ export function BreakdownTable({
               onToggle={() => toggleSection('stocks')}
             />
 
-            {/* Real Estate */}
-            <AssetRow
-              title="Real Estate"
-              total={assetBreakdowns.realEstate?.total || 0}
-              breakdown={assetBreakdowns.realEstate?.breakdown || emptyBreakdown}
-              hawlMet={assetBreakdowns.realEstate?.hawlMet || false}
-              currency={currency}
-              assetType="real-estate"
-              totalAssets={totalAssets}
-              isExpanded={expandedSections.realEstate}
-              onToggle={() => toggleSection('realEstate')}
-            />
-
             {/* Retirement */}
             <AssetRow
               title="Retirement Accounts"
@@ -119,6 +106,19 @@ export function BreakdownTable({
               totalAssets={totalAssets}
               isExpanded={expandedSections.retirement}
               onToggle={() => toggleSection('retirement')}
+            />
+
+            {/* Real Estate */}
+            <AssetRow
+              title="Real Estate"
+              total={assetBreakdowns.realEstate?.total || 0}
+              breakdown={assetBreakdowns.realEstate?.breakdown || emptyBreakdown}
+              hawlMet={assetBreakdowns.realEstate?.hawlMet || false}
+              currency={currency}
+              assetType="real-estate"
+              totalAssets={totalAssets}
+              isExpanded={expandedSections.realEstate}
+              onToggle={() => toggleSection('realEstate')}
             />
 
             {/* Cryptocurrency */}

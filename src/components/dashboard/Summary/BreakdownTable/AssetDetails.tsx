@@ -1,3 +1,4 @@
+import { motion } from "framer-motion"
 import { formatCurrency } from "@/lib/utils"
 
 interface AssetDetailsProps {
@@ -17,9 +18,31 @@ interface AssetDetailsProps {
 export function AssetDetails({ items, currency, hawlMet }: AssetDetailsProps) {
   return (
     <div className="pl-[58px] pr-2 pb-2 pt-1">
-      <div className="space-y-2">
+      <motion.div 
+        className="space-y-2"
+        initial="hidden"
+        animate="visible"
+        variants={{
+          visible: {
+            transition: {
+              staggerChildren: 0.05
+            }
+          }
+        }}
+      >
         {Object.entries(items).map(([key, item]) => (
-          <div key={key} className="flex justify-between text-xs">
+          <motion.div 
+            key={key} 
+            className="flex justify-between text-xs"
+            variants={{
+              hidden: { opacity: 0, y: 5 },
+              visible: { opacity: 1, y: 0 }
+            }}
+            transition={{ 
+              duration: 0.2,
+              ease: [0.2, 0.4, 0.2, 1]
+            }}
+          >
             <div className="flex items-center gap-2">
               <span className="text-gray-500">{item.label}</span>
               {item.isExempt && (
@@ -37,9 +60,9 @@ export function AssetDetails({ items, currency, hawlMet }: AssetDetailsProps) {
                 {formatCurrency(item.zakatDue)}
               </span>
             </div>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </div>
   )
 }

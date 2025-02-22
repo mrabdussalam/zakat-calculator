@@ -1,28 +1,11 @@
 import { StateCreator } from 'zustand'
-import { ZakatState, CryptoValues, AssetBreakdown } from '../types'
+import { ZakatState } from '../types'
 import { ZAKAT_RATE } from '@/lib/constants'
 import { DEFAULT_HAWL_STATUS } from '../constants'
-import { getCryptoPrice, validateCryptoSymbol } from '@/lib/api/crypto'
+import { getCryptoPrice, CryptoAPIError } from '@/lib/api/crypto'
 import { getAssetType } from '@/lib/assets/registry'
-import { AssetBreakdownItem } from '@/lib/assets/types'
-import { roundCurrency, formatCurrency } from '@/lib/utils/currency'
-
-export interface CryptoSlice {
-  // State
-  cryptoValues: CryptoValues
-  cryptoHawlMet: boolean
-
-  // Actions
-  addCoin: (symbol: string, quantity: number) => void
-  removeCoin: (symbol: string) => void
-  resetCryptoValues: () => void
-  setCryptoHawl: (value: boolean) => void
-
-  // Getters
-  getTotalCrypto: () => number
-  getTotalZakatableCrypto: () => number
-  getCryptoBreakdown: () => AssetBreakdown
-}
+import { roundCurrency } from '@/lib/utils/currency'
+import { CryptoSlice, CryptoValues, CryptoHolding } from './crypto.types'
 
 // Initial state
 const initialCryptoValues: CryptoValues = {
@@ -36,10 +19,12 @@ export const createCryptoSlice: StateCreator<
   [["zustand/persist", unknown]],
   [],
   CryptoSlice
-> = (set, get, store) => ({
+> = (set, get) => ({
   // Initial state
   cryptoValues: initialCryptoValues,
   cryptoHawlMet: DEFAULT_HAWL_STATUS.crypto,
+  isLoading: false,
+  lastError: null,
 
   // Actions
   addCoin: async (symbol: string, quantity: number) => {
@@ -53,7 +38,7 @@ export const createCryptoSlice: StateCreator<
       const marketValue = roundCurrency(quantity * currentPrice)
       const zakatDue = roundCurrency(marketValue * ZAKAT_RATE)
 
-      set((state) => {
+      set((state: ZakatState) => {
         const newCoins = [...state.cryptoValues.coins, {
           symbol: symbol.toUpperCase(),
           quantity,
@@ -62,7 +47,7 @@ export const createCryptoSlice: StateCreator<
           zakatDue
         }]
 
-        const total = roundCurrency(newCoins.reduce((sum, coin) => sum + coin.marketValue, 0))
+        const total = roundCurrency(newCoins.reduce((sum: number, coin: CryptoHolding) => sum + coin.marketValue, 0))
         
         return {
           cryptoValues: {
@@ -79,12 +64,12 @@ export const createCryptoSlice: StateCreator<
   },
 
   removeCoin: (symbol: string) => {
-    set((state) => {
+    set((state: ZakatState) => {
       const newCoins = state.cryptoValues.coins.filter(
-        coin => coin.symbol !== symbol.toUpperCase()
+        (coin: CryptoHolding) => coin.symbol !== symbol.toUpperCase()
       )
       
-      const total = newCoins.reduce((sum, coin) => sum + coin.marketValue, 0)
+      const total = roundCurrency(newCoins.reduce((sum: number, coin: CryptoHolding) => sum + coin.marketValue, 0))
 
       return {
         cryptoValues: {
@@ -102,13 +87,79 @@ export const createCryptoSlice: StateCreator<
   }),
 
   setCryptoHawl: (value: boolean) => {
-    set((state) => ({
+    set((state: ZakatState) => ({
       cryptoHawlMet: value,
       cryptoValues: {
         ...state.cryptoValues,
         zakatable_value: value ? state.cryptoValues.total_value : 0
       }
     }))
+  },
+
+  updatePrices: async () => {
+    set({ isLoading: true, lastError: null })
+    
+    const state = get()
+    const coins = state.cryptoValues.coins
+
+    if (!Array.isArray(coins) || coins.length === 0) {
+      set({ isLoading: false })
+      return
+    }
+
+    const failedUpdates: string[] = []
+    let updatedCoins = [...coins]
+
+    try {
+      // Update each coin individually to handle failures gracefully
+      for (const coin of coins) {
+        try {
+          const currentPrice = await getCryptoPrice(coin.symbol)
+          const marketValue = roundCurrency(coin.quantity * currentPrice)
+          const zakatDue = roundCurrency(marketValue * ZAKAT_RATE)
+
+          const index = updatedCoins.findIndex(c => c.symbol === coin.symbol)
+          if (index !== -1) {
+            updatedCoins[index] = {
+              ...coin,
+              currentPrice: roundCurrency(currentPrice),
+              marketValue,
+              zakatDue
+            }
+          }
+        } catch (error) {
+          // If price update fails, keep existing price and track failure
+          console.error(`Failed to update price for ${coin.symbol}:`, error)
+          failedUpdates.push(coin.symbol)
+        }
+      }
+
+      // Calculate total after all updates
+      const total = roundCurrency(updatedCoins.reduce((sum: number, coin: CryptoHolding) => sum + coin.marketValue, 0))
+      
+      // First update the state with new values
+      set((state: ZakatState) => ({
+        isLoading: false,
+        cryptoValues: {
+          coins: updatedCoins,
+          total_value: total,
+          zakatable_value: state.cryptoHawlMet ? total : 0
+        }
+      }))
+
+      // Then if there were any failures, throw an error
+      if (failedUpdates.length > 0) {
+        throw new CryptoAPIError(
+          `Could not update prices for: ${failedUpdates.join(', ')}. Previous prices retained.`
+        )
+      }
+
+    } catch (error) {
+      console.error('Failed to update crypto prices:', error)
+      set({ isLoading: false })
+      // Re-throw the error to be handled by the component
+      throw error instanceof Error ? error : new Error('Failed to update crypto prices')
+    }
   },
 
   // Getters
@@ -130,11 +181,11 @@ export const createCryptoSlice: StateCreator<
     // Ensure coins array exists
     const coins = state.cryptoValues?.coins || []
 
-    const breakdown: AssetBreakdown = {
+    return {
       total,
       zakatable,
       zakatDue: roundCurrency(zakatable * ZAKAT_RATE),
-      items: coins.reduce((acc, coin) => ({
+      items: coins.reduce((acc: Record<string, any>, coin: CryptoHolding) => ({
         ...acc,
         [coin.symbol.toLowerCase()]: {
           value: roundCurrency(coin.marketValue),
@@ -142,27 +193,14 @@ export const createCryptoSlice: StateCreator<
           zakatable: state.cryptoHawlMet ? roundCurrency(coin.marketValue) : 0,
           zakatDue: state.cryptoHawlMet ? roundCurrency(coin.marketValue * ZAKAT_RATE) : 0,
           label: `${coin.symbol} (${coin.quantity} coins)`,
-          tooltip: `${coin.quantity} ${coin.symbol} at ${formatCurrency(coin.currentPrice)} each`,
+          tooltip: `${coin.quantity} ${coin.symbol} at ${roundCurrency(coin.currentPrice).toLocaleString('en-US', {
+            style: 'currency',
+            currency: 'USD'
+          })} each`,
           percentage: total > 0 ? roundCurrency((coin.marketValue / total) * 100) : 0,
           isExempt: false
         }
       }), {})
     }
-
-    // If no coins, add a default item
-    if (Object.keys(breakdown.items).length === 0) {
-      breakdown.items.cryptocurrency = {
-        value: 0,
-        isZakatable: false,
-        zakatable: 0,
-        zakatDue: 0,
-        label: 'Cryptocurrency',
-        tooltip: 'No cryptocurrencies added yet',
-        percentage: 0,
-        isExempt: false
-      }
-    }
-
-    return breakdown
   }
 }) 

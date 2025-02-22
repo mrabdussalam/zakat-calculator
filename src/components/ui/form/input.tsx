@@ -14,10 +14,11 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         className={cn(
           "flex h-10 w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm",
           "placeholder:text-gray-500",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+          "focus:outline-none focus:border-transparent focus:ring-2 focus:ring-blue-500",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          "transition-colors",
-          error && "border-red-500 focus-visible:ring-red-500",
+          "transition-all duration-200",
+          "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+          error && "border-red-500 focus:ring-red-500",
           className
         )}
         ref={ref}

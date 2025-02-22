@@ -4,9 +4,15 @@ import { StocksSlice } from './modules/stocks'
 import { NisabSlice } from './modules/nisab'
 import { RetirementSlice } from './modules/retirement'
 import { RealEstateSlice } from './modules/realEstate'
-import { AssetBreakdownItem, Investment, CompanyFinancials, AssetBreakdown } from '@/lib/assets/types'
+import { AssetBreakdown as LibAssetBreakdown, Investment, CompanyFinancials } from '@/lib/assets/types'
 import { StateCreator } from 'zustand'
 import { CryptoSlice } from './modules/crypto'
+import { StockValues, StockPrices, StockHolding } from '@/lib/assets/stocks'
+
+// Re-export types with new names to avoid conflicts
+export type StockValues = LibStockValues
+export type StockPrices = LibStockPrices
+export type AssetBreakdown = LibAssetBreakdown
 
 export interface HawlStatus {
   cash: boolean
@@ -47,37 +53,11 @@ export interface PassiveInvestment {
   marketValue: number
 }
 
+export interface ActiveStock extends StockHolding {
+  lastUpdated?: string
+}
+
 export interface StockValues {
-  // Active Trading Section
-  activeStocks: Array<{
-    ticker: string
-    shares: number
-    currentPrice: number
-    marketValue: number
-    zakatDue: number
-  }>
-  
-  // Passive Investments Section
-  passiveInvestments?: {
-    version: string
-    method: 'quick' | 'detailed'
-    marketValue: number
-    zakatableValue: number
-    investments?: Investment[]
-    companyData?: CompanyFinancials
-    hawlStatus?: {
-      isComplete: boolean
-      startDate?: string
-      endDate?: string
-    }
-    displayProperties?: {
-      currency: string
-      method: string
-      totalLabel: string
-    }
-  }
-  
-  // Legacy/Other Stock Values
   active_shares: number
   active_price_per_share: number
   passive_shares: number
@@ -90,9 +70,10 @@ export interface StockValues {
   dividend_shares: number
   fund_value: number
   is_passive_fund: boolean
-  market_value?: number
-  zakatable_value?: number
-  price_per_share?: number
+  activeStocks: ActiveStock[]
+  market_value: number
+  zakatable_value: number
+  price_per_share: number
 }
 
 export type CurrentPassiveInvestmentState = {
@@ -167,110 +148,19 @@ export interface CryptoValues {
 }
 
 export interface ZakatBreakdown {
-  cash: {
-    total: number
+  total: number
+  zakatable: number
+  zakatDue: number
+  items: Record<string, {
+    value: number
+    isZakatable: boolean
     zakatable: number
     zakatDue: number
-    items: Record<string, { value: number; isZakatable: boolean }>
-  }
-  metals: {
-    total: number
-    zakatable: number
-    zakatDue: number
-    goldGrams: number
-    silverGrams: number
-    items: Record<string, { value: number; weight: number; isZakatable?: boolean; isExempt?: boolean }>
-  }
-  stocks: {
-    total: number
-    zakatable: number
-    zakatDue: number
-    items: Record<string, { value: number; isZakatable: boolean }>
-  }
-  retirement: {
-    total: number
-    zakatable: number
-    zakatDue: number
-    items: Record<string, { value: number; isZakatable: boolean }>
-  }
-  realEstate: {
-    total: number
-    zakatable: number
-    zakatDue: number
-    items: Record<string, { 
-      value: number
-      isZakatable?: boolean
-      isExempt?: boolean
-      label: string
-      tooltip?: string
-      zakatable?: number
-      zakatDue: number
-    }>
-  }
-  crypto: {
-    total: number
-    zakatable: number
-    zakatDue: number
-    items: Record<string, { 
-      value: number
-      isZakatable: boolean
-      label: string
-      tooltip?: string
-      percentage?: number
-    }>
-  }
-  combined: {
-    meetsNisab: {
-      meetsNisab: boolean
-      totalValue: number
-      nisabValue: number
-      thresholds: {
-        gold: number
-        silver: number
-      }
-    }
-    totalValue: number
-    zakatableValue: number
-    zakatDue: number
-  }
-}
-
-export interface PassiveCalculations {
-  totalMarketValue: number
-  zakatableValue: number
-  method: 'quick' | 'detailed'
-  breakdown?: {
-    investments?: Array<{
-      id: string
-      name: string
-      shares: number
-      pricePerShare: number
-      marketValue: number
-    }>
-    companyData?: {
-      cash: number
-      receivables: number
-      inventory: number
-      totalShares: number
-      yourShares: number
-    }
-  }
-}
-
-export interface PersistedState {
-  cashValues: Record<string, number>
-  metalsValues: MetalsValues
-  stockValues: StockValues
-  realEstateValues: RealEstateValues
-  metalPrices: MetalPrices
-  stockPrices: StockPrices
-  hawlStatus: {
-    cash: boolean
-    metals: boolean
-    stocks: boolean
-    retirement: boolean
-    realEstate: boolean
-  }
+    label: string
+    tooltip: string
+    percentage?: number
+    isExempt?: boolean
+  }>
 }
 
 export type ZakatState = CashSlice &

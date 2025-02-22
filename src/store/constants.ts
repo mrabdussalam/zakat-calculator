@@ -1,4 +1,5 @@
 import { RetirementValues } from './types'
+import { StockValues, StockPrices } from '@/lib/assets/stocks'
 
 // Nisab thresholds in grams
 export const NISAB = {
@@ -30,4 +31,14 @@ export const initialRetirementValues: RetirementValues = {
   roth_ira: 0,
   pension: 0,
   other_retirement: 0
+}
+
+export const initialStockValues: StockValues = {
+  activeStocks: [],
+  market_value: 0,
+  zakatable_value: 0
+}
+
+export const initialStockPrices: StockPrices = {
+  prices: {}
 } 

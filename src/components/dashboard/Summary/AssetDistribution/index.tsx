@@ -15,13 +15,13 @@ export function AssetDistribution({ assetValues, totalAssets }: AssetDistributio
         <div className="text-sm font-medium text-gray-900">Asset Distribution</div>
         
         {/* Chart */}
-        <div className="h-3 bg-gray-50 rounded-full overflow-hidden flex">
+        <div className="h-2 bg-gray-50 rounded-full overflow-hidden flex gap-0.5 px-0.5">
           {filteredAssets.map(([type, value]) => {
             const percentage = calculatePercentage(value, totalAssets)
             return (
               <div
                 key={type}
-                className="h-full transition-all"
+                className="h-full rounded-full transition-all"
                 style={{ 
                   width: `${percentage}%`,
                   backgroundColor: ASSET_COLORS[type as keyof typeof ASSET_COLORS] 

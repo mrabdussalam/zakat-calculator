@@ -4,6 +4,7 @@ import { AssetBreakdown } from "../types"
 import { AssetDetails } from "./AssetDetails"
 import { cn } from "@/lib/utils"
 import { ASSET_COLORS } from "../constants"
+import { motion, AnimatePresence } from "framer-motion"
 
 export interface AssetRowProps {
   title: string
@@ -28,7 +29,9 @@ export function AssetRow({
   isExpanded,
   onToggle
 }: AssetRowProps) {
-  const hasDetails = breakdown && Object.keys(breakdown.items).length > 0
+  const hasDetails = breakdown && 
+    Object.keys(breakdown.items).length > 0 && 
+    Object.values(breakdown.items).some(item => item.value > 0)
   const percentage = totalAssets > 0 ? ((total / totalAssets) * 100).toFixed(1) : '0.0'
 
   const handleClick = (e: React.MouseEvent) => {
@@ -67,14 +70,16 @@ export function AssetRow({
         <div className="flex justify-between text-sm">
           <div className="flex items-center">
             <div className="w-8 flex items-center justify-center">
-              {hasDetails && (
-                <ChevronDown 
-                  className={cn(
-                    "h-4 w-4 transition-transform",
-                    !isExpanded && "-rotate-90"
-                  )}
-                />
-              )}
+              <motion.div
+                initial={false}
+                animate={{ rotate: isExpanded ? 0 : -90 }}
+                transition={{ duration: 0.2, ease: [0.2, 0.4, 0.2, 1] }}
+              >
+                <ChevronDown className={cn(
+                  "h-4 w-4",
+                  hasDetails ? "text-gray-900" : "text-gray-300"
+                )} />
+              </motion.div>
             </div>
             <div className="flex items-center gap-2">
               <div 
@@ -104,13 +109,26 @@ export function AssetRow({
         </div>
       </div>
 
-      {isExpanded && hasDetails && (
-        <AssetDetails
-          items={breakdown.items}
-          currency={currency}
-          hawlMet={hawlMet}
-        />
-      )}
+      <AnimatePresence>
+        {isExpanded && hasDetails && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ 
+              duration: 0.3,
+              ease: [0.2, 0.4, 0.2, 1]
+            }}
+            style={{ overflow: "hidden" }}
+          >
+            <AssetDetails
+              items={breakdown.items}
+              currency={currency}
+              hawlMet={hawlMet}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 } 

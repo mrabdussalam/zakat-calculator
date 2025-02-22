@@ -8,7 +8,7 @@ export class CryptoAPIError extends Error {
 }
 
 // Map common symbols to CoinGecko IDs
-const SYMBOL_TO_ID: Record<string, string> = {
+export const SYMBOL_TO_ID: Record<string, string> = {
   'BTC': 'bitcoin',
   'ETH': 'ethereum',
   'USDT': 'tether',

@@ -1,22 +1,15 @@
-import { IconProps } from "@/types/icon"
+import { IconProps } from './types'
+import { BaseIcon } from './base-icon'
 
-export function RetirementIcon({ size = 24, className }: IconProps) {
+export function RetirementIcon(props: IconProps) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path opacity="0.4" d="M12 3.5C11.0608 3.5 7.52791 7.29323 6.97182 12.2037C5.89285 12.4691 3.38792 12.7 2 11.5C2.94545 6.93552 7.06333 3.5 12 3.5C16.9367 3.5 21.0545 6.93552 22 11.5C20.6123 12.7 18.1073 12.4691 17.0282 12.2037C16.4721 7.29322 12.9392 3.5 12 3.5Z" fill="currentColor" />
-      <path d="M12 3.5V2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M12 3.5C11.0608 3.5 7.52791 7.29323 6.97182 12.2037M12 3.5C12.9392 3.5 16.4721 7.29322 17.0282 12.2037M12 3.5C16.9367 3.5 21.0545 6.93552 22 11.5C20.6123 12.7 18.1073 12.4691 17.0282 12.2037M12 3.5C7.06333 3.5 2.94545 6.93552 2 11.5C3.38792 12.7 5.89285 12.4691 6.97182 12.2037M6.97182 12.2037C8.4559 13.0288 10.1718 13.5 12 13.5C13.8282 13.5 15.5441 13.0288 17.0282 12.2037" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M12 13.5V20.5C12 21.3284 11.3284 22 10.5 22C9.67157 22 9 21.3284 9 20.5V20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <BaseIcon viewBox="0 0 24 24" width="20" height="20" fill="none" {...props}>
+      <path opacity="0.4" d="M12.001 13C10.4793 13 8.87029 13.2925 7.60901 13.6838C6.65928 13.9784 5.89532 15.322 6.01297 16.4128C6.05656 16.8169 6.36975 17 6.69905 17H17.3029C17.6322 17 17.9454 16.8169 17.989 16.4128C18.1067 15.322 17.3427 13.9784 16.393 13.6838C15.1317 13.2925 13.5227 13 12.001 13Z" fill="currentColor" />
+      <path d="M8.00098 17L7.00098 22M16.001 17L17.001 22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12.001 13C10.4793 13 8.87029 13.2925 7.60901 13.6838C6.65928 13.9784 5.89532 15.322 6.01297 16.4128C6.05656 16.8169 6.36975 17 6.69905 17H17.3029C17.6322 17 17.9454 16.8169 17.989 16.4128C18.1067 15.322 17.3427 13.9784 16.393 13.6838C15.1317 13.2925 13.5227 13 12.001 13Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M12.001 13C10.4793 13 8.87029 13.2925 7.60901 13.6838C6.65928 13.9784 5.89532 15.322 6.01297 16.4128C6.05656 16.8169 6.36975 17 6.69905 17H17.3029C17.6322 17 17.9454 16.8169 17.989 16.4128C18.1067 15.322 17.3427 13.9784 16.393 13.6838C15.1317 13.2925 13.5227 13 12.001 13Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M15.7743 14C17.0134 12.4321 18.001 10.3677 18.001 8.3553C18.001 4.30537 15.3147 2 12.001 2C8.68727 2 6.00098 4.30537 6.00098 8.3553C6.00098 10.3677 6.98857 12.4321 8.22766 14" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M13.1947 13C13.6372 11.178 14.001 8.69303 14.001 6.2739C14.001 4.67586 13.8944 3.31533 13.7094 2.21866C13.1679 2.07396 12.5945 2 12.001 2C11.4075 2 10.8341 2.07396 10.2926 2.21866C10.1076 3.31533 10.001 4.67586 10.001 6.2739C10.001 8.69303 10.3648 11.178 10.8073 13L10.8287 13.0537C11.2203 13.019 11.6135 13 12.001 13C12.3885 13 12.7817 13.019 13.1733 13.0537L13.1947 13Z" stroke="currentColor" strokeWidth="1.5" />
+    </BaseIcon>
   )
 }

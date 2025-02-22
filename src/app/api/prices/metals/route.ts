@@ -131,26 +131,77 @@ let priceCache = {
 }
 
 async function fetchMetalPrices() {
-  try {
-    // TODO: Implement real API call to get metal prices
-    // For now, return fallback values
+  // Check cache first
+  const now = new Date()
+  if (priceCache.prices && priceCache.lastUpdated && 
+      (now.getTime() - priceCache.lastUpdated.getTime() < CACHE_DURATION)) {
     return {
-      ...FALLBACK_PRICES,
-      lastUpdated: new Date().toISOString(),
-      isCache: false
+      ...priceCache.prices,
+      isCache: true
     }
-  } catch (error) {
-    console.error('Error fetching metal prices:', error)
-    return FALLBACK_PRICES
   }
+
+  // Try each source in sequence until we get valid prices
+  for (const source of PRICE_SOURCES) {
+    try {
+      console.log(`Attempting to fetch prices from ${source.name}...`)
+      const response = await fetch(source.url)
+      
+      if (!response.ok) {
+        console.warn(`${source.name} returned status ${response.status}`)
+        continue
+      }
+
+      const data = await response.json()
+      const prices = source.parser(data)
+
+      // Validate the parsed prices
+      if (!prices.gold || !prices.silver || 
+          isNaN(prices.gold) || isNaN(prices.silver) ||
+          prices.gold <= 0 || prices.silver <= 0) {
+        console.warn(`${source.name} returned invalid prices:`, prices)
+        continue
+      }
+
+      // Update cache with valid prices
+      const result = {
+        gold: Number(prices.gold.toFixed(2)),
+        silver: Number(prices.silver.toFixed(2)),
+        lastUpdated: new Date().toISOString(),
+        isCache: false,
+        source: source.name
+      }
+
+      priceCache = {
+        prices: result,
+        lastUpdated: now
+      }
+
+      return result
+    } catch (error) {
+      console.error(`Error fetching from ${source.name}:`, error)
+      continue
+    }
+  }
+
+  // If all sources fail, use cache if available
+  if (priceCache.prices) {
+    return {
+      ...priceCache.prices,
+      isCache: true
+    }
+  }
+
+  // If no cache, use fallback values
+  return FALLBACK_PRICES
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // Return fallback prices for now
-    return NextResponse.json(FALLBACK_PRICES)
+    const prices = await fetchMetalPrices()
+    return NextResponse.json(prices)
   } catch (error) {
-    console.error('Error fetching metal prices:', error)
+    console.error('Error in GET handler:', error)
     return NextResponse.json(FALLBACK_PRICES)
   }
 } 

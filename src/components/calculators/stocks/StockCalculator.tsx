@@ -313,7 +313,7 @@ export function StockCalculator({
           currency={currency}
           holdings={stocks}
           onAddStock={handleAddStock}
-          onRemoveStock={(index) => handleRemoveStock(stocks[index].ticker)}
+          onRemoveStock={(symbol: string) => handleRemoveStock(symbol)}
           onRefreshPrices={handleRefreshPrices}
           isLoading={isLoading}
           error={error}
