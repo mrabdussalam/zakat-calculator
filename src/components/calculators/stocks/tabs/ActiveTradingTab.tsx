@@ -359,7 +359,7 @@ export function ActiveTradingTab({
                     size="icon"
                     onClick={onRefreshPrices}
                     disabled={isLoading}
-                    className="h-8 w-8 text-gray-500 hover:text-gray-900"
+                    className="h-8 w-8 text-gray-500 hover:text-gray-900 rounded-full"
                   >
                     <RefreshIcon className={cn("h-4 w-4", isLoading && "animate-spin")} />
                     <span className="sr-only">Refresh prices</span>
@@ -392,8 +392,8 @@ export function ActiveTradingTab({
                     className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="bg-white px-2 py-1 rounded-md border border-gray-100">
-                        <p className="font-mono text-xs font-medium text-gray-900">{holding.symbol}</p>
+                      <div className="px-2 py-1 bg-gray-900 rounded-md">
+                        <p className="font-mono text-xs font-medium text-white">{holding.symbol}</p>
                       </div>
                       <p className="text-xs text-gray-500">
                         {formatSharesAndPrice(holding.shares, holding.currentPrice, currency)}

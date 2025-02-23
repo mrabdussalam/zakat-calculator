@@ -1,12 +1,12 @@
 import { StockValues, StockPrices, StockHolding } from '@/lib/assets/stocks'
 import { initialStockValues, initialStockPrices, DEFAULT_HAWL_STATUS } from '../constants'
 import { getAssetType } from '@/lib/assets/registry'
-import { getStockPrice, getBatchStockPrices, validateTicker, StockAPIError } from '@/lib/api/stocks'
+import { getStockPrice } from '@/lib/api/stocks'
 import { Investment, PassiveCalculations } from '@/lib/assets/types'
 import { StateCreator } from 'zustand'
 import { ZakatState, ActiveStock } from '../types'
 import { NISAB, ZAKAT_RATE } from '@/lib/constants'
-import { roundCurrency, formatCurrency } from '@/lib/utils/currency'
+import { roundCurrency } from '@/lib/utils/currency'
 
 export interface PassiveInvestmentStateV1 {
   version: '1.0'
@@ -79,15 +79,23 @@ type CurrentPassiveInvestmentState = Partial<PassiveInvestmentState> & {
   }
 }
 
-const migratePassiveInvestments = (state: any): PassiveInvestmentState | undefined => {
+type Version = '1.0' | '2.0';
+
+const migratePassiveInvestments = (state: CurrentPassiveInvestmentState): PassiveInvestmentState | undefined => {
   if (!state) return undefined
 
   try {
     // Handle unversioned state (pre-versioning)
     if (!state.version) {
       return {
-        version: '2.0',
-        investments: Array.isArray(state.investments) ? state.investments : [],
+        version: '2.0' as const,
+        investments: Array.isArray(state.investments) ? state.investments : [{
+          id: Date.now().toString(),
+          name: '',
+          shares: 0,
+          pricePerShare: 0,
+          marketValue: 0
+        }],
         method: typeof state.method === 'string' && ['quick', 'detailed'].includes(state.method) 
           ? state.method 
           : 'quick',
@@ -107,10 +115,23 @@ const migratePassiveInvestments = (state: any): PassiveInvestmentState | undefin
     }
 
     // Migrate from V1 to V2
-    if (state.version === '1.0') {
-      return {
-        ...state,
-        version: '2.0',
+    const version = state.version as Version;
+    if (version === '1.0') {
+      const v2State: PassiveInvestmentState = {
+        version: '2.0' as const,
+        investments: Array.isArray(state.investments) ? state.investments : [{
+          id: Date.now().toString(),
+          name: '',
+          shares: 0,
+          pricePerShare: 0,
+          marketValue: 0
+        }],
+        method: typeof state.method === 'string' && ['quick', 'detailed'].includes(state.method) 
+          ? state.method 
+          : 'quick',
+        marketValue: typeof state.marketValue === 'number' ? state.marketValue : 0,
+        zakatableValue: typeof state.zakatableValue === 'number' ? state.zakatableValue : 0,
+        companyData: state.companyData,
         hawlStatus: {
           isComplete: false,
           startDate: new Date().toISOString(),
@@ -121,12 +142,13 @@ const migratePassiveInvestments = (state: any): PassiveInvestmentState | undefin
           totalLabel: state.method === 'quick' ? 'Total Investments' : 'Total Company Assets'
         }
       }
+      return v2State
     }
 
     // For V2, validate and sanitize the data
-    if (state.version === '2.0') {
+    if (version === '2.0') {
       return {
-        version: '2.0',
+        version: '2.0' as const,
         investments: Array.isArray(state.investments) ? state.investments : [],
         method: typeof state.method === 'string' && ['quick', 'detailed'].includes(state.method) 
           ? state.method 
@@ -153,8 +175,8 @@ const migratePassiveInvestments = (state: any): PassiveInvestmentState | undefin
 
     // If version is not recognized, return undefined to trigger default state
     return undefined
-  } catch (error) {
-    console.error('Error migrating passive investments state:', error)
+  } catch (_error) {
+    console.error('Error migrating passive investments state:', _error)
     return undefined
   }
 }
@@ -247,12 +269,7 @@ const initialStockValues: StockValues = {
   price_per_share: 0
 }
 
-export const createStocksSlice: StateCreator<
-  ZakatState,
-  [["zustand/persist", unknown]],
-  [],
-  StocksSlice
-> = (set, get, store) => ({
+export const createStocksSlice: StateCreator<ZakatState> = (set, get) => ({
   // Add initial state for loading
   isLoading: false,
   lastError: null,
@@ -414,9 +431,6 @@ export const createStocksSlice: StateCreator<
         throw new Error('Invalid stock state')
       }
 
-      // Get all symbols
-      const symbols = stockValues.activeStocks.map((stock: ActiveStock) => stock.symbol)
-      
       // Track failed updates
       const failedUpdates: string[] = []
 
@@ -431,7 +445,7 @@ export const createStocksSlice: StateCreator<
               marketValue: stock.shares * priceUpdate.price,
               zakatDue: stock.shares * priceUpdate.price * ZAKAT_RATE
             }
-          } catch (error) {
+          } catch {
             // If price update fails, keep existing price and track failure
             failedUpdates.push(stock.symbol)
             return stock
@@ -439,7 +453,7 @@ export const createStocksSlice: StateCreator<
         })
       )
 
-      set((state: any) => ({
+      set((state: ZakatState) => ({
         stockValues: {
           ...state.stockValues,
           activeStocks: updatedStocks
@@ -448,7 +462,7 @@ export const createStocksSlice: StateCreator<
 
       // If any updates failed, throw error with details
       if (failedUpdates.length > 0) {
-        throw new StockAPIError(
+        throw new Error(
           `Could not update prices for: ${failedUpdates.join(', ')}. Previous prices retained.`
         )
       }
@@ -462,9 +476,9 @@ export const createStocksSlice: StateCreator<
         state.setStockValue('market_value', newTotal)
         state.setStockValue('zakatable_value', newZakatable)
       }
-    } catch (error) {
-      set({ lastError: error instanceof Error ? error.message : 'Failed to update prices' })
-      throw error
+    } catch (_error) {
+      set({ lastError: _error instanceof Error ? _error.message : 'Failed to update prices' })
+      throw _error
     } finally {
       set({ isLoading: false })
     }
@@ -712,7 +726,7 @@ export const createStocksSlice: StateCreator<
       }
 
       // Update state and trigger recalculations
-      set((state: any) => {
+      set((state: ZakatState) => {
         const updatedState = {
           stockValues: {
             ...state.stockValues,

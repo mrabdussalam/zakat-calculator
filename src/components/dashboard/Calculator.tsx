@@ -185,7 +185,7 @@ export function Calculator({
         animate="animate"
         exit="exit"
         variants={slideAnimation}
-        className="w-full"
+        className="w-full max-w-full overflow-hidden"
       >
         {renderCalculator()}
       </motion.div>

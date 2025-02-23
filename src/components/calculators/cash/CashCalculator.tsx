@@ -366,35 +366,37 @@ export function CashCalculator({ currency, onCalculatorChange }: CashCalculatorP
 
   return (
     <TooltipProvider>
-      <div className="space-y-8">
+      <div className="space-y-8 w-full">
         {/* Main Content */}
-        <div className="space-y-10">
+        <div className="space-y-10 w-full">
           {/* Cash Categories */}
-          <section>
+          <section className="w-full">
             <FAQ
               title="Cash Holdings"
               description="Enter all your cash and cash-equivalent holdings. Include any money that's easily accessible."
               items={ASSET_FAQS.cash}
               defaultOpen={false}
             />
-            <div className="mt-6 space-y-6">
+            <div className="mt-6 space-y-6 w-full">
               {CASH_CATEGORIES.map((category) => (
-                <div key={category.id} className="space-y-2">
+                <div key={category.id} className="space-y-2 w-full">
                   <div className="flex items-center gap-1.5">
                     <Label htmlFor={category.id}>
                       {category.name}
                     </Label>
                   </div>
                   {category.id === 'foreign_currency' ?
-                    <div className="space-y-4">
+                    <div className="space-y-4 w-full">
                       {foreignCurrencies.map((entry: ForeignCurrencyEntry, index: number) => (
-                        <div key={index} className="flex gap-2 items-start group">
-                          <div className="flex-grow flex gap-2">
-                            <CurrencySelector
-                              value={entry.currency}
-                              onValueChange={(value) => handleForeignCurrencyChange(index, 'currency', value)}
-                            />
-                            <div className="relative w-full">
+                        <div key={index} className="w-full">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full">
+                            <div className="w-full sm:w-[240px]">
+                              <CurrencySelector
+                                value={entry.currency}
+                                onValueChange={(value) => handleForeignCurrencyChange(index, 'currency', value)}
+                              />
+                            </div>
+                            <div className="relative flex-1 min-w-0">
                               <Input
                                 type="text"
                                 inputMode="decimal"
@@ -404,33 +406,17 @@ export function CashCalculator({ currency, onCalculatorChange }: CashCalculatorP
                                 onChange={(e) => handleForeignCurrencyChange(index, 'amount', e.target.value)}
                                 placeholder="Enter amount"
                               />
-                              <div className="absolute inset-y-0 right-3 flex items-center gap-2">
-                                {isLoading ? (
-                                  <div className="flex items-center gap-2">
-                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
-                                    <span className="text-sm text-gray-500">Converting...</span>
-                                  </div>
-                                ) : (
-                                  <span className="text-sm text-gray-500">
-                                    ≈ {formatCurrency(convertAmount?.(entry.amount, entry.currency, currency) || 0)}
-                                  </span>
-                                )}
-                              </div>
                             </div>
-                          </div>
-                          {foreignCurrencies.length > 1 && (
                             <Button
                               variant="ghost"
-                              size="icon"
+                              size="sm"
                               onClick={() => removeForeignCurrency(index)}
-                              className="h-10 w-10 shrink-0 transition-colors hover:bg-destructive/10"
+                              className="text-gray-500 hover:text-red-500 w-full sm:w-auto shrink-0"
                             >
-                              <DeleteIcon 
-                                size={18} 
-                                className="text-muted-foreground transition-colors group-hover:text-destructive hover:text-destructive" 
-                              />
+                              <DeleteIcon className="h-4 w-4" />
+                              <span className="ml-2 sm:hidden">Remove</span>
                             </Button>
-                          )}
+                          </div>
                         </div>
                       ))}
                       <Button
@@ -442,43 +428,18 @@ export function CashCalculator({ currency, onCalculatorChange }: CashCalculatorP
                         <PlusIcon className="h-4 w-4 mr-2" />
                         Add Currency
                       </Button>
-                      {isLoading && (
-                        <p className="text-sm text-muted-foreground flex items-center gap-2">
-                          <svg
-                            className="animate-spin h-4 w-4"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            />
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            />
-                          </svg>
-                          Updating exchange rates...
-                        </p>
-                      )}
                     </div>
                   :
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-3 flex items-center">
-                        <span className="text-sm font-medium text-gray-900 mr-1">{currency}</span>
+                    <div className="relative w-full">
+                      <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                        <span className="text-sm font-medium text-gray-900">{currency}</span>
                       </div>
                       <Input
                         id={category.id}
                         type="text"
                         inputMode="decimal"
                         pattern="[\d+\-*/.() ]*"
-                        className="pl-12 text-sm bg-white"
+                        className="pl-12 text-sm bg-white w-full"
                         value={rawInputValues[category.id] || inputValues[category.id] || ''}
                         onChange={(e) => handleValueChange(category.id, e)}
                         placeholder={category.id === 'cash_on_hand' ? "Enter amount or calculation (e.g. 1500+1500)" : "Enter amount or calculation"}

@@ -29,7 +29,7 @@ export function AssetList({
   const totalAmount = assets.reduce((sum, asset) => sum + asset.amount, 0)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-medium text-gray-900">Your Assets</h2>
@@ -55,7 +55,7 @@ export function AssetList({
         </div>
       ) : (
         <>
-          <div className="grid gap-4">
+          <div className="grid gap-6">
             {assets.map((asset) => (
               <AssetCard
                 key={asset.id}
@@ -66,7 +66,7 @@ export function AssetList({
             ))}
           </div>
 
-          <div className="p-4 rounded-xl bg-gray-50 border border-gray-100">
+          <div className="p-6 rounded-xl bg-gray-50 border border-gray-100">
             <div className="text-sm font-medium text-gray-500">Total Value</div>
             <div className="text-2xl font-medium text-gray-900 mt-1">
               {totalAmount.toLocaleString()} {assets[0]?.currency}

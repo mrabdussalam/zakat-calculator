@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight } from "lucide-react"
 import { AssetBreakdown } from "../types"
 import { AssetDetails } from "./AssetDetails"
 import { cn } from "@/lib/utils"
-import { ASSET_COLORS } from "../constants"
+import { ASSET_COLORS } from "@/config/colors"
 import { motion, AnimatePresence } from "framer-motion"
 
 export interface AssetRowProps {
@@ -33,6 +33,7 @@ export function AssetRow({
     Object.keys(breakdown.items).length > 0 && 
     Object.values(breakdown.items).some(item => item.value > 0)
   const percentage = totalAssets > 0 ? ((total / totalAssets) * 100).toFixed(1) : '0.0'
+  const color = ASSET_COLORS[assetType as keyof typeof ASSET_COLORS]
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -58,7 +59,7 @@ export function AssetRow({
     <div>
       <div 
         className={cn(
-          "px-2 py-2.5 rounded-lg", 
+          "px-2 py-2.5 rounded-lg select-none", 
           hasDetails && "cursor-pointer hover:bg-gray-50"
         )}
         onClick={handleClick}
@@ -68,8 +69,8 @@ export function AssetRow({
         aria-expanded={hasDetails ? isExpanded : undefined}
       >
         <div className="flex justify-between text-sm">
-          <div className="flex items-center">
-            <div className="w-8 flex items-center justify-center">
+          <div className="flex items-center min-w-0">
+            <div className="w-8 flex-shrink-0 flex items-center justify-center">
               <motion.div
                 initial={false}
                 animate={{ rotate: isExpanded ? 0 : -90 }}
@@ -81,21 +82,21 @@ export function AssetRow({
                 )} />
               </motion.div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <div 
-                className="w-2.5 h-2.5 rounded-full"
-                style={{ backgroundColor: ASSET_COLORS[assetType] }}
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: color }}
               />
-              <span className="text-gray-900">{title}</span>
-              <span className="text-xs text-gray-500">
+              <span className="text-gray-900 truncate">{title}</span>
+              <span className="text-xs text-gray-500 flex-shrink-0">
                 {percentage}%
               </span>
               {!hawlMet && (
-                <span className="text-xs text-amber-600">(Hawl not met)</span>
+                <span className="text-xs text-amber-600 flex-shrink-0">(Hawl not met)</span>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-4 text-xs">
+          <div className="flex items-center gap-4 text-xs flex-shrink-0">
             <span className="w-[140px] text-right text-gray-900">
               {total.toLocaleString(undefined, { style: 'currency', currency })}
             </span>

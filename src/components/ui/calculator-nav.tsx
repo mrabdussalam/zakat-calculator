@@ -52,7 +52,7 @@ export function CalculatorNav({ currentCalculator, onCalculatorChange, className
     >
       <div className="flex justify-between items-center">
         {/* Previous button container with fixed width */}
-        <div className="w-[44px] flex items-center">
+        <div className="w-[44px] h-[44px] flex items-center justify-center">
           {prevCalculator && (
             <Button
               variant="secondary"
@@ -70,7 +70,7 @@ export function CalculatorNav({ currentCalculator, onCalculatorChange, className
         <div className="flex-1" />
         
         {/* Next button container with fixed width */}
-        <div className="w-[44px] flex items-center">
+        <div className="w-[44px] h-[44px] flex items-center justify-center">
           {nextCalculator && (
             <Button
               variant="secondary"

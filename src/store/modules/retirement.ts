@@ -1,7 +1,7 @@
 import { StateCreator } from 'zustand'
 import { RetirementValues, ZakatState } from '../types'
 import { getAssetType } from '@/lib/assets/registry'
-import { roundCurrency, isValidCurrencyAmount } from '@/lib/utils/currency'
+import { roundCurrency } from '@/lib/utils/currency'
 import { AssetBreakdown } from '@/lib/assets/types'
 import { AssetValidation } from '@/lib/validation/assetValidation'
 import { DEFAULT_HAWL_STATUS } from '../constants'

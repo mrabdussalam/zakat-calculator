@@ -3,7 +3,6 @@ import { ZakatState } from '../types'
 import { ZAKAT_RATE } from '@/lib/constants'
 import { DEFAULT_HAWL_STATUS } from '../constants'
 import { getCryptoPrice, CryptoAPIError } from '@/lib/api/crypto'
-import { getAssetType } from '@/lib/assets/registry'
 import { roundCurrency } from '@/lib/utils/currency'
 import { CryptoSlice, CryptoValues, CryptoHolding } from './crypto.types'
 
@@ -108,7 +107,7 @@ export const createCryptoSlice: StateCreator<
     }
 
     const failedUpdates: string[] = []
-    let updatedCoins = [...coins]
+    const updatedCoins = [...coins]
 
     try {
       // Update each coin individually to handle failures gracefully
@@ -185,7 +184,16 @@ export const createCryptoSlice: StateCreator<
       total,
       zakatable,
       zakatDue: roundCurrency(zakatable * ZAKAT_RATE),
-      items: coins.reduce((acc: Record<string, any>, coin: CryptoHolding) => ({
+      items: coins.reduce((acc: Record<string, {
+        value: number;
+        isZakatable: boolean;
+        zakatable: number;
+        zakatDue: number;
+        label: string;
+        tooltip: string;
+        percentage: number;
+        isExempt: boolean;
+      }>, coin: CryptoHolding) => ({
         ...acc,
         [coin.symbol.toLowerCase()]: {
           value: roundCurrency(coin.marketValue),

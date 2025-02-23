@@ -90,7 +90,7 @@ export function RetirementCalculator({
   const zakatDue = breakdown?.zakatDue || 0
 
   // State for fund accessibility
-  const [accessibility, setAccessibility] = useState<'accessible' | 'locked'>('locked')
+  const [accessibility, setAccessibility] = useState<'accessible' | 'restricted'>('restricted')
   
   // State for account details
   const [accountDetails, setAccountDetails] = useState<AccountDetails>({
@@ -122,7 +122,7 @@ export function RetirementCalculator({
     } 
     // Check for locked funds
     else if (retirementValues.pension > 0) {
-      setAccessibility('locked')
+      setAccessibility('restricted')
       setAccountDetails(prev => ({
         ...prev,
         balance: retirementValues.pension,
@@ -132,7 +132,7 @@ export function RetirementCalculator({
     }
     // Check for withdrawn funds
     else if (retirementValues.other_retirement > 0) {
-      setAccessibility('locked')
+      setAccessibility('restricted')
       setAccountDetails(prev => ({
         ...prev,
         balance: 0,
@@ -144,7 +144,7 @@ export function RetirementCalculator({
 
   // Handle accessibility change
   const handleAccessibilityChange = (value: string) => {
-    const newAccessibility = value as 'accessible' | 'locked'
+    const newAccessibility = value as 'accessible' | 'restricted'
     const currentBalance = accountDetails.balance
     
     setAccessibility(newAccessibility)
@@ -362,14 +362,6 @@ export function RetirementCalculator({
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
                 <Label>Are These Funds Accessible?</Label>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <InfoIcon className="h-4 w-4 text-gray-400" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Zakat is only due on the portion of funds that you can withdraw without penalties. If your retirement account is locked until a certain age, you do not pay Zakat until withdrawal.
-                  </TooltipContent>
-                </Tooltip>
               </div>
             </div>
             <RadioGroup
@@ -383,8 +375,8 @@ export function RetirementCalculator({
                 description="Can be withdrawn now (e.g., vested 401k if over 59½)"
               />
               <RadioGroupCard
-                value="locked"
-                title="Locked Funds"
+                value="restricted"
+                title="Restricted Funds"
                 description="Cannot withdraw without penalties"
               />
             </RadioGroup>
@@ -482,10 +474,30 @@ export function RetirementCalculator({
           // Information for locked funds
           <section>
             <div className="space-y-6">
-              <div className="p-4 rounded-lg border border-blue-100 bg-blue-50/50">
+              <div className="space-y-4">
                 <p className="text-sm text-gray-600">
-                  Since your retirement funds are locked until retirement, Zakat is deferred. No annual Zakat is due on these funds.
+                  Your retirement funds are restricted until retirement. There are two scholarly views on Zakat for such funds:
                 </p>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-100">
+                    <div className="mb-2">
+                      <p className="text-[10px] font-medium text-gray-900 uppercase tracking-widest">View 1</p>
+                      <h4 className="text-sm font-medium text-gray-900">Annual Payment</h4>
+                    </div>
+                    <p className="text-sm text-gray-600">Pay Zakat yearly on the estimated amount you would receive after penalties and taxes (2.5% of net withdrawable amount).</p>
+                  </div>
+                  
+                  <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-100">
+                    <div className="mb-2">
+                      <p className="text-[10px] font-medium text-gray-900 uppercase tracking-widest">View 2</p>
+                      <h4 className="text-sm font-medium text-gray-900">Defer Payment</h4>
+                    </div>
+                    <p className="text-sm text-gray-600">Delay Zakat until funds are accessible. Then pay on total balance and consider previous years.</p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-gray-500">See FAQ above for detailed guidance from the Fiqh Council of North America.</p>
               </div>
 
               {/* Account Balance Input for Record Keeping */}

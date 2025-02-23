@@ -23,7 +23,31 @@ export const SOURCES = {
     id: 'amazon',
     name: 'Simple Zakat Guide on Amazon',
     icon: '',
-    url: 'https://www.amazon.com/Simple-Zakat-Guide-Understand-Calculate/dp/0996519246/ref=sr_1_1?crid=33KCWNFKD9W3D&dib=eyJ2IjoiMSJ9.RUq2wWMzo1qTBSMbqX_o3ZiftZYysb8jmApfP0zqXuoU5Y4FvonTZFLiOSdoFQia_PrM0j0fDlGultzTJgblV72d51ZJNnqt7BCjNGxZuWWyQ2RvRvlz4GZ_MRDjODmMcTAOJ6G37o2_5gf-NPpeF8WgVCxdY0sgWJsff_45WemrkPScRSaE991GEoJZ5y_Is9PkMh6oNyyfnLKbncqCElJC-ks2x5y0HTpJprn2cPA.Zxch9I9EN3F_QfScEmniPp9VszQI-JYoDsK46J_2AOM&dib_tag=se&keywords=zakat+guide&qid=1740258627&sprefix=zakat+guide%2Caps%2C180&sr=8-1'
+    url: 'https://www.amazon.com/Simple-Zakat-Guide-Understand-Calculate/dp/0996519246'
+  },
+  IFG: {
+    id: 'ifg',
+    name: '[1] Islamic Finance Guru - Property Zakat Guide',
+    icon: '',
+    url: 'https://www.islamicfinanceguru.com/articles/calculate-zakat-on-property-btl-and-family-home'
+  },
+  NZF: {
+    id: 'nzf',
+    name: '[2] National Zakat Foundation - Property Zakat Guide',
+    icon: '',
+    url: 'https://nzf.org.uk/knowledge/zakat-on-property/'
+  },
+  LAUNCHGOOD: {
+    id: 'launchgood',
+    name: '[3] LaunchGood - Zakat Guide',
+    icon: '',
+    url: 'https://www.launchgood.com/v4/blog/zakat-cash-property-investments'
+  },
+  FIQH_COUNCIL: {
+    id: 'fiqh_council',
+    name: 'Fiqh Council of North America',
+    icon: '',
+    url: 'https://fiqhcouncil.org/zakah-on-retirement-funds/'
   }
 } as const
 

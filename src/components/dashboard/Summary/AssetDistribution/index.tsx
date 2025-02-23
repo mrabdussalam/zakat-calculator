@@ -32,16 +32,16 @@ export function AssetDistribution({ assetValues, totalAssets }: AssetDistributio
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-3">
           {filteredAssets.map(([type, value]) => {
             const percentage = calculatePercentage(value, totalAssets)
             return (
               <div key={type} className="flex items-center gap-2">
                 <div 
-                  className="h-2.5 w-2.5 rounded-full"
+                  className="h-2.5 w-2.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: ASSET_COLORS[type as keyof typeof ASSET_COLORS] }}
                 />
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-gray-500 whitespace-nowrap">
                   {ASSET_DISPLAY_NAMES[type as keyof typeof ASSET_DISPLAY_NAMES]} ({percentage}%)
                 </span>
               </div>

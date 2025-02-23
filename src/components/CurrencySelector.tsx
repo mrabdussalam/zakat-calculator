@@ -23,7 +23,6 @@ const longestName = currencies.reduce((max, curr) =>
   curr.name.length > max.length ? curr.name : max, 
   currencies[0].name
 )
-const SELECTOR_WIDTH = 420 // Fixed width to accommodate longest names
 
 interface CurrencySelectorProps {
   value: string
@@ -34,8 +33,7 @@ export function CurrencySelector({ value, onValueChange }: CurrencySelectorProps
   return (
     <Select.Root value={value} onValueChange={onValueChange}>
       <Select.Trigger
-        className="flex h-10 items-center justify-between rounded-lg border border-input bg-muted/50 pl-12 pr-8 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 relative"
-        style={{ width: SELECTOR_WIDTH }}
+        className="flex h-10 items-center justify-between rounded-lg border border-input bg-muted/50 pl-12 pr-8 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 relative w-full"
         aria-label="Select currency"
       >
         <div className="absolute inset-y-0 left-3 flex items-center">
@@ -61,8 +59,7 @@ export function CurrencySelector({ value, onValueChange }: CurrencySelectorProps
       </Select.Trigger>
       <Select.Portal>
         <Select.Content 
-          className="overflow-hidden rounded-lg border border-gray-800 bg-gray-900 text-gray-100 shadow-md animate-in fade-in-80"
-          style={{ width: SELECTOR_WIDTH }}
+          className="overflow-hidden rounded-lg border border-gray-800 bg-gray-900 text-gray-100 shadow-md animate-in fade-in-80 w-[var(--radix-select-trigger-width)]"
           position="popper"
           sideOffset={5}
           align="start"

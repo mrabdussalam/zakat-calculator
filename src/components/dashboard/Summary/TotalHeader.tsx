@@ -58,10 +58,10 @@ interface TotalHeaderProps {
 export function TotalHeader({ totalAssets, breakdown, nisabStatus, currency }: TotalHeaderProps) {
   return (
     <div className="flex flex-col gap-4 bg-white rounded-lg">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <div className="text-sm text-gray-500">Total Assets</div>
-          <div className="text-2xl font-medium">
+          <div className="text-xl sm:text-2xl font-medium">
             <motion.span
               initial={false}
               animate={{ 
@@ -77,7 +77,7 @@ export function TotalHeader({ totalAssets, breakdown, nisabStatus, currency }: T
         <div>
           <div className="text-sm text-gray-500">Zakat Due</div>
           <div>
-            <div className="text-2xl font-medium">
+            <div className="text-xl sm:text-2xl font-medium">
               <motion.span
                 initial={false}
                 animate={{ 
@@ -89,7 +89,7 @@ export function TotalHeader({ totalAssets, breakdown, nisabStatus, currency }: T
                 {formatCurrency(breakdown.combined.zakatDue)}
               </motion.span>
             </div>
-            <div className="text-sm text-gray-500">
+            <div className="text-xs sm:text-sm text-gray-500">
               {!nisabStatus.meetsNisab ? 'No Zakat due (Below Nisab)' : '2.5% of eligible assets'}
             </div>
           </div>

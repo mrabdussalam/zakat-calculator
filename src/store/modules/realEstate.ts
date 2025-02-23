@@ -90,12 +90,7 @@ const initialRealEstateValues: RealEstateValues = {
 }
 
 // Store slice creator
-export const createRealEstateSlice: StateCreator<
-  ZakatState,
-  [["zustand/persist", unknown]],
-  [],
-  RealEstateSlice
-> = (set, get, store) => ({
+export const createRealEstateSlice: StateCreator<ZakatState> = (set, get) => ({
   // State
   realEstateValues: initialRealEstateValues,
   realEstateErrors: {},

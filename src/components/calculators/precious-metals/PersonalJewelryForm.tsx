@@ -21,6 +21,7 @@ import { ASSET_FAQS } from '@/config/faqs'
 import { RadioGroup, RadioGroupCard } from '@/components/ui/form/radio-group'
 import { metalsValidation } from '@/lib/validation/calculators/metalsValidation'
 import { CalculatorNav } from '@/components/ui/calculator-nav'
+import { cn } from '@/lib/utils'
 
 interface PersonalJewelryFormProps {
   currency: string
@@ -438,25 +439,27 @@ export function PersonalJewelryForm({
             {/* Price Source Indicator - Compact Version */}
             <div className="mt-6 text-xs">
               <div className="flex items-center">
-                {metalPrices.isCache ? (
-                  <span className="text-amber-500 text-[10px]">Cached</span>
-                ) : (
-                  <div className="flex items-center gap-1 bg-green-50 py-0.5 px-1.5 rounded-full">
-                    <span className="relative flex h-1.5 w-1.5">
-                      <span className="absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 animate-[ping_2s_ease-in-out_infinite]"></span>
-                      <span className="absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-50 animate-[ping_2s_ease-in-out_infinite_1s]"></span>
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
-                    </span>
-                    <span className="text-green-500 font-medium text-[10px]">LIVE</span>
-                  </div>
+                {!metalPrices.isCache && (
+                  <span className="relative flex h-1.5 w-1.5 mr-2">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 animate-[ping_2s_ease-in-out_infinite]"></span>
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-50 animate-[ping_2s_ease-in-out_infinite_1s]"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+                  </span>
                 )}
-                <div className="flex items-center ml-2">
-                  <span className="text-gray-500">Gold: {formatCurrency(metalPrices.gold)}/g</span>
-                  <span className="text-gray-300 mx-1">•</span>
-                  <span className="text-gray-500">Silver: {formatCurrency(metalPrices.silver)}/g</span>
-                </div>
-                <div className="ml-2 text-gray-400">
-                  Updated: {new Date(metalPrices.lastUpdated).toLocaleString()}
+                <div className="flex items-center">
+                  <span className="text-gray-500">
+                    Prices Last Updated: {new Date(metalPrices.lastUpdated).toLocaleString()}
+                  </span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-gray-400 hover:text-gray-600 transition-colors ml-1.5">
+                        <InfoIcon className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Gold: {formatCurrency(metalPrices.gold)}/g • Silver: {formatCurrency(metalPrices.silver)}/g
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
             </div>

@@ -1,9 +1,26 @@
 import { StateCreator } from 'zustand'
 import { MetalsValues, MetalPrices } from './metals.types'
-import { initialMetalsValues, initialMetalPrices, DEFAULT_HAWL_STATUS } from '../constants'
+import { DEFAULT_HAWL_STATUS } from '../constants'
 import { computeMetalsResults } from '../utils'
 import { ZakatState } from '../types'
 import { ZAKAT_RATE } from '@/lib/constants'
+
+// Initial values
+const initialMetalsValues: MetalsValues = {
+  gold_regular: 0,
+  gold_occasional: 0,
+  gold_investment: 0,
+  silver_regular: 0,
+  silver_occasional: 0,
+  silver_investment: 0
+}
+
+const initialMetalPrices: MetalPrices = {
+  gold: 0,
+  silver: 0,
+  lastUpdated: new Date(),
+  isCache: false
+}
 
 export interface MetalsSlice {
   // State
@@ -42,20 +59,15 @@ export interface MetalsSlice {
   }
 }
 
-export const createMetalsSlice: StateCreator<
-  ZakatState,
-  [["zustand/persist", unknown]],
-  [],
-  MetalsSlice
-> = (set, get, store) => ({
+export const createMetalsSlice: StateCreator<ZakatState> = (set, get) => ({
   // Initial state
   metalsValues: initialMetalsValues,
   metalPrices: initialMetalPrices,
   metalsHawlMet: DEFAULT_HAWL_STATUS.metals,
 
   // Actions
-  setMetalsValue: (key, value) => 
-    set((state: any) => ({
+  setMetalsValue: (key: keyof MetalsValues, value: number) => 
+    set((state: ZakatState) => ({
       metalsValues: {
         ...state.metalsValues,
         [key]: value
@@ -64,9 +76,9 @@ export const createMetalsSlice: StateCreator<
 
   resetMetalsValues: () => set({ metalsValues: initialMetalsValues }),
 
-  setMetalPrices: (prices) => set({ metalPrices: prices }),
+  setMetalPrices: (prices: MetalPrices) => set({ metalPrices: prices }),
 
-  setMetalsHawl: (value) => set({ metalsHawlMet: value }),
+  setMetalsHawl: (value: boolean) => set({ metalsHawlMet: value }),
 
   // Getters
   getTotalMetals: () => {

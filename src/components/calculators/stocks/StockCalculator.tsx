@@ -266,7 +266,7 @@ export function StockCalculator({
 
   // Prepare summary sections
   const summaryData = {
-    title: "Stock Portfolio Summary",
+    title: "Stocks & Investments",
     description: "Review your stock portfolio's zakatable assets and calculated Zakat amount.",
     sections: [
       {

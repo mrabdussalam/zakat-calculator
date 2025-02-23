@@ -36,8 +36,8 @@ export function Sources({ sources, className }: SourcesProps) {
             rel="noopener noreferrer"
             className={cn(
               "relative h-6 w-6 rounded-full border-2 border-white shadow-sm transition-transform hover:scale-110 hover:z-10",
-              // Amazon-specific styling
-              source.id === 'amazon' ? "bg-[#FF9900] text-white hover:bg-[#FF9900]/90" : "bg-white"
+              source.id === 'amazon' ? "bg-[#FF9900] text-white hover:bg-[#FF9900]/90" : 
+              !source.icon ? "bg-gray-900 text-white hover:bg-gray-800" : "bg-white"
             )}
             title={source.name}
           >
@@ -45,13 +45,17 @@ export function Sources({ sources, className }: SourcesProps) {
               <div className="absolute inset-0 flex items-center justify-center">
                 <AmazonIcon className="w-4 h-4 text-white" />
               </div>
-            ) : (
+            ) : source.icon ? (
               <Image
                 src={source.icon}
                 alt={source.name}
                 fill
                 className="rounded-full object-cover"
               />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-xs font-medium">{source.name.match(/^\[(\d+)\]/)?.[1]}</span>
+              </div>
             )}
           </a>
         ))}
