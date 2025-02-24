@@ -19,6 +19,23 @@ interface SourcesProps {
 export function Sources({ sources, className }: SourcesProps) {
   if (!sources.length) return null
 
+  // Color mapping for different source types
+  const getSourceColor = (sourceId: string) => {
+    const colorMap: Record<string, { bg: string, text: string }> = {
+      amazon: { bg: 'bg-[#FF9900]', text: 'text-white' },
+      wikipedia: { bg: 'bg-gray-900', text: 'text-white' },
+      wzo: { bg: 'bg-green-600', text: 'text-white' },
+      ife: { bg: 'bg-blue-600', text: 'text-white' },
+      ifg: { bg: 'bg-purple-600', text: 'text-white' },
+      nzf: { bg: 'bg-indigo-600', text: 'text-white' },
+      launchgood: { bg: 'bg-teal-600', text: 'text-white' },
+      fiqh_council: { bg: 'bg-rose-600', text: 'text-white' },
+      barakah_capital: { bg: 'bg-amber-600', text: 'text-white' },
+      joe_bradford: { bg: 'bg-cyan-600', text: 'text-white' }
+    }
+    return colorMap[sourceId] || { bg: 'bg-gray-600', text: 'text-white' }
+  }
+
   return (
     <div 
       className={cn(
@@ -28,37 +45,40 @@ export function Sources({ sources, className }: SourcesProps) {
     >
       <span className="text-xs font-medium text-gray-600">Sources</span>
       <div className="flex items-center -space-x-1">
-        {sources.map((source) => (
-          <a
-            key={source.id}
-            href={source.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(
-              "relative h-6 w-6 rounded-full border-2 border-white shadow-sm transition-transform hover:scale-110 hover:z-10",
-              source.id === 'amazon' ? "bg-[#FF9900] text-white hover:bg-[#FF9900]/90" : 
-              !source.icon ? "bg-gray-900 text-white hover:bg-gray-800" : "bg-white"
-            )}
-            title={source.name}
-          >
-            {source.id === 'amazon' ? (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <AmazonIcon className="w-4 h-4 text-white" />
-              </div>
-            ) : source.icon ? (
-              <Image
-                src={source.icon}
-                alt={source.name}
-                fill
-                className="rounded-full object-cover"
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-xs font-medium">{source.name.match(/^\[(\d+)\]/)?.[1]}</span>
-              </div>
-            )}
-          </a>
-        ))}
+        {sources.map((source) => {
+          const colors = getSourceColor(source.id)
+          return (
+            <a
+              key={source.id}
+              href={source.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                "relative h-6 w-6 rounded-full border-2 border-white shadow-sm transition-transform hover:scale-110 hover:z-10",
+                source.icon ? "bg-white" : colors.bg,
+                colors.text
+              )}
+              title={source.name}
+            >
+              {source.id === 'amazon' ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <AmazonIcon className="w-4 h-4 text-white" />
+                </div>
+              ) : source.icon ? (
+                <Image
+                  src={source.icon}
+                  alt={source.name}
+                  fill
+                  className="rounded-full object-cover"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xs font-medium">{source.name.match(/^\[(\d+)\]/)?.[1]}</span>
+                </div>
+              )}
+            </a>
+          )
+        })}
       </div>
     </div>
   )

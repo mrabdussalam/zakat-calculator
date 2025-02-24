@@ -28,6 +28,7 @@ interface PersonalJewelryFormProps {
   onUpdateValues: (values: Record<string, number>) => void
   onHawlUpdate: (hawlMet: boolean) => void
   onCalculatorChange: (calculator: string) => void
+  onOpenSummary?: () => void
   initialValues?: Record<string, number>
   initialHawlMet?: boolean
 }
@@ -76,6 +77,7 @@ export function PersonalJewelryForm({
   onUpdateValues,
   onHawlUpdate,
   onCalculatorChange,
+  onOpenSummary,
   initialValues = {},
   initialHawlMet = true
 }: PersonalJewelryFormProps) {
@@ -196,7 +198,8 @@ export function PersonalJewelryForm({
     }
 
     fetchPrices()
-    const interval = setInterval(fetchPrices, 60000) // Refresh every minute
+    // Sync polling interval with API cache duration (5 minutes)
+    const interval = setInterval(fetchPrices, 5 * 60 * 1000)
     return () => clearInterval(interval)
   }, [currency, setMetalPrices])
 
@@ -440,26 +443,16 @@ export function PersonalJewelryForm({
             <div className="mt-6 text-xs">
               <div className="flex items-center">
                 {!metalPrices.isCache && (
-                  <span className="relative flex h-1.5 w-1.5 mr-2">
+                  <span className="relative flex h-[11px] w-[11px] mr-2">
                     <span className="absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 animate-[ping_2s_ease-in-out_infinite]"></span>
                     <span className="absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-50 animate-[ping_2s_ease-in-out_infinite_1s]"></span>
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+                    <span className="relative inline-flex rounded-full h-[11px] w-[11px] bg-green-500"></span>
                   </span>
                 )}
                 <div className="flex items-center">
-                  <span className="text-gray-500">
+                  <span className="text-[11px] text-gray-400">
                     Prices Last Updated: {new Date(metalPrices.lastUpdated).toLocaleString()}
                   </span>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button type="button" className="text-gray-400 hover:text-gray-600 transition-colors ml-1.5">
-                        <InfoIcon className="h-4 w-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      Gold: {formatCurrency(metalPrices.gold)}/g • Silver: {formatCurrency(metalPrices.silver)}/g
-                    </TooltipContent>
-                  </Tooltip>
                 </div>
               </div>
             </div>
@@ -527,6 +520,7 @@ export function PersonalJewelryForm({
       <CalculatorNav 
         currentCalculator="precious-metals" 
         onCalculatorChange={onCalculatorChange}
+        onOpenSummary={onOpenSummary}
       />
     </div>
   )

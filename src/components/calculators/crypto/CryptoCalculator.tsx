@@ -18,6 +18,7 @@ interface CryptoCalculatorProps {
   onUpdateValues: (values: Record<string, number>) => void
   onHawlUpdate: (hawlMet: boolean) => void
   onCalculatorChange: (calculator: string) => void
+  onOpenSummary?: () => void
   initialValues?: Record<string, number>
   initialHawlMet?: boolean
 }
@@ -27,6 +28,7 @@ export function CryptoCalculator({
   onUpdateValues,
   onHawlUpdate,
   onCalculatorChange,
+  onOpenSummary,
   initialValues = {},
   initialHawlMet = true
 }: CryptoCalculatorProps) {
@@ -363,6 +365,7 @@ export function CryptoCalculator({
       <CalculatorNav 
         currentCalculator="crypto" 
         onCalculatorChange={onCalculatorChange}
+        onOpenSummary={onOpenSummary}
       />
     </div>
   )

@@ -53,6 +53,7 @@ interface RealEstateCalculatorProps {
   onUpdateValues: (values: Record<string, number>) => void
   onHawlUpdate: (hawlMet: boolean) => void
   onCalculatorChange: (calculator: string) => void
+  onOpenSummary?: () => void
   initialValues?: Record<string, number>
   initialHawlMet?: boolean
 }
@@ -62,6 +63,7 @@ export function RealEstateCalculator({
   onUpdateValues,
   onHawlUpdate,
   onCalculatorChange,
+  onOpenSummary,
   initialValues = {},
   initialHawlMet = true
 }: RealEstateCalculatorProps) {
@@ -168,6 +170,7 @@ export function RealEstateCalculator({
       <CalculatorNav 
         currentCalculator="real-estate" 
         onCalculatorChange={onCalculatorChange}
+        onOpenSummary={onOpenSummary}
       />
     </div>
   )

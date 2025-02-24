@@ -35,6 +35,7 @@ interface RetirementCalculatorProps {
   onUpdateValues: (values: Record<string, number>) => void
   onHawlUpdate: (hawlMet: boolean) => void
   onCalculatorChange: (calculator: string) => void
+  onOpenSummary?: () => void
   initialValues?: Record<string, number>
   initialHawlMet?: boolean
 }
@@ -44,6 +45,7 @@ export function RetirementCalculator({
   onUpdateValues,
   onHawlUpdate,
   onCalculatorChange,
+  onOpenSummary,
   initialValues = {},
   initialHawlMet = true
 }: RetirementCalculatorProps) {
@@ -600,6 +602,7 @@ export function RetirementCalculator({
       <CalculatorNav 
         currentCalculator="retirement" 
         onCalculatorChange={onCalculatorChange}
+        onOpenSummary={onOpenSummary}
       />
     </div>
   )

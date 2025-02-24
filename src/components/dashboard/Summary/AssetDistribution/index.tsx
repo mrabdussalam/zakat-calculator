@@ -11,7 +11,7 @@ export function AssetDistribution({ assetValues, totalAssets }: AssetDistributio
 
   return (
     <div className="bg-white rounded-lg">
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         <div className="text-sm font-medium text-gray-900">Asset Distribution</div>
         
         {/* Chart */}
@@ -32,16 +32,16 @@ export function AssetDistribution({ assetValues, totalAssets }: AssetDistributio
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap gap-3">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3">
           {filteredAssets.map(([type, value]) => {
             const percentage = calculatePercentage(value, totalAssets)
             return (
-              <div key={type} className="flex items-center gap-2">
+              <div key={type} className="flex items-center gap-1.5 sm:gap-2">
                 <div 
-                  className="h-2.5 w-2.5 rounded-full flex-shrink-0"
+                  className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: ASSET_COLORS[type as keyof typeof ASSET_COLORS] }}
                 />
-                <span className="text-xs text-gray-500 whitespace-nowrap">
+                <span className="text-[10px] sm:text-xs text-gray-500 truncate">
                   {ASSET_DISPLAY_NAMES[type as keyof typeof ASSET_DISPLAY_NAMES]} ({percentage}%)
                 </span>
               </div>

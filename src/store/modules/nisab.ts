@@ -70,13 +70,29 @@ export const createNisabSlice: StateCreator<
     const totalValue = totalCash + totalMetals + totalStocks + 
       totalRetirement + totalRealEstate + totalCrypto
     
-    // Get metal prices from the metals slice
-    const metalPrices = state.metalPrices || { gold: 0, silver: 0 }
+    // Get metal prices from the metals slice with fallback values
+    const metalPrices = {
+      gold: state.metalPrices?.gold || 65.52, // Default gold price
+      silver: state.metalPrices?.silver || 0.85 // Default silver price
+    }
     
     // Calculate Nisab thresholds
     const goldNisabValue = NISAB.GOLD.GRAMS * metalPrices.gold    // 85g * gold price
     const silverNisabValue = NISAB.SILVER.GRAMS * metalPrices.silver  // 595g * silver price
-    const nisabThreshold = Math.min(goldNisabValue, silverNisabValue)
+    
+    // Use the lower of the two valid nisab values
+    // If either price is invalid (0 or negative), use the other one
+    let nisabThreshold = silverNisabValue; // Default to silver
+    if (metalPrices.gold > 0 && metalPrices.silver > 0) {
+      nisabThreshold = Math.min(goldNisabValue, silverNisabValue);
+    } else if (metalPrices.gold > 0) {
+      nisabThreshold = goldNisabValue;
+    }
+    
+    // Ensure we have a valid threshold
+    if (nisabThreshold <= 0) {
+      nisabThreshold = NISAB.SILVER.GRAMS * 0.85; // Fallback to default silver price
+    }
     
     return {
       meetsNisab: totalValue >= nisabThreshold,

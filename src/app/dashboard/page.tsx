@@ -10,8 +10,9 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { useZakatStore } from '@/store/zakatStore'
 import { cn } from '@/lib/utils'
 import { DEFAULT_HAWL_STATUS } from '@/store/constants'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, ChevronLeft } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { SidebarToggle } from '@/components/ui/sidebar-toggle'
 
 interface DashboardState {
   selectedAsset: string | null
@@ -53,8 +54,47 @@ export default function DashboardPage() {
   const [isHydrated, setIsHydrated] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isMobileSummaryOpen, setIsMobileSummaryOpen] = useState(false)
-  const prevCurrency = useRef(DEFAULT_STATE.currency)
+  const [isCollapsed, setIsCollapsed] = useState(false)
+  const prevCurrency = useRef<string>(DEFAULT_STATE.currency)
+  const [shouldAnimate, setShouldAnimate] = useState(false)
   
+  // Add window size detection
+  useEffect(() => {
+    const handleResize = () => {
+      // Auto collapse on screens smaller than 1440px
+      if (window.innerWidth < 1440) {
+        setIsCollapsed(true)
+      } else {
+        setIsCollapsed(false)
+      }
+    }
+
+    // Initial check
+    handleResize()
+
+    // Add event listener
+    window.addEventListener('resize', handleResize)
+
+    // Cleanup
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Check if we're coming from the loading transition
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const transitionTime = params.get('t')
+    
+    if (transitionTime) {
+      // If we have a transition timestamp, wait a bit before starting animations
+      setTimeout(() => {
+        setShouldAnimate(true)
+      }, 100) // Small delay to ensure smooth transition
+    } else {
+      // If direct navigation, animate immediately
+      setShouldAnimate(true)
+    }
+  }, [])
+
   // Custom titles for calculators
   const CALCULATOR_TITLES = {
     stocks: 'Stocks & Investments'
@@ -254,14 +294,15 @@ export default function DashboardPage() {
 
   // Animation variants
   const containerVariants = {
-    hidden: { opacity: 0 },
+    hidden: { 
+      opacity: 0
+    },
     visible: { 
       opacity: 1,
       transition: {
         when: "beforeChildren",
-        staggerChildren: 0.1,
-        duration: 0.3,
-        ease: [0.64, 0, 0.78, 0]
+        staggerChildren: 0.15,
+        duration: 0.2
       }
     }
   }
@@ -269,47 +310,48 @@ export default function DashboardPage() {
   const columnVariants = {
     hidden: { 
       opacity: 0,
-      y: 20
+      x: -20
     },
     visible: { 
       opacity: 1,
-      y: 0,
+      x: 0,
       transition: {
-        duration: 0.5,
-        ease: [0.16, 1, 0.3, 1]
+        duration: 0.3
       }
     }
+  }
+
+  // Remove variants from inner elements to prevent double animation
+  const innerVariants = {
+    hidden: { opacity: 1 },
+    visible: { opacity: 1 }
   }
 
   // Don't render until hydration is complete
   if (!isHydrated) {
     return (
-      <div className="fixed inset-0 bg-white">
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="w-full h-full flex items-center justify-center"
-        >
-          <div className="w-8 h-8 border-2 border-gray-900/10 border-t-gray-900 rounded-full animate-spin" />
-        </motion.div>
-      </div>
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
+        className="fixed inset-0 bg-white"
+      />
     )
   }
 
   return (
     <TooltipProvider>
       <motion.div 
-        className="fixed inset-0 bg-white"
-        variants={containerVariants}
+        className="h-screen w-screen overflow-hidden bg-white relative"
         initial="hidden"
-        animate="visible"
+        animate={shouldAnimate ? "visible" : "hidden"}
+        variants={containerVariants}
       >
-        {/* Mobile Navigation */}
+        {/* Mobile Top Bar */}
         <motion.div 
-          variants={columnVariants}
+          variants={innerVariants}
           className="lg:hidden fixed top-0 left-0 right-0 z-10 bg-white border-b border-gray-100"
         >
-          {/* Top Bar */}
           <div className="px-4 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -333,7 +375,6 @@ export default function DashboardPage() {
                   Reset
                 </Button>
                 <motion.div
-                  whileTap={{ scale: 0.95 }}
                   whileHover={{ scale: 1.05 }}
                   transition={{ type: "spring", stiffness: 400, damping: 17 }}
                 >
@@ -351,7 +392,7 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        {/* Mobile Menu Overlay */}
+        {/* Mobile Menu */}
         <AnimatePresence>
           {isMobileMenuOpen && (
             <motion.div 
@@ -406,7 +447,7 @@ export default function DashboardPage() {
           )}
         </AnimatePresence>
 
-        {/* Mobile Full Summary Overlay */}
+        {/* Mobile Summary Overlay */}
         <AnimatePresence>
           {isMobileSummaryOpen && (
             <motion.div 
@@ -443,29 +484,48 @@ export default function DashboardPage() {
           )}
         </AnimatePresence>
         
-        {/* Main Grid Layout */}
-        <div className="w-full h-full grid lg:grid-cols-[280px_1fr_1.5fr] md:grid-cols-[280px_1fr] grid-cols-[100%]">
+        {/* Main Layout */}
+        <div className="w-full h-full grid lg:grid-cols-[auto_minmax(500px,1fr)_minmax(400px,1.5fr)] md:grid-cols-[auto_1fr] grid-cols-[100%] transition-all duration-200">
           {/* Left Column - Asset Selection */}
           <motion.div 
-            variants={columnVariants}
-            className="min-h-0 w-full max-w-[280px] md:block hidden"
+            variants={innerVariants}
+            className={cn(
+              "min-h-0 md:block hidden relative transition-all duration-200 bg-gray-50/80",
+              isCollapsed ? "w-[68px]" : "w-[280px]"
+            )}
           >
+            {/* Collapse Toggle Button */}
+            <SidebarToggle
+              isCollapsed={isCollapsed}
+              onToggle={() => setIsCollapsed(!isCollapsed)}
+            />
+
             <div className="h-full flex flex-col">
               <motion.div 
-                variants={columnVariants}
+                variants={innerVariants}
                 className="p-6 flex-none"
               >
-                <h2 className="text-xl font-medium text-gray-900">Assets</h2>
+                <h2 className={cn(
+                  "text-2xl font-nb-international text-gray-900 transition-opacity font-medium tracking-tight",
+                  isCollapsed ? "opacity-0" : "opacity-100"
+                )}>
+                  Assets
+                </h2>
               </motion.div>
               <div className="flex-1 min-h-0">
                 <MotionScrollArea 
-                  variants={columnVariants}
+                  variants={innerVariants}
                   className="h-full"
                 >
-                  <div className="px-6 pb-8 space-y-2">
+                  <div className={cn(
+                    "pb-8",
+                    isCollapsed ? "px-3" : "px-6",
+                    "space-y-2"
+                  )}>
                     <AssetList
                       selectedAsset={state.selectedAsset}
                       onAssetSelect={handleAssetSelect}
+                      isCollapsed={isCollapsed}
                     />
                   </div>
                 </MotionScrollArea>
@@ -475,28 +535,33 @@ export default function DashboardPage() {
 
           {/* Middle Column - Smart Calculator */}
           <motion.div 
-            variants={columnVariants}
-            className="min-h-0 border-l border-gray-100 lg:pt-0 pt-16 w-full max-w-full"
+            variants={innerVariants}
+            className={cn(
+              "min-h-0 border-l border-gray-100 lg:pt-0 pt-16 w-full transition-all duration-200",
+              isCollapsed ? "lg:pl-6" : "lg:pl-0"
+            )}
           >
             <div className="h-full flex flex-col">
               <motion.div 
-                variants={columnVariants}
+                variants={innerVariants}
                 className="p-4 sm:p-6 flex-none"
               >
-                <h2 className="text-xl font-medium text-gray-900">
-                  {state.selectedAsset 
-                    ? CALCULATOR_TITLES[state.selectedAsset as keyof typeof CALCULATOR_TITLES] || 
-                      ASSETS.find(a => a.id === state.selectedAsset)?.name 
-                    : "Select an asset to begin"}
-                </h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-nb-international text-gray-900 font-medium tracking-tight">
+                    {state.selectedAsset 
+                      ? CALCULATOR_TITLES[state.selectedAsset as keyof typeof CALCULATOR_TITLES] || 
+                        ASSETS.find(a => a.id === state.selectedAsset)?.name 
+                      : "Select an asset to begin"}
+                  </h2>
+                </div>
               </motion.div>
               <div className="flex-1 min-h-0">
                 <MotionScrollArea 
-                  variants={columnVariants}
+                  variants={innerVariants}
                   className="h-full"
                 >
                   <div className="px-4 sm:px-6 pb-8">
-                    <div className="max-w-full overflow-hidden rounded-lg">
+                    <div className="max-w-[800px] overflow-hidden rounded-lg mx-auto">
                       <div className="p-0.5">
                         <Calculator
                           selectedAsset={state.selectedAsset}
@@ -504,6 +569,7 @@ export default function DashboardPage() {
                           onUpdateValues={handleUpdateValues}
                           onHawlUpdate={handleHawlUpdate}
                           onAssetSelect={handleAssetSelect}
+                          onOpenSummary={() => setIsMobileSummaryOpen(true)}
                           initialValues={state.selectedAsset ? state.assetValues[state.selectedAsset] : {}}
                           initialHawlMet={state.selectedAsset ? state.hawlMet[state.selectedAsset] : true}
                         />
@@ -517,16 +583,16 @@ export default function DashboardPage() {
 
           {/* Right Column - Dashboard/Summary */}
           <motion.div 
-            variants={columnVariants}
+            variants={innerVariants}
             className="min-h-0 border-l border-gray-100 lg:block hidden"
           >
             <div className="h-full flex flex-col">
               <motion.div 
-                variants={columnVariants}
+                variants={innerVariants}
                 className="p-6 flex-none"
               >
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-medium text-gray-900">Summary</h2>
+                  <h2 className="text-2xl font-nb-international text-gray-900 font-medium tracking-tight">Summary</h2>
                   <Button
                     onClick={handleReset}
                     variant="ghost"
@@ -539,11 +605,11 @@ export default function DashboardPage() {
               </motion.div>
               <div className="flex-1 min-h-0">
                 <MotionScrollArea 
-                  variants={columnVariants}
+                  variants={innerVariants}
                   className="h-full"
                 >
                   <div className="px-6 pb-8">
-                    <div className="rounded-xl border border-gray-100 bg-white p-6">
+                    <div className="rounded-3xl border border-gray-100 bg-white p-6">
                       <Summary
                         currency={state.currency}
                       />

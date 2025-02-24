@@ -144,7 +144,10 @@ export function Summary({ currency }: { currency: string }) {
           currency={currency}
         />
         
-        <NisabStatus nisabStatus={nisabStatus} />
+        <NisabStatus 
+          nisabStatus={nisabStatus} 
+          currency={currency}
+        />
 
         <AssetDistribution
           assetValues={{

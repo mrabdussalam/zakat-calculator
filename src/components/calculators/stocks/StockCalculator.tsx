@@ -29,6 +29,7 @@ interface StockCalculatorProps {
   onUpdateValues: (values: Record<string, number>) => void
   onHawlUpdate: (hawlMet: boolean) => void
   onCalculatorChange: (calculator: string) => void
+  onOpenSummary?: () => void
   initialValues?: Record<string, number>
   initialHawlMet?: boolean
 }
@@ -45,6 +46,7 @@ export function StockCalculator({
   onUpdateValues,
   onHawlUpdate,
   onCalculatorChange,
+  onOpenSummary,
   initialValues = {},
   initialHawlMet = true
 }: StockCalculatorProps) {
@@ -372,6 +374,7 @@ export function StockCalculator({
       <CalculatorNav 
         currentCalculator="stocks" 
         onCalculatorChange={onCalculatorChange}
+        onOpenSummary={onOpenSummary}
       />
     </div>
   )

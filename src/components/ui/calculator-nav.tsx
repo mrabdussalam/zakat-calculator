@@ -25,19 +25,77 @@ const CALCULATOR_ORDER = [
   'crypto'
 ] as const
 
+interface NavButtonProps {
+  direction: 'prev' | 'next'
+  calculator: string
+  onClick: () => void
+}
+
+function NavButton({ direction, calculator, onClick }: NavButtonProps) {
+  const label = CALCULATOR_NAMES[calculator as keyof typeof CALCULATOR_NAMES]
+  
+  return (
+    <div className="relative">
+      <Button
+        variant="secondary"
+        onClick={onClick}
+        className={cn(
+          "h-11 group overflow-hidden transition-all duration-200 ease-out",
+          "bg-gray-100/80 hover:bg-gray-900 rounded-full",
+          direction === 'prev' ? 
+            "w-11 px-0" : 
+            "w-auto px-3"
+        )}
+      >
+        <div className={cn(
+          "flex items-center gap-2",
+          direction === 'prev' ? "flex-row" : "flex-row-reverse"
+        )}>
+          <div className={cn(
+            "transition-transform duration-200 ease-out text-gray-600 group-hover:text-white",
+            direction === 'prev' 
+              ? "group-hover:-translate-x-0.5" 
+              : "group-hover:translate-x-0.5"
+          )}>
+            {direction === 'prev' ? (
+              <ChevronLeftIcon className="h-5 w-5 shrink-0" />
+            ) : (
+              <ChevronRightIcon className="h-5 w-5 shrink-0" />
+            )}
+          </div>
+          {direction === 'next' && (
+            <span className="text-sm font-medium whitespace-nowrap pl-1.5 text-gray-600 group-hover:text-white transition-colors">
+              {label}
+            </span>
+          )}
+        </div>
+      </Button>
+    </div>
+  )
+}
+
 interface CalculatorNavProps {
   currentCalculator: string
   onCalculatorChange: (calculator: string) => void
   className?: string
+  onOpenSummary?: () => void
 }
 
-export function CalculatorNav({ currentCalculator, onCalculatorChange, className }: CalculatorNavProps) {
+export function CalculatorNav({ 
+  currentCalculator, 
+  onCalculatorChange, 
+  className,
+  onOpenSummary 
+}: CalculatorNavProps) {
   // Find current index
   const currentIndex = CALCULATOR_ORDER.indexOf(currentCalculator as typeof CALCULATOR_ORDER[number])
   
   // Get prev/next calculators
   const prevCalculator = currentIndex > 0 ? CALCULATOR_ORDER[currentIndex - 1] : null
   const nextCalculator = currentIndex < CALCULATOR_ORDER.length - 1 ? CALCULATOR_ORDER[currentIndex + 1] : null
+  
+  // Check if we're on the last calculator
+  const isLastCalculator = currentIndex === CALCULATOR_ORDER.length - 1
 
   return (
     <motion.nav
@@ -51,36 +109,38 @@ export function CalculatorNav({ currentCalculator, onCalculatorChange, className
       )}
     >
       <div className="flex justify-between items-center">
-        {/* Previous button container with fixed width */}
-        <div className="w-[44px] h-[44px] flex items-center justify-center">
+        {/* Previous button */}
+        <div>
           {prevCalculator && (
-            <Button
-              variant="secondary"
-              size="icon"
+            <NavButton
+              direction="prev"
+              calculator={prevCalculator}
               onClick={() => onCalculatorChange(prevCalculator)}
-              className="h-11 w-11 bg-gray-100/80 hover:bg-gray-200/80 transition-colors rounded-full"
-            >
-              <ChevronLeftIcon className="h-5 w-5" />
-              <span className="sr-only">Previous calculator</span>
-            </Button>
+            />
           )}
         </div>
         
         {/* Empty middle space */}
         <div className="flex-1" />
         
-        {/* Next button container with fixed width */}
-        <div className="w-[44px] h-[44px] flex items-center justify-center">
-          {nextCalculator && (
-            <Button
-              variant="secondary"
-              size="icon"
+        {/* Next button or Summary button on mobile */}
+        <div>
+          {isLastCalculator && onOpenSummary ? (
+            <div className="lg:hidden">
+              <Button
+                variant="secondary"
+                onClick={onOpenSummary}
+                className="h-11 px-4 bg-gray-100/80 hover:bg-gray-200/80 rounded-full"
+              >
+                <span className="text-sm font-medium">View Summary</span>
+              </Button>
+            </div>
+          ) : nextCalculator && (
+            <NavButton
+              direction="next"
+              calculator={nextCalculator}
               onClick={() => onCalculatorChange(nextCalculator)}
-              className="h-11 w-11 bg-gray-100/80 hover:bg-gray-200/80 transition-colors rounded-full"
-            >
-              <ChevronRightIcon className="h-5 w-5" />
-              <span className="sr-only">Next calculator</span>
-            </Button>
+            />
           )}
         </div>
       </div>

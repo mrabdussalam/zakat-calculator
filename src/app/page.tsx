@@ -22,7 +22,7 @@ export default function HomePage() {
         <div className="max-w-xl mx-auto space-y-6">
           {/* Hero Section */}
           <div className="space-y-3">
-            <h1 className="text-xl font-medium text-gray-900">
+            <h1 className="text-3xl font-nb-international font-medium tracking-tight text-gray-900 text-center">
               Zakat Calculator
             </h1>
           </div>
@@ -51,14 +51,11 @@ export default function HomePage() {
               setIsLoading(true)
               // Small delay to show loading state
               setTimeout(() => {
-                window.location.href = '/dashboard'
+                window.location.href = '/dashboard?t=' + Date.now()
               }, 800)
             }}
           >
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
+            <motion.div>
               <Button 
                 size="lg" 
                 className="rounded-full px-8 h-12 text-sm w-full"
@@ -74,14 +71,10 @@ export default function HomePage() {
                     Loading...
                   </motion.div>
                 ) : (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex items-center"
-                  >
+                  <div className="flex items-center">
                     Start Calculation
                     <ArrowRight className="ml-2 h-4 w-4" />
-                  </motion.div>
+                  </div>
                 )}
               </Button>
             </motion.div>
@@ -90,8 +83,8 @@ export default function HomePage() {
           {/* Features Grid */}
           <div className="grid gap-4">
             {/* What is Zakat */}
-            <div className="rounded-xl bg-gray-50/50 p-4 space-y-2">
-              <h2 className="text-base font-medium text-gray-900">What is Zakat?</h2>
+            <div className="rounded-xl bg-gray-100/80 p-4 space-y-2">
+              <h2 className="text-xl font-medium tracking-tight text-gray-900">What is Zakat?</h2>
               <p className="text-sm text-gray-600">
                 Zakat is one of the five pillars of Islam. It is a mandatory charitable contribution,
                 calculated as 2.5% of your eligible wealth, to be given to those in need.
@@ -104,7 +97,7 @@ export default function HomePage() {
             {/* How it Works */}
             <div className="space-y-6">
               <div className="space-y-3">
-                <h2 className="text-base font-medium text-gray-900">How it works</h2>
+                <h2 className="text-xl font-medium tracking-tight text-gray-900">How it works</h2>
                 <div className="space-y-3">
                   {[
                     'Select your preferred currency and settings',
@@ -124,7 +117,7 @@ export default function HomePage() {
 
               {/* Supported Assets */}
               <div className="space-y-3 pt-4 border-t border-gray-100">
-                <h2 className="text-base font-medium text-gray-900">Supported Assets</h2>
+                <h2 className="text-xl font-medium tracking-tight text-gray-900">Supported Assets</h2>
                 <div className="grid grid-cols-2 gap-y-2 gap-x-4">
                   {[
                     'Cash & Bank Accounts',

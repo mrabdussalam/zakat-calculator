@@ -54,6 +54,7 @@ interface CalculatorProps {
   onUpdateValues: (values: Record<string, number>) => void
   onHawlUpdate: (hawlMet: boolean) => void
   onAssetSelect: (assetId: string) => void
+  onOpenSummary?: () => void
   initialValues?: Record<string, number>
   initialHawlMet?: boolean
 }
@@ -63,6 +64,7 @@ interface CommonCalculatorProps {
   onUpdateValues: (values: Record<string, number>) => void
   onHawlUpdate: (hawlMet: boolean) => void
   onCalculatorChange: (calculator: string) => void
+  onOpenSummary?: () => void
   initialValues?: Record<string, number>
   initialHawlMet?: boolean
 }
@@ -112,6 +114,7 @@ export function Calculator({
   onUpdateValues,
   onHawlUpdate,
   onAssetSelect,
+  onOpenSummary,
   initialValues = {},
   initialHawlMet = true
 }: CalculatorProps) {
@@ -150,6 +153,7 @@ export function Calculator({
     onUpdateValues: handleUpdateValues,
     onHawlUpdate: handleHawlUpdate,
     onCalculatorChange: handleCalculatorChange,
+    onOpenSummary,
     initialValues,
     initialHawlMet
   }

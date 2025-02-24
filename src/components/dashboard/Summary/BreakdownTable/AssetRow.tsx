@@ -92,18 +92,18 @@ export function AssetRow({
                 {percentage}%
               </span>
               {!hawlMet && (
-                <span className="text-xs text-amber-600 flex-shrink-0">(Hawl not met)</span>
+                <span className="hidden sm:inline-block text-xs text-amber-600 flex-shrink-0">(Hawl not met)</span>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-4 text-xs flex-shrink-0">
-            <span className="w-[140px] text-right text-gray-900">
+          <div className="flex items-center gap-2 sm:gap-4 text-xs flex-shrink-0">
+            <span className="w-[100px] sm:w-[140px] text-right text-gray-900">
               {total.toLocaleString(undefined, { style: 'currency', currency })}
             </span>
-            <span className="w-[140px] text-right text-gray-900">
+            <span className="hidden sm:block w-[140px] text-right text-gray-900">
               {zakatableAmount.toLocaleString(undefined, { style: 'currency', currency })}
             </span>
-            <span className="w-[100px] text-right text-gray-900">
+            <span className="w-[80px] sm:w-[100px] text-right text-gray-900">
               {zakatDue.toLocaleString(undefined, { style: 'currency', currency })}
             </span>
           </div>

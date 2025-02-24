@@ -29,6 +29,11 @@ import { CalculatorNav } from '@/components/ui/calculator-nav'
 interface CashCalculatorProps {
   currency: string
   onCalculatorChange: (calculator: string) => void
+  onUpdateValues: (values: Record<string, number>) => void
+  onHawlUpdate: (hawlMet: boolean) => void
+  onOpenSummary?: () => void
+  initialValues?: Record<string, number>
+  initialHawlMet?: boolean
 }
 
 type InputValues = Record<keyof Omit<CashValues, 'foreign_currency_entries'>, string>
@@ -96,7 +101,15 @@ const EXPENSES = [
   }
 ]
 
-export function CashCalculator({ currency, onCalculatorChange }: CashCalculatorProps) {
+export function CashCalculator({ 
+  currency, 
+  onCalculatorChange,
+  onUpdateValues,
+  onHawlUpdate,
+  onOpenSummary,
+  initialValues = {},
+  initialHawlMet = true 
+}: CashCalculatorProps) {
   const {
     cashValues,
     setCashValue,
@@ -423,7 +436,7 @@ export function CashCalculator({ currency, onCalculatorChange }: CashCalculatorP
                         variant="outline"
                         size="sm"
                         onClick={addForeignCurrency}
-                        className="mt-2"
+                        className="mt-2 rounded-full"
                       >
                         <PlusIcon className="h-4 w-4 mr-2" />
                         Add Currency
@@ -527,6 +540,7 @@ export function CashCalculator({ currency, onCalculatorChange }: CashCalculatorP
         <CalculatorNav 
           currentCalculator="cash" 
           onCalculatorChange={onCalculatorChange}
+          onOpenSummary={onOpenSummary}
         />
       </div>
     </TooltipProvider>

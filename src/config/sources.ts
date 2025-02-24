@@ -48,6 +48,18 @@ export const SOURCES = {
     name: 'Fiqh Council of North America',
     icon: '',
     url: 'https://fiqhcouncil.org/zakah-on-retirement-funds/'
+  },
+  BARAKAH_CAPITAL: {
+    id: 'barakah_capital',
+    name: 'Barakah Capital - Zakat on Gold & Silver',
+    icon: '',
+    url: 'https://barakahcapital.org/zakat-on-gold-and-silver-jewellery-a-comprehensive-guide/'
+  },
+  JOE_BRADFORD: {
+    id: 'joe_bradford',
+    name: 'Joe Bradford - Nisab Guide',
+    icon: '',
+    url: 'https://joebradford.net/nisab-for-zakat-on-gold-and-silver/'
   }
 } as const
 

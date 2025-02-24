@@ -101,10 +101,14 @@ export const ASSET_FAQS: AssetFAQs = {
       },
       {
         question: "Is personal jewelry subject to Zakat?",
-        answer: "According to most scholars, jewelry worn regularly for personal use is exempt from Zakat. However, jewelry kept as investment or worn occasionally should be included."
+        answer: "Scholars differ on whether zakat is due on jewelry intended for personal use. The Hanafi school requires zakat on all gold and silver jewelry, while other schools may exempt personal use items. It's advisable to consult with a knowledgeable scholar to determine the ruling applicable to your situation."
+      },
+      {
+        question: "What about mixed metals and precious stones?",
+        answer: "For jewelry containing multiple metals, zakat is due only on the gold or silver content. Diamonds, pearls, and other gemstones are not subject to zakat unless they are held for trade."
       }
     ],
-    sources: ['AMAZON']
+    sources: ['AMAZON', 'BARAKAH_CAPITAL', 'JOE_BRADFORD']
   },
   stocks: {
     active: {

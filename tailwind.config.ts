@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { fontFamily } from 'tailwindcss/defaultTheme'
 
 export default {
   darkMode: ["class"],
@@ -129,7 +130,7 @@ export default {
         'lg': ['1.125rem', { lineHeight: '1.75rem' }], // 18px - Subtitles
         'xl': ['1.25rem', { lineHeight: '1.75rem' }],  // 20px - Important headings
         '2xl': ['1.5rem', { lineHeight: '2rem' }],     // 24px - Section headers
-        '3xl': ['1.875rem', { lineHeight: '2.25rem' }], // 30px - Main page titles
+        '3xl': ['1.75rem', { lineHeight: '2.25rem' }], // 28px - Main page titles
       },
       fontWeight: {
         'normal': '400',
@@ -180,6 +181,10 @@ export default {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         slideUpAndFade: 'slideUpAndFade 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
+      },
+      fontFamily: {
+        sans: ['var(--font-inter)', ...fontFamily.sans],
+        'nb-international': ['var(--font-nb-international)', ...fontFamily.sans],
       },
     },
   },

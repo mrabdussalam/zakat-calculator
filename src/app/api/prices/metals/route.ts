@@ -118,16 +118,25 @@ const FALLBACK_PRICES = {
   gold: 65.52,  // USD per gram
   silver: 0.85, // USD per gram
   lastUpdated: new Date().toISOString(),
-  isCache: true
+  isCache: true,
+  source: 'fallback'
 }
 
-// Cache duration in milliseconds (1 hour)
-const CACHE_DURATION = 60 * 60 * 1000
+// Cache duration in milliseconds (5 minutes)
+const CACHE_DURATION = 5 * 60 * 1000
 
 // In-memory cache
 let priceCache = {
   prices: null as typeof FALLBACK_PRICES | null,
   lastUpdated: null as Date | null
+}
+
+// Validate metal prices
+function validatePrices(prices: any) {
+  if (!prices || typeof prices !== 'object') return false;
+  if (typeof prices.gold !== 'number' || typeof prices.silver !== 'number') return false;
+  if (prices.gold <= 0 || prices.silver <= 0) return false;
+  return true;
 }
 
 async function fetchMetalPrices() {
@@ -156,9 +165,7 @@ async function fetchMetalPrices() {
       const prices = source.parser(data)
 
       // Validate the parsed prices
-      if (!prices.gold || !prices.silver || 
-          isNaN(prices.gold) || isNaN(prices.silver) ||
-          prices.gold <= 0 || prices.silver <= 0) {
+      if (!validatePrices(prices)) {
         console.warn(`${source.name} returned invalid prices:`, prices)
         continue
       }
@@ -184,15 +191,15 @@ async function fetchMetalPrices() {
     }
   }
 
-  // If all sources fail, use cache if available
-  if (priceCache.prices) {
+  // If all sources fail, use cache if available and valid
+  if (priceCache.prices && validatePrices(priceCache.prices)) {
     return {
       ...priceCache.prices,
       isCache: true
     }
   }
 
-  // If no cache, use fallback values
+  // If no valid prices available, use fallback
   return FALLBACK_PRICES
 }
 
