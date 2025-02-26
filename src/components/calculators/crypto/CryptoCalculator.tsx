@@ -61,7 +61,7 @@ export function CryptoCalculator({
     if (!newSymbol || !newQuantity) return
 
     try {
-      await addCoin(newSymbol, Number(newQuantity))
+      await addCoin(newSymbol, Number(newQuantity), currency)
       
       // Clear form
       setNewSymbol('')
@@ -91,7 +91,7 @@ export function CryptoCalculator({
   // Handle refreshing prices
   const handleRefreshPrices = async () => {
     try {
-      await updatePrices()
+      await updatePrices(currency)
       
       // Update parent with new totals
       onUpdateValues({
@@ -178,7 +178,7 @@ export function CryptoCalculator({
   return (
     <div className="space-y-6">
       <FAQ
-        title="Cryptocurrency"
+        title="Crypto"
         description="Enter your cryptocurrency holdings to calculate Zakat."
         items={[
           {

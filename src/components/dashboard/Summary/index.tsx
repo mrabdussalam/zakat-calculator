@@ -8,27 +8,33 @@ import { adaptMetalsBreakdown, adaptRealEstateBreakdown, adaptEmptyBreakdown } f
 import { AssetBreakdownWithHawl } from "./types"
 import { AssetBreakdown, AssetBreakdownItem } from "@/lib/assets/types"
 import { ZAKAT_RATE } from "@/lib/assets/types"
+import { trackEvent, AnalyticsEvents } from '@/lib/analytics'
+import { useEffect } from 'react'
+import { WeightUnit } from '@/lib/utils/units'
 
-const adaptBreakdown = (breakdown: {
-  total: number
-  zakatable: number
-  zakatDue: number
-  items: Record<string, {
-    value: number
-    isZakatable: boolean
-    zakatable?: number
-    zakatDue?: number
-    label: string
-    tooltip?: string
-    isExempt?: boolean
-  }>
-}): AssetBreakdown => {
+const adaptBreakdown = (
+  breakdown: {
+    total: number
+    zakatable: number
+    zakatDue: number
+    items: Record<string, {
+      value: number
+      isZakatable: boolean
+      zakatable?: number
+      zakatDue?: number
+      label: string
+      tooltip?: string
+      isExempt?: boolean
+    }>
+  },
+  currency: string = 'USD'
+): AssetBreakdown => {
   return {
     total: breakdown.total,
     zakatable: breakdown.zakatable,
     zakatDue: breakdown.zakatDue,
     items: Object.entries(breakdown.items).reduce<Record<string, AssetBreakdownItem>>((acc, [key, item]) => {
-      const tooltip = item.tooltip || `${item.label}: ${item.value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}`
+      const tooltip = item.tooltip || `${item.label}: ${item.value.toLocaleString('en-US', { style: 'currency', currency })}`
       const zakatable = item.zakatable ?? (item.isZakatable ? item.value : 0)
       const zakatDue = item.zakatDue ?? (zakatable * ZAKAT_RATE)
       
@@ -77,8 +83,32 @@ export function Summary({ currency }: { currency: string }) {
     getTotalZakatableCrypto,
     getCryptoBreakdown,
     reset,
-    getStocksBreakdown
+    getStocksBreakdown,
+    metalsPreferences
   } = useZakatStore()
+
+  const breakdown = getBreakdown()
+  const nisabStatus = getNisabStatus()
+
+  // Track zakat calculation when values change
+  useEffect(() => {
+    trackEvent({
+      ...AnalyticsEvents.ZAKAT_CALCULATION,
+      currency: currency,
+      value: breakdown.combined.zakatDue,
+      label: nisabStatus.meetsNisab ? 'eligible' : 'not_eligible'
+    })
+  }, [breakdown.combined.zakatDue, currency, nisabStatus.meetsNisab])
+
+  // Track nisab status changes
+  useEffect(() => {
+    trackEvent({
+      ...AnalyticsEvents.NISAB_CHECK,
+      value: nisabStatus.totalValue,
+      label: nisabStatus.meetsNisab ? 'above' : 'below',
+      currency: currency
+    })
+  }, [nisabStatus.meetsNisab, nisabStatus.totalValue, currency])
 
   // Get all the values we need
   const totalMetals = getTotalMetals()
@@ -96,41 +126,41 @@ export function Summary({ currency }: { currency: string }) {
   const totalAssets = totalMetals.total + totalCash + totalStocks + 
     retirementBreakdown.total + realEstateBreakdown.total + totalCrypto
 
-  // Get nisab status and breakdown
-  const nisabStatus = getNisabStatus()
-  const breakdown = getBreakdown()
-
   // Prepare asset breakdowns with consistent format
   const assetBreakdowns: Record<string, AssetBreakdownWithHawl> = {
     cash: { 
       total: totalCash, 
       hawlMet: cashHawlMet,
-      breakdown: adaptBreakdown(cashBreakdown)
+      breakdown: adaptBreakdown(cashBreakdown, currency)
     },
     metals: { 
       total: totalMetals.total, 
       hawlMet: metalsHawlMet,
-      breakdown: adaptMetalsBreakdown(metalsBreakdown)
+      breakdown: adaptMetalsBreakdown(
+        metalsBreakdown,
+        metalsPreferences?.weightUnit || 'gram',
+        currency
+      )
     },
     stocks: { 
       total: totalStocks, 
       hawlMet: stockHawlMet,
-      breakdown: adaptBreakdown(stockBreakdown)
+      breakdown: adaptBreakdown(stockBreakdown, currency)
     },
     retirement: {
       total: retirementBreakdown.total,
       hawlMet: retirementHawlMet,
-      breakdown: adaptBreakdown(retirementBreakdown)
+      breakdown: adaptBreakdown(retirementBreakdown, currency)
     },
     realEstate: { 
       total: realEstateBreakdown.total, 
       hawlMet: realEstateHawlMet,
-      breakdown: adaptRealEstateBreakdown(realEstateBreakdown)
+      breakdown: adaptRealEstateBreakdown(realEstateBreakdown, currency)
     },
     crypto: { 
       total: totalCrypto, 
       hawlMet: cryptoHawlMet,
-      breakdown: adaptBreakdown(cryptoBreakdown)
+      breakdown: adaptBreakdown(cryptoBreakdown, currency)
     }
   }
 

@@ -39,6 +39,8 @@ export const initialStockValues: StockValues = {
   zakatable_value: 0
 }
 
-export const initialStockPrices: StockPrices = {
-  prices: {}
+export const initialStockPrices = {
+  prices: {},
+  lastUpdated: new Date(),
+  currency: 'USD'
 } 

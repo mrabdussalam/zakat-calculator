@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 export interface PropertyForSaleTabProps {
   values: RealEstateValues
   errors: Record<string, string | undefined>
+  currency: string
   onValueChange: (
     fieldId: keyof RealEstateValues,
     event: React.ChangeEvent<HTMLInputElement>
@@ -24,6 +25,7 @@ export interface PropertyForSaleTabProps {
 export function PropertyForSaleTab({
   values,
   errors,
+  currency,
   onValueChange,
   onToggleChange
 }: PropertyForSaleTabProps) {
@@ -67,7 +69,7 @@ export function PropertyForSaleTab({
               <Label htmlFor="property_for_sale_value">Current Market Value</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-3 flex items-center">
-                  <span className="text-sm font-medium text-gray-900 mr-1">USD</span>
+                  <span className="text-sm font-medium text-gray-900 mr-1">{currency}</span>
                 </div>
                 <Input
                   id="property_for_sale_value"

@@ -1,4 +1,5 @@
 import { AssetBreakdown } from "./types"
+import { WeightUnit, fromGrams, WEIGHT_UNITS } from '@/lib/utils/units'
 
 type AssetBreakdownItem = {
   value: number
@@ -10,27 +11,36 @@ type AssetBreakdownItem = {
   isExempt?: boolean
 }
 
-export function adaptMetalsBreakdown(breakdown: {
-  total: number
-  zakatable: number
-  zakatDue: number
-  goldGrams: number
-  silverGrams: number
-  items: Record<string, {
-    value: number
-    weight: number
-    isZakatable: boolean
-    isExempt: boolean
+export function adaptMetalsBreakdown(
+  breakdown: {
+    total: number
     zakatable: number
     zakatDue: number
-  }>
-}): AssetBreakdown {
+    goldGrams: number
+    silverGrams: number
+    items: Record<string, {
+      value: number
+      weight: number
+      isZakatable: boolean
+      isExempt: boolean
+      zakatable: number
+      zakatDue: number
+    }>
+  },
+  weightUnit: WeightUnit = 'gram',
+  currency: string = 'USD'
+): AssetBreakdown {
   return {
     total: breakdown.total,
     zakatable: breakdown.zakatable,
     zakatDue: breakdown.zakatDue,
     items: Object.entries(breakdown.items).reduce<Record<string, AssetBreakdownItem>>((acc, [key, item]) => {
-      const label = `${key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} (${item.weight}g)`
+      // Convert weight from grams to selected unit
+      const convertedWeight = fromGrams(item.weight, weightUnit)
+      const formattedWeight = convertedWeight.toFixed(2)
+      const unitSymbol = WEIGHT_UNITS[weightUnit].symbol
+      
+      const label = `${key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} (${formattedWeight}${unitSymbol})`
       
       acc[key] = {
         value: item.value,
@@ -38,7 +48,7 @@ export function adaptMetalsBreakdown(breakdown: {
         zakatable: item.zakatable,
         zakatDue: item.zakatDue,
         label,
-        tooltip: item.isExempt ? 'Exempt from Zakat' : `${label}: ${item.value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}`,
+        tooltip: item.isExempt ? 'Exempt from Zakat' : `${label}: ${item.value.toLocaleString('en-US', { style: 'currency', currency })}`,
         isExempt: item.isExempt
       }
       return acc
@@ -58,7 +68,7 @@ export function adaptRealEstateBreakdown(breakdown: {
     tooltip?: string
     zakatable?: number
   }>
-}): AssetBreakdown {
+}, currency: string = 'USD'): AssetBreakdown {
   // Transform real estate items to standard format
   const adaptedItems = Object.entries(breakdown.items).reduce((acc, [key, item]) => {
     const isZakatable = item.isZakatable ?? !item.isExempt ?? true
@@ -71,7 +81,7 @@ export function adaptRealEstateBreakdown(breakdown: {
       zakatable,
       zakatDue,
       label: item.label,
-      tooltip: item.tooltip,
+      tooltip: item.tooltip || (item.isExempt ? 'Exempt from Zakat' : `${item.label}: ${item.value.toLocaleString('en-US', { style: 'currency', currency })}`),
       isExempt: item.isExempt
     }
     return acc

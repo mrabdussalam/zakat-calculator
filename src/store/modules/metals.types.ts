@@ -1,3 +1,5 @@
+import { WeightUnit } from '@/lib/utils/units'
+
 export interface MetalsValues {
   gold_regular: number
   gold_occasional: number
@@ -12,4 +14,9 @@ export interface MetalPrices {
   silver: number
   lastUpdated: Date
   isCache: boolean
+  currency: string
+}
+
+export interface MetalsPreferences {
+  weightUnit: WeightUnit
 } 

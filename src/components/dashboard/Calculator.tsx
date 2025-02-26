@@ -17,6 +17,7 @@ import {
   TooltipTrigger,
   TooltipContent
 } from '@/components/ui/tooltip'
+import { trackEvent, AnalyticsEvents } from '@/lib/analytics'
 
 // Animation variants for the slide effect
 const slideAnimation = {
@@ -77,10 +78,10 @@ const RealEstateCalculatorMemo = memo(RealEstateCalculator) as React.FC<CommonCa
 const CryptoCalculatorMemo = memo(CryptoCalculator) as React.FC<CommonCalculatorProps>
 
 // Animated number component
-function AnimatedNumber({ value }: { value: number }) {
+function AnimatedNumber({ value, currency = 'USD' }: { value: number, currency?: string }) {
   const motionValue = useMotionValue(value)
   const rounded = useTransform(motionValue, latest => {
-    return formatCurrency(Math.round(latest * 100) / 100)
+    return formatCurrency(Math.round(latest * 100) / 100, currency)
   })
 
   useEffect(() => {
@@ -120,15 +121,50 @@ export function Calculator({
 }: CalculatorProps) {
   const handleUpdateValues = useCallback((values: Record<string, number>) => {
     onUpdateValues(values)
-  }, [onUpdateValues])
+    
+    // Track asset update
+    if (selectedAsset) {
+      trackEvent({
+        ...AnalyticsEvents.ASSET_UPDATE,
+        assetType: selectedAsset,
+        currency: currency,
+        value: Object.values(values).reduce((sum, val) => sum + val, 0)
+      })
+    }
+  }, [selectedAsset, currency, onUpdateValues])
 
   const handleHawlUpdate = useCallback((hawlMet: boolean) => {
     onHawlUpdate(hawlMet)
-  }, [onHawlUpdate])
+    
+    // Track hawl status update
+    if (selectedAsset) {
+      trackEvent({
+        ...AnalyticsEvents.HAWL_UPDATE,
+        assetType: selectedAsset,
+        label: hawlMet ? 'met' : 'not_met'
+      })
+    }
+  }, [selectedAsset, onHawlUpdate])
 
-  const handleCalculatorChange = useCallback((calculator: string) => {
-    onAssetSelect(calculator)
+  const handleAssetSelect = useCallback((asset: string) => {
+    onAssetSelect(asset)
+    
+    // Track calculator switch
+    trackEvent({
+      ...AnalyticsEvents.CALCULATOR_SWITCH,
+      calculatorType: asset
+    })
   }, [onAssetSelect])
+
+  // Track initial calculator load
+  useEffect(() => {
+    if (selectedAsset) {
+      trackEvent({
+        ...AnalyticsEvents.CALCULATOR_START,
+        calculatorType: selectedAsset
+      })
+    }
+  }, [selectedAsset])
 
   const { getBreakdown } = useZakatStore()
 
@@ -139,6 +175,13 @@ export function Calculator({
       initialHawlMet
     })
   }, [selectedAsset, initialValues, initialHawlMet])
+
+  // Add logging for the currency prop to pinpoint any synchronization issues
+  useEffect(() => {
+    if (currency) {
+      console.log(`Calculator component currency prop: ${currency}`);
+    }
+  }, [currency]);
 
   if (!selectedAsset) {
     return (
@@ -152,7 +195,7 @@ export function Calculator({
     currency,
     onUpdateValues: handleUpdateValues,
     onHawlUpdate: handleHawlUpdate,
-    onCalculatorChange: handleCalculatorChange,
+    onCalculatorChange: handleAssetSelect,
     onOpenSummary,
     initialValues,
     initialHawlMet
@@ -197,7 +240,7 @@ export function Calculator({
   )
 }
 
-export function CalculatorSummary() {
+export function CalculatorSummary({ currency = 'USD' }: { currency?: string }) {
   const { getBreakdown } = useZakatStore()
   const breakdown = getBreakdown()
 
@@ -245,16 +288,16 @@ export function CalculatorSummary() {
 
               {/* Total Assets */}
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Total Assets</span>
-                <span className="text-sm font-medium text-gray-900">
-                  <AnimatedNumber value={breakdown.combined.totalValue} />
-                </span>
+                <div className="text-sm text-gray-500">Total Value</div>
+                <div className="text-xl font-semibold">
+                  <AnimatedNumber value={breakdown.combined.totalValue} currency={currency} />
+                </div>
               </div>
 
               {/* Zakatable Amount */}
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">Zakatable Amount</span>
+                  <span className="text-sm text-gray-500">Zakatable Amount</span>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button className="text-gray-400 hover:text-gray-500">
@@ -271,20 +314,18 @@ export function CalculatorSummary() {
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <span className="text-sm font-medium text-gray-900">
-                  <AnimatedNumber value={breakdown.combined.zakatableValue} />
-                </span>
+                <div className="text-xl font-semibold">
+                  <AnimatedNumber value={breakdown.combined.zakatableValue} currency={currency} />
+                </div>
               </div>
 
               {/* Zakat Due */}
               <div className="pt-3 border-t border-gray-100">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-green-600">
-                    Zakat Due (2.5%)
-                  </span>
-                  <span className="text-sm font-medium text-green-600">
-                    <AnimatedNumber value={breakdown.combined.zakatDue} />
-                  </span>
+                  <div className="text-sm text-gray-500">Zakat Due</div>
+                  <div className="text-xl font-semibold text-green-600">
+                    <AnimatedNumber value={breakdown.combined.zakatDue} currency={currency} />
+                  </div>
                 </div>
               </div>
             </div>

@@ -10,6 +10,7 @@ import { ASSET_FAQS } from '@/config/faqs'
 export interface PrimaryResidenceTabProps {
   values: RealEstateValues
   errors: Record<string, string | undefined>
+  currency: string
   onValueChange: (
     fieldId: keyof RealEstateValues,
     event: React.ChangeEvent<HTMLInputElement>
@@ -19,6 +20,7 @@ export interface PrimaryResidenceTabProps {
 export function PrimaryResidenceTab({
   values,
   errors,
+  currency,
   onValueChange
 }: PrimaryResidenceTabProps) {
   return (
@@ -38,7 +40,7 @@ export function PrimaryResidenceTab({
             <Label htmlFor="primary_residence_value">Property Value</Label>
             <div className="relative">
               <div className="absolute inset-y-0 left-3 flex items-center">
-                <span className="text-sm font-medium text-gray-900 mr-1">USD</span>
+                <span className="text-sm font-medium text-gray-900 mr-1">{currency}</span>
               </div>
               <Input
                 id="primary_residence_value"

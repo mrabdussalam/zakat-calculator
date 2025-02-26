@@ -1,9 +1,10 @@
 import { StateCreator } from 'zustand'
-import { MetalsValues, MetalPrices } from './metals.types'
+import { MetalsValues, MetalPrices, MetalsPreferences } from './metals.types'
 import { DEFAULT_HAWL_STATUS } from '../constants'
 import { computeMetalsResults } from '../utils'
 import { ZakatState } from '../types'
 import { ZAKAT_RATE } from '@/lib/constants'
+import { WeightUnit } from '@/lib/utils/units'
 
 // Initial values
 const initialMetalsValues: MetalsValues = {
@@ -19,7 +20,12 @@ const initialMetalPrices: MetalPrices = {
   gold: 0,
   silver: 0,
   lastUpdated: new Date(),
-  isCache: false
+  isCache: false,
+  currency: 'USD' // Default currency
+}
+
+const initialMetalsPreferences: MetalsPreferences = {
+  weightUnit: 'gram' // Default to grams
 }
 
 export interface MetalsSlice {
@@ -27,12 +33,14 @@ export interface MetalsSlice {
   metalsValues: MetalsValues
   metalPrices: MetalPrices
   metalsHawlMet: boolean
+  metalsPreferences: MetalsPreferences
 
   // Actions
   setMetalsValue: (key: keyof MetalsValues, value: number) => void
   resetMetalsValues: () => void
   setMetalPrices: (prices: MetalPrices) => void
   setMetalsHawl: (value: boolean) => void
+  setMetalsWeightUnit: (unit: WeightUnit) => void
 
   // Getters
   getTotalMetals: () => {
@@ -64,6 +72,7 @@ export const createMetalsSlice: StateCreator<ZakatState> = (set, get) => ({
   metalsValues: initialMetalsValues,
   metalPrices: initialMetalPrices,
   metalsHawlMet: DEFAULT_HAWL_STATUS.metals,
+  metalsPreferences: initialMetalsPreferences,
 
   // Actions
   setMetalsValue: (key: keyof MetalsValues, value: number) => 
@@ -76,9 +85,25 @@ export const createMetalsSlice: StateCreator<ZakatState> = (set, get) => ({
 
   resetMetalsValues: () => set({ metalsValues: initialMetalsValues }),
 
-  setMetalPrices: (prices: MetalPrices) => set({ metalPrices: prices }),
+  setMetalPrices: (prices: MetalPrices) => set((state: ZakatState) => {
+    // Ensure currency is always set, default to USD if not provided
+    const updatedPrices = {
+      ...prices,
+      currency: prices.currency || 'USD'
+    };
+    
+    return { metalPrices: updatedPrices };
+  }),
 
   setMetalsHawl: (value: boolean) => set({ metalsHawlMet: value }),
+
+  setMetalsWeightUnit: (unit: WeightUnit) => 
+    set((state: ZakatState) => ({
+      metalsPreferences: {
+        ...state.metalsPreferences,
+        weightUnit: unit
+      }
+    })),
 
   // Getters
   getTotalMetals: () => {

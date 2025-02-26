@@ -69,7 +69,7 @@ export function VacantLandTab({
               <Label htmlFor="sale_price">Sale Price</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-3 flex items-center">
-                  <span className="text-sm font-medium text-gray-900 mr-1">USD</span>
+                  <span className="text-sm font-medium text-gray-900 mr-1">{currency}</span>
                 </div>
                 <Input
                   id="sale_price"
@@ -95,7 +95,7 @@ export function VacantLandTab({
               <Label htmlFor="vacant_land_value">Current Market Value</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-3 flex items-center">
-                  <span className="text-sm font-medium text-gray-900 mr-1">USD</span>
+                  <span className="text-sm font-medium text-gray-900 mr-1">{currency}</span>
                 </div>
                 <Input
                   id="vacant_land_value"

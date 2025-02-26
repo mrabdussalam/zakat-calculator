@@ -201,26 +201,23 @@ export function ActiveTradingTab({
                     variant="outline"
                     role="combobox"
                     aria-expanded={open}
-                    className="w-full justify-between bg-muted/50 border border-input pl-3 pr-8 h-10 text-left font-normal relative rounded-lg"
+                    className="w-full justify-between bg-white border border-input pl-3 pr-8 h-10 text-left font-normal relative rounded-lg hover:border-input/80 transition-colors shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-input/80"
                   >
                     <div className="flex items-center gap-2 w-full overflow-hidden">
                       <span className={cn(
-                        "font-medium text-sm shrink-0",
+                        "text-sm font-medium",
                         newTicker ? "text-gray-900" : "text-muted-foreground"
                       )}>{newTicker}</span>
                       {newTicker && (
-                        <>
-                          <span className="text-gray-400 shrink-0">-</span>
-                          <span className="text-gray-500 truncate">{searchResults.find(r => r.symbol === newTicker)?.name}</span>
-                        </>
+                        <span className="text-gray-500 truncate text-sm">{searchResults.find(r => r.symbol === newTicker)?.name}</span>
                       )}
-                      {!newTicker && <span className="text-muted-foreground truncate">Company name or ticker</span>}
+                      {!newTicker && <span className="text-muted-foreground truncate text-sm">Company name or ticker</span>}
                     </div>
                     <ChevronDown className="h-4 w-4 shrink-0 opacity-50 absolute right-3 top-1/2 -translate-y-1/2" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent 
-                  className="w-[420px] overflow-hidden rounded-lg border border-gray-900 bg-gray-950 text-gray-50 shadow-lg animate-in fade-in-80" 
+                  className="w-[420px] p-0 overflow-hidden rounded-lg border border-gray-900 bg-gray-950 text-gray-50 shadow-xl animate-in fade-in-80 ring-1 ring-gray-900 ring-opacity-30 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900 [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-gray-900 [&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-thumb]:rounded-full [scrollbar-color:theme(colors.gray.700)_theme(colors.gray.900)]" 
                   align="start"
                   sideOffset={5}
                   side="bottom"
@@ -230,12 +227,18 @@ export function ActiveTradingTab({
                     <Search className="mr-2 h-4 w-4 shrink-0 text-gray-300" />
                     <input
                       placeholder="Search company or ticker..."
-                      className="h-11 w-full px-0 text-sm bg-transparent focus:outline-none text-gray-50 placeholder:text-gray-500"
+                      className="h-10 w-full px-0 text-sm bg-transparent focus:outline-none text-gray-50 placeholder:text-gray-500"
                       onChange={(e) => handleSearch(e.target.value)}
                       onKeyDown={handleKeyDown}
                     />
                   </div>
-                  <div className="max-h-[200px] overflow-auto p-1">
+                  <div className="max-h-[240px] overflow-auto py-1 
+                    scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900
+                    [&::-webkit-scrollbar]:w-[6px]
+                    [&::-webkit-scrollbar-track]:bg-gray-900
+                    [&::-webkit-scrollbar-thumb]:bg-gray-700 
+                    [&::-webkit-scrollbar-thumb]:rounded-full
+                    [scrollbar-color:theme(colors.gray.700)_theme(colors.gray.900)]">
                     {isSearching ? (
                       <div className="py-6 text-center text-sm text-gray-500">
                         Searching...
@@ -257,7 +260,7 @@ export function ActiveTradingTab({
                         >
                           <div className="flex items-center gap-2 w-full min-w-0">
                             <span className={cn(
-                              "font-medium w-[48px] shrink-0 text-gray-50",
+                              "font-mono font-medium w-[60px] shrink-0 text-gray-50",
                               (newTicker === result.symbol || selectedIndex === index) && "text-white"
                             )}>{result.symbol}</span>
                             <span className={cn(

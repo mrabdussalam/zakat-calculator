@@ -25,7 +25,7 @@ export interface AssetType {
   color: string
   calculateTotal: (values: any, prices?: any) => number
   calculateZakatable: (values: any, prices: any | undefined, hawlMet: boolean) => number
-  getBreakdown: (values: any, prices: any | undefined, hawlMet: boolean) => AssetBreakdown
+  getBreakdown: (values: any, prices: any | undefined, hawlMet: boolean, currency?: string) => AssetBreakdown
 }
 
 // Constants for Zakat calculations

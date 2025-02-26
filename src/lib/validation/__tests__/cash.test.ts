@@ -39,7 +39,8 @@ describe('Cash Calculator Validation', () => {
         checking_account: 5000,
         savings_account: 10000,
         digital_wallets: 500,
-        foreign_currency: 2000
+        foreign_currency: 2000,
+        foreign_currency_entries: []
       }
 
       expect(cashValidation.validateValues(validValues)).toBe(true)
@@ -51,7 +52,8 @@ describe('Cash Calculator Validation', () => {
         checking_account: 0,
         savings_account: 0,
         digital_wallets: 0,
-        foreign_currency: 0
+        foreign_currency: 0,
+        foreign_currency_entries: []
       }
 
       expect(cashValidation.validateValues(zeroValues)).toBe(true)
@@ -63,7 +65,8 @@ describe('Cash Calculator Validation', () => {
         checking_account: 5000,
         savings_account: 10000,
         digital_wallets: 500,
-        foreign_currency: 2000
+        foreign_currency: 2000,
+        foreign_currency_entries: []
       }
 
       expect(cashValidation.validateValues(negativeValues)).toBe(false)
@@ -85,7 +88,8 @@ describe('Cash Calculator Validation', () => {
         checking_account: 5000,
         savings_account: 10000,
         digital_wallets: 500,
-        foreign_currency: 2000
+        foreign_currency: 2000,
+        foreign_currency_entries: []
       }
 
       expect(cashValidation.validateValues(invalidTypes)).toBe(false)
@@ -146,7 +150,8 @@ describe('Cash Calculator Validation', () => {
         checking_account: 5000,
         savings_account: 10000,
         digital_wallets: 500,
-        foreign_currency: 2000
+        foreign_currency: 2000,
+        foreign_currency_entries: []
       }
 
       expect(cashValidation.validateZakatableAmount(values, true)).toBe(true)
@@ -158,7 +163,8 @@ describe('Cash Calculator Validation', () => {
         checking_account: 5000,
         savings_account: 10000,
         digital_wallets: 500,
-        foreign_currency: 2000
+        foreign_currency: 2000,
+        foreign_currency_entries: []
       }
 
       expect(cashValidation.validateZakatableAmount(values, false)).toBe(true)
@@ -258,6 +264,27 @@ describe('Cash Calculator Reset', () => {
     store.setCashHawl(true)
     store.resetCashValues()
     expect(store.cashHawlMet).toBe(true)
+  })
+  
+  test('resets foreign currency entries correctly', () => {
+    const store = createFreshStore()
+    
+    // Add foreign currency entries
+    store.setCashValue('foreign_currency_entries', [
+      { amount: 100, currency: 'EUR' },
+      { amount: 200, currency: 'GBP' }
+    ])
+    
+    // Verify entries were added
+    expect(Array.isArray(store.cashValues.foreign_currency_entries)).toBe(true)
+    expect(store.cashValues.foreign_currency_entries.length).toBe(2)
+    
+    // Reset the store
+    store.resetCashValues()
+    
+    // Verify foreign_currency_entries is reset to empty array
+    expect(Array.isArray(store.cashValues.foreign_currency_entries)).toBe(true)
+    expect(store.cashValues.foreign_currency_entries.length).toBe(0)
   })
 })
 

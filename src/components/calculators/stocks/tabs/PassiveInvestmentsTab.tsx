@@ -310,7 +310,7 @@ export function PassiveInvestmentsTab({
   )
 
   // Format currency helper
-  const formatCurrency = useCallback((value: number) => 
+  const formatCurrency = useCallback((value: number, currency: string) => 
     `${currency} ${value.toLocaleString()}`,
     [currency]
   )
@@ -877,7 +877,7 @@ export function PassiveInvestmentsTab({
               items: method === 'quick' ? 
                 investments.map(inv => ({
                   label: inv.name || 'Unnamed Investment',
-                  value: formatCurrency(inv.marketValue),
+                  value: formatCurrency(inv.marketValue, currency),
                   tooltip: "30% of market value is zakatable",
                   isExempt: false,
                   isZakatable: true,
@@ -885,7 +885,7 @@ export function PassiveInvestmentsTab({
                 })) : 
                 [{
                   label: "Company Financial Assets",
-                  value: formatCurrency(zakatableValue),
+                  value: formatCurrency(zakatableValue, currency),
                   tooltip: "Based on company's liquid assets",
                   isExempt: false,
                   isZakatable: true,
@@ -898,14 +898,14 @@ export function PassiveInvestmentsTab({
               items: [
                 {
                   label: "Total Market Value",
-                  value: formatCurrency(marketValue),
+                  value: formatCurrency(marketValue, currency),
                   tooltip: "Total value of all investments",
                   isExempt: false,
                   isZakatable: false
                 },
                 {
                   label: "Zakatable Amount",
-                  value: formatCurrency(zakatableValue),
+                  value: formatCurrency(zakatableValue, currency),
                   tooltip: method === 'quick' ? 
                     "30% of total market value" : 
                     "Based on company's liquid assets",

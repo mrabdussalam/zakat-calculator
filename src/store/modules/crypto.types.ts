@@ -6,6 +6,7 @@ export interface CryptoHolding {
   currentPrice: number
   marketValue: number
   zakatDue: number
+  currency?: string
 }
 
 export interface CryptoValues {
@@ -22,11 +23,11 @@ export interface CryptoSlice {
   lastError: string | null
 
   // Actions
-  addCoin: (symbol: string, quantity: number) => Promise<void>
+  addCoin: (symbol: string, quantity: number, currency?: string) => Promise<void>
   removeCoin: (symbol: string) => void
   resetCryptoValues: () => void
   setCryptoHawl: (value: boolean) => void
-  updatePrices: () => Promise<void>
+  updatePrices: (currency?: string) => Promise<void>
 
   // Getters
   getTotalCrypto: () => number

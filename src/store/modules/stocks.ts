@@ -1,7 +1,7 @@
 import { StockValues, StockPrices, StockHolding } from '@/lib/assets/stocks'
 import { initialStockValues, initialStockPrices, DEFAULT_HAWL_STATUS } from '../constants'
 import { getAssetType } from '@/lib/assets/registry'
-import { getStockPrice } from '@/lib/api/stocks'
+import { getStockPrice, getBatchStockPrices } from '@/lib/api/stocks'
 import { Investment, PassiveCalculations } from '@/lib/assets/types'
 import { StateCreator } from 'zustand'
 import { ZakatState, ActiveStock } from '../types'
@@ -189,10 +189,10 @@ export interface StocksSlice {
   passiveInvestments?: CurrentPassiveInvestmentState
 
   // Active Trading Actions
-  addActiveStock: (symbol: string, shares: number, manualPrice?: number) => Promise<void>
+  addActiveStock: (symbol: string, shares: number, manualPrice?: number, currency?: string) => Promise<void>
   updateActiveStock: (symbol: string, shares: number) => Promise<void>
   removeActiveStock: (symbol: string) => void
-  updateStockPrices: () => Promise<void>
+  updateStockPrices: (targetCurrency?: string, fromCurrency?: string) => Promise<void>
 
   // Legacy Actions
   setStockValue: (key: keyof StockValues, value: number | boolean) => void
@@ -302,65 +302,110 @@ export const createStocksSlice: StateCreator<ZakatState> = (set, get) => ({
   },
 
   // Active Trading Actions
-  addActiveStock: async (symbol: string, shares: number, manualPrice?: number) => {
+  addActiveStock: async (symbol: string, shares: number, manualPrice?: number, currency?: string) => {
     try {
-      // Validate inputs
-      if (!symbol || typeof symbol !== 'string') {
-        throw new Error('Invalid symbol')
+      if (!symbol || shares <= 0) {
+        throw new Error('Invalid symbol or shares')
       }
-      if (typeof shares !== 'number' || shares <= 0) {
-        throw new Error('Invalid number of shares')
-      }
-
-      let price: number
-      let lastUpdated: string
-
-      if (manualPrice && manualPrice > 0) {
-        price = manualPrice
-        lastUpdated = new Date().toISOString()
-      } else {
-        // Fetch current price
-        const priceData = await getStockPrice(symbol)
-        price = priceData.price
-        lastUpdated = new Date(priceData.lastUpdated).toISOString()
-      }
-
-      // Ensure we have a valid price
-      if (typeof price !== 'number' || !isFinite(price) || price <= 0) {
-        throw new Error(`Invalid price for ${symbol}: ${price}`)
-      }
-
-      // Calculate values
-      const marketValue = roundCurrency(shares * price)
-      const zakatDue = roundCurrency(marketValue * ZAKAT_RATE)
-
-      // Create validated stock object
-      const validatedStock = {
-        symbol,
-        shares,
-        currentPrice: price,
-        marketValue,
-        zakatDue,
-        lastUpdated
-      }
-
-      console.log('Adding stock with values:', validatedStock)
-
-      set((state) => {
-        const newStocks = [...(state.stockValues?.activeStocks || []), validatedStock]
-        const totalValue = newStocks.reduce((sum, s) => sum + (s.marketValue || 0), 0)
+      
+      // Validate the symbol against API
+      if (!manualPrice) {
+        const state = get()
+        // Use provided currency, or the store's currency, or fallback to USD
+        const currentCurrency = currency || state.currency || 'USD'
+        const { price, lastUpdated } = await getStockPrice(symbol, currentCurrency)
         
-        return {
-          stockValues: {
-            ...state.stockValues,
-            activeStocks: newStocks,
-            market_value: totalValue,
-            zakatable_value: state.stockHawlMet ? totalValue : 0
+        // Calculate market value and zakat due
+        const marketValue = roundCurrency(shares * price)
+        const zakatDue = roundCurrency(marketValue * ZAKAT_RATE)
+        
+        // Add to state
+        set((state: ZakatState) => {
+          // Check if stock already exists
+          const existingIndex = state.stockValues.activeStocks.findIndex(
+            (s: ActiveStock) => s.symbol.toUpperCase() === symbol.toUpperCase()
+          )
+          
+          let updatedStocks = [...state.stockValues.activeStocks]
+          
+          if (existingIndex >= 0) {
+            // Update existing stock
+            const existing = updatedStocks[existingIndex]
+            updatedStocks[existingIndex] = {
+              ...existing,
+              shares,
+              currentPrice: price,
+              marketValue,
+              zakatDue,
+              lastUpdated: new Date(lastUpdated).toISOString()
+            }
+          } else {
+            // Add new stock
+            updatedStocks.push({
+              symbol: symbol.toUpperCase(),
+              shares,
+              currentPrice: price,
+              marketValue,
+              zakatDue,
+              lastUpdated: new Date(lastUpdated).toISOString()
+            })
           }
-        }
-      })
+          
+          return {
+            stockValues: {
+              ...state.stockValues,
+              activeStocks: updatedStocks
+            }
+          }
+        })
+      } else {
+        // Handle manual price entry
+        const price = manualPrice
+        const marketValue = roundCurrency(shares * price)
+        const zakatDue = roundCurrency(marketValue * ZAKAT_RATE)
+        
+        // Add to state
+        set((state: ZakatState) => {
+          // Check if stock already exists
+          const existingIndex = state.stockValues.activeStocks.findIndex(
+            (s: ActiveStock) => s.symbol.toUpperCase() === symbol.toUpperCase()
+          )
+          
+          let updatedStocks = [...state.stockValues.activeStocks]
+          
+          if (existingIndex >= 0) {
+            // Update existing stock
+            const existing = updatedStocks[existingIndex]
+            updatedStocks[existingIndex] = {
+              ...existing,
+              shares,
+              currentPrice: price,
+              marketValue,
+              zakatDue,
+              lastUpdated: new Date().toISOString()
+            }
+          } else {
+            // Add new stock
+            updatedStocks.push({
+              symbol: symbol.toUpperCase(),
+              shares,
+              currentPrice: price,
+              marketValue,
+              zakatDue,
+              lastUpdated: new Date().toISOString()
+            })
+          }
+          
+          return {
+            stockValues: {
+              ...state.stockValues,
+              activeStocks: updatedStocks
+            }
+          }
+        })
+      }
     } catch (error) {
-      console.error('Error adding stock:', error)
+      console.error('Failed to add active stock:', error)
       throw error
     }
   },
@@ -421,66 +466,150 @@ export const createStocksSlice: StateCreator<ZakatState> = (set, get) => ({
     }))
   },
 
-  updateStockPrices: async () => {
-    set({ isLoading: true, lastError: null })
+  updateStockPrices: async (targetCurrency?: string, fromCurrency?: string) => {
     try {
-      const { stockValues } = get()
+      const state = get();
+      const activeStocks = state.stockValues?.activeStocks || [];
       
-      // Validate state
-      if (!Array.isArray(stockValues.activeStocks)) {
-        throw new Error('Invalid stock state')
+      if (activeStocks.length === 0) {
+        return; // No stocks to update
       }
-
-      // Track failed updates
-      const failedUpdates: string[] = []
-
-      // Update each stock individually to handle failures gracefully
-      const updatedStocks = await Promise.all(
-        stockValues.activeStocks.map(async (stock: ActiveStock) => {
-          try {
-            const priceUpdate = await getStockPrice(stock.symbol)
-            return {
-              ...stock,
-              currentPrice: priceUpdate.price,
-              marketValue: stock.shares * priceUpdate.price,
-              zakatDue: stock.shares * priceUpdate.price * ZAKAT_RATE
+      
+      // Get symbols to update
+      const symbols = activeStocks.map((stock: ActiveStock) => stock.symbol);
+      
+      // Use provided target currency, or the store's currency, or fallback to USD
+      const currentCurrency = targetCurrency || state.currency || 'USD';
+      console.log(`Updating stock prices to currency: ${currentCurrency}`);
+      
+      // Initialize the currency store
+      let currencyStore;
+      
+      // Try to get the currency store from the window object if in browser environment
+      if (typeof window !== 'undefined' && (window as any).useCurrencyStore) {
+        currencyStore = (window as any).useCurrencyStore.getState();
+      }
+      
+      // Track success/failure counts for logging
+      let successCount = 0;
+      let failureCount = 0;
+      let conversionCount = 0;
+      
+      // Fetch updated prices - the API will try to convert currencies
+      console.log(`Fetching current stock prices for ${symbols.length} symbols in ${currentCurrency}`);
+      const updatedPrices = await getBatchStockPrices(symbols, currentCurrency);
+      console.log(`Received ${updatedPrices.length} prices from API`);
+      
+      // Update prices in state
+      set((state: ZakatState) => {
+        const updatedStocks = state.stockValues.activeStocks.map((stock: ActiveStock) => {
+          const updated = updatedPrices.find(p => p.symbol.toUpperCase() === stock.symbol.toUpperCase());
+          
+          if (updated) {
+            successCount++;
+            
+            // Check if API conversion was applied
+            if (updated.conversionApplied && updated.currency === currentCurrency) {
+              console.log(`Stock price for ${stock.symbol} converted to ${currentCurrency} by API`);
+              conversionCount++;
+              
+              // Calculate market value based on updated price and shares
+              const marketValue = roundCurrency(stock.shares * updated.price);
+              const zakatDue = roundCurrency(marketValue * ZAKAT_RATE);
+              
+              return {
+                ...stock,
+                currentPrice: updated.price,
+                marketValue,
+                zakatDue,
+                lastUpdated: updated.lastUpdated,
+                currency: updated.currency,
+                sourceCurrency: updated.sourceCurrency
+              };
+            } else {
+              // API returned price in original currency
+              console.log(`Stock price for ${stock.symbol} in original currency: ${updated.currency}`);
+              
+              // If we have currency store, try client-side conversion
+              if (currencyStore?.convertAmount && updated.currency !== currentCurrency) {
+                try {
+                  const originalPrice = updated.price;
+                  const convertedPrice = currencyStore.convertAmount(
+                    originalPrice,
+                    updated.currency,
+                    currentCurrency
+                  );
+                  
+                  if (convertedPrice !== originalPrice) {
+                    console.log(`Converted price for ${stock.symbol}: ${originalPrice} ${updated.currency} → ${convertedPrice} ${currentCurrency}`);
+                    conversionCount++;
+                    
+                    // Calculate market value based on converted price
+                    const marketValue = roundCurrency(stock.shares * convertedPrice);
+                    const zakatDue = roundCurrency(marketValue * ZAKAT_RATE);
+                    
+                    return {
+                      ...stock,
+                      currentPrice: convertedPrice,
+                      marketValue,
+                      zakatDue,
+                      lastUpdated: updated.lastUpdated,
+                      currency: currentCurrency,
+                      sourceCurrency: updated.currency
+                    };
+                  }
+                } catch (conversionError) {
+                  console.error(`Failed to convert ${stock.symbol} price:`, conversionError);
+                }
+              }
+              
+              // If no conversion was possible, keep original currency
+              const marketValue = roundCurrency(stock.shares * updated.price);
+              const zakatDue = roundCurrency(marketValue * ZAKAT_RATE);
+              
+              return {
+                ...stock,
+                currentPrice: updated.price,
+                marketValue,
+                zakatDue,
+                lastUpdated: updated.lastUpdated,
+                currency: updated.currency,
+                sourceCurrency: updated.sourceCurrency
+              };
             }
-          } catch {
-            // If price update fails, keep existing price and track failure
-            failedUpdates.push(stock.symbol)
-            return stock
+          } else {
+            failureCount++;
+            
+            // If we couldn't get an updated price but have stock with currency and price
+            // Leave it unchanged
+            console.log(`No updated price for ${stock.symbol}, keeping existing data`);
+            return stock;
           }
-        })
-      )
-
-      set((state: ZakatState) => ({
-        stockValues: {
-          ...state.stockValues,
-          activeStocks: updatedStocks
-        }
-      }))
-
-      // If any updates failed, throw error with details
-      if (failedUpdates.length > 0) {
-        throw new Error(
-          `Could not update prices for: ${failedUpdates.join(', ')}. Previous prices retained.`
-        )
+        });
+        
+        console.log(`Stock update results: ${successCount} fetched, ${conversionCount} converted, ${failureCount} failed`);
+        
+        return {
+          stockValues: {
+            ...state.stockValues,
+            activeStocks: updatedStocks
+          },
+          currency: currentCurrency // Update global currency
+        };
+      });
+      
+      // Recalculate totals after updating stock prices
+      const zakatStore = get();
+      if (typeof zakatStore.getTotalStocks === 'function') {
+        zakatStore.getTotalStocks();
       }
-
-      // Update totals through store actions
-      const state = get()
-      const stockAsset = getAssetType('stocks')
-      if (stockAsset) {
-        const newTotal = stockAsset.calculateTotal(state.stockValues, state.stockPrices)
-        const newZakatable = stockAsset.calculateZakatable(state.stockValues, state.stockPrices, state.stockHawlMet)
-        state.setStockValue('market_value', newTotal)
-        state.setStockValue('zakatable_value', newZakatable)
+      if (typeof zakatStore.getTotalZakatableStocks === 'function') {
+        zakatStore.getTotalZakatableStocks();
       }
-    } catch (_error) {
-      set({ lastError: _error instanceof Error ? _error.message : 'Failed to update prices' })
-      throw _error
-    } finally {
-      set({ isLoading: false })
+      
+    } catch (error) {
+      console.error('Failed to update stock prices:', error);
+      throw error;
     }
   },
 

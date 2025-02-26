@@ -185,7 +185,8 @@ export function StockCalculator({
     setIsLoading(true)
 
     try {
-      await addActiveStock(newTicker, Number(newShares), manualPrice)
+      // Pass currency when adding stock
+      await addActiveStock(newTicker, Number(newShares), manualPrice, currency)
       
       // Clear form
       setNewTicker('')
@@ -232,7 +233,8 @@ export function StockCalculator({
     setIsLoading(true)
     
     try {
-      await updateStockPrices()
+      // Pass currency to the update function
+      await updateStockPrices(currency)
       
       // Get updated totals using the asset type system
       const total = stockAsset.calculateTotal(stockValues, stockPrices)

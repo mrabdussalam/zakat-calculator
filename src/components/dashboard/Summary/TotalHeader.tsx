@@ -9,10 +9,10 @@ import { motion, useMotionValue, useTransform, animate } from "framer-motion"
 import { useEffect } from "react"
 
 // Animated number component
-function AnimatedNumber({ value }: { value: number }) {
+function AnimatedNumber({ value, currency = 'USD' }: { value: number, currency?: string }) {
   const motionValue = useMotionValue(value)
   const rounded = useTransform(motionValue, latest => {
-    return formatCurrency(Math.round(latest * 100) / 100)
+    return formatCurrency(Math.round(latest * 100) / 100, currency)
   })
 
   useEffect(() => {
@@ -70,7 +70,7 @@ export function TotalHeader({ totalAssets, breakdown, nisabStatus, currency }: T
               transition={{ duration: 0.15 }}
               className="text-gray-900"
             >
-              {formatCurrency(totalAssets)}
+              {formatCurrency(totalAssets, currency)}
             </motion.span>
           </div>
         </div>
@@ -86,7 +86,7 @@ export function TotalHeader({ totalAssets, breakdown, nisabStatus, currency }: T
                 transition={{ duration: 0.15 }}
                 className="text-green-600"
               >
-                {formatCurrency(breakdown.combined.zakatDue)}
+                {formatCurrency(breakdown.combined.zakatDue, currency)}
               </motion.span>
             </div>
             <div className="text-xs sm:text-sm text-gray-500">

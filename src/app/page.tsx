@@ -2,10 +2,13 @@
 
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { ArrowRight, Loader2 } from "lucide-react"
+import { ArrowRight, Loader2, ChevronDown } from "lucide-react"
 import { Noto_Naskh_Arabic } from 'next/font/google'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { Label } from "@/components/ui/form/label"
+import { cn } from "@/lib/utils"
+import { CurrencySelector } from "@/components/ui/CurrencySelector"
 
 const notoNaskhArabic = Noto_Naskh_Arabic({
   weight: ['400', '500', '600', '700'],
@@ -15,6 +18,44 @@ const notoNaskhArabic = Noto_Naskh_Arabic({
 
 export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false)
+  const [selectedCurrency, setSelectedCurrency] = useState('USD')
+
+  // Listen for currency selection changes
+  useEffect(() => {
+    const savedCurrency = localStorage.getItem('selected-currency') || 'USD'
+    setSelectedCurrency(savedCurrency)
+
+    const handleCurrencyChange = (event: CustomEvent) => {
+      setSelectedCurrency(event.detail.to)
+    }
+
+    window.addEventListener('currency-changed', handleCurrencyChange as EventListener)
+    
+    return () => {
+      window.removeEventListener('currency-changed', handleCurrencyChange as EventListener)
+    }
+  }, [])
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: selectedCurrency,
+    }).format(amount)
+  }
+
+  const handleStartCalculation = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    // Small delay to show loading state
+    setTimeout(() => {
+      // Store the currency selection in localStorage for the dashboard to use
+      localStorage.setItem('zakatState', JSON.stringify({
+        currency: selectedCurrency,
+        setupCompleted: true
+      }))
+      window.location.href = '/dashboard?t=' + Date.now()
+    }, 800)
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -41,49 +82,54 @@ export default function HomePage() {
               </p>
             </div>
           </div>
+          
+          {/* Currency Selection */}
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <h2 className="text-xl font-medium tracking-tight text-gray-900">Select Your Currency</h2>
+              <p className="text-sm text-gray-600">Choose the currency you'll use for calculations</p>
+            </div>
+            
+            <CurrencySelector />
 
-          {/* CTA Button */}
-          <Link 
-            href="/dashboard" 
-            className="block"
-            onClick={(e) => {
-              e.preventDefault()
-              setIsLoading(true)
-              // Small delay to show loading state
-              setTimeout(() => {
-                window.location.href = '/dashboard?t=' + Date.now()
-              }, 800)
-            }}
-          >
-            <motion.div>
-              <Button 
-                size="lg" 
-                className="rounded-full px-8 h-12 text-sm w-full"
-                disabled={isLoading}
+            {/* CTA Button */}
+            <div className="pt-4">
+              <a 
+                href="#"
+                className="block"
+                onClick={handleStartCalculation}
               >
-                {isLoading ? (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex items-center"
+                <motion.div>
+                  <Button 
+                    size="lg" 
+                    className="rounded-lg px-8 h-12 text-sm w-full"
+                    disabled={isLoading}
                   >
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Loading...
-                  </motion.div>
-                ) : (
-                  <div className="flex items-center">
-                    Start Calculation
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </div>
-                )}
-              </Button>
-            </motion.div>
-          </Link>
+                    {isLoading ? (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="flex items-center"
+                      >
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Loading...
+                      </motion.div>
+                    ) : (
+                      <div className="flex items-center">
+                        Start Calculation
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </div>
+                    )}
+                  </Button>
+                </motion.div>
+              </a>
+            </div>
+          </div>
 
           {/* Features Grid */}
           <div className="grid gap-4">
             {/* What is Zakat */}
-            <div className="rounded-xl bg-gray-100/80 p-4 space-y-2">
+            <div className="rounded-xl bg-gray-100/80 p-6 space-y-2">
               <h2 className="text-xl font-medium tracking-tight text-gray-900">What is Zakat?</h2>
               <p className="text-sm text-gray-600">
                 Zakat is one of the five pillars of Islam. It is a mandatory charitable contribution,

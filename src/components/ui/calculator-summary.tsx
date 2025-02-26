@@ -55,6 +55,7 @@ interface CalculatorSummaryProps {
     text: string
     tooltip?: string
   }
+  currency?: string
 }
 
 export function CalculatorSummary({
@@ -66,7 +67,8 @@ export function CalculatorSummary({
   breakdown,
   hawlMet,
   zakatAmount,
-  footnote
+  footnote,
+  currency = 'USD'
 }: CalculatorSummaryProps) {
   // Convert asset breakdown to sections if using new props
   const displaySections = React.useMemo(() => {
@@ -78,7 +80,7 @@ export function CalculatorSummary({
         .filter(([_, item]) => item.value !== 0) // Filter out zero-value items
         .map(([key, item]) => ({
           label: item.label || assetType.getFieldLabel?.(key) || key,
-          value: formatCurrency(item.value),
+          value: formatCurrency(item.value, currency),
           tooltip: item.tooltip || assetType.getFieldTooltip?.(key),
           isExempt: item.isExempt || false,
           isZakatable: item.isZakatable || false,
@@ -95,7 +97,7 @@ export function CalculatorSummary({
       if (breakdown.total > 0) {
         totalsItems.push({
           label: 'Total Assets',
-          value: formatCurrency(breakdown.total),
+          value: formatCurrency(breakdown.total, currency),
           tooltip: 'Total value of all assets before exemptions',
           isExempt: false,
           isZakatable: false,
@@ -110,7 +112,7 @@ export function CalculatorSummary({
       if (breakdown.zakatable > 0) {
         totalsItems.push({
           label: 'Zakatable Amount',
-          value: formatCurrency(breakdown.zakatable),
+          value: formatCurrency(breakdown.zakatable, currency),
           tooltip: 'Amount subject to Zakat after exemptions',
           isExempt: false,
           isZakatable: true,
@@ -125,7 +127,7 @@ export function CalculatorSummary({
       if (breakdown.zakatDue > 0) {
         totalsItems.push({
           label: 'Zakat Due',
-          value: formatCurrency(breakdown.zakatDue),
+          value: formatCurrency(breakdown.zakatDue, currency),
           tooltip: 'Zakat amount (2.5% of zakatable assets)',
           isExempt: false,
           isZakatable: true,
@@ -160,7 +162,7 @@ export function CalculatorSummary({
     }
 
     return []
-  }, [sections, assetType, breakdown])
+  }, [sections, assetType, breakdown, currency])
 
   // If no sections available, return null
   if (!displaySections.length) return null
@@ -215,7 +217,7 @@ export function CalculatorSummary({
                    Number(item.value) !== item.zakatable && (
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-500">Net Amount (After Tax & Penalties)</span>
-                      <span className="text-green-600">{formatCurrency(item.zakatable)}</span>
+                      <span className="text-green-600">{formatCurrency(item.zakatable, currency)}</span>
                     </div>
                   )}
                 </div>
@@ -241,7 +243,7 @@ export function CalculatorSummary({
                 </Tooltip>
               </div>
               <span className="font-medium text-green-600">
-                {typeof zakatAmount === 'number' ? formatCurrency(zakatAmount) : formatCurrency(breakdown?.zakatDue || 0)}
+                {typeof zakatAmount === 'number' ? formatCurrency(zakatAmount, currency) : formatCurrency(breakdown?.zakatDue || 0, currency)}
               </span>
             </div>
           )}

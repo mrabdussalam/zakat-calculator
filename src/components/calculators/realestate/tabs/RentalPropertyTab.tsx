@@ -11,6 +11,7 @@ import { formatCurrency } from "@/lib/utils"
 export interface RentalPropertyTabProps {
   values: RealEstateValues
   errors: Record<string, string | undefined>
+  currency: string
   onValueChange: (
     fieldId: keyof RealEstateValues,
     event: React.ChangeEvent<HTMLInputElement>
@@ -20,6 +21,7 @@ export interface RentalPropertyTabProps {
 export function RentalPropertyTab({
   values,
   errors,
+  currency,
   onValueChange
 }: RentalPropertyTabProps) {
   const handleChange = (
@@ -47,7 +49,7 @@ export function RentalPropertyTab({
               <Label htmlFor="rental_income">Annual Rental Income</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-3 flex items-center">
-                  <span className="text-sm font-medium text-gray-900 mr-1">USD</span>
+                  <span className="text-sm font-medium text-gray-900 mr-1">{currency}</span>
                 </div>
                 <Input
                   id="rental_income"
@@ -72,7 +74,7 @@ export function RentalPropertyTab({
               <Label htmlFor="rental_expenses">Annual Expenses</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-3 flex items-center">
-                  <span className="text-sm font-medium text-gray-900 mr-1">USD</span>
+                  <span className="text-sm font-medium text-gray-900 mr-1">{currency}</span>
                 </div>
                 <Input
                   id="rental_expenses"

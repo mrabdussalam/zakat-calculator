@@ -22,34 +22,26 @@ export const SYMBOL_TO_ID: Record<string, string> = {
 }
 
 /**
- * Fetches the current price of a cryptocurrency in USD
+ * Fetches the current price of a cryptocurrency 
  * @param symbol The cryptocurrency symbol (e.g., BTC, ETH)
- * @returns The current price in USD
+ * @param currency The currency to fetch the price in (default: USD)
+ * @returns The current price in the specified currency
  * @throws CryptoAPIError if the API request fails or the symbol is invalid
  */
-export async function getCryptoPrice(symbol: string): Promise<number> {
+export async function getCryptoPrice(symbol: string, currency: string = 'USD'): Promise<number> {
   try {
     const upperSymbol = symbol.toUpperCase()
-    const coinId = SYMBOL_TO_ID[upperSymbol]
     
-    if (!coinId) {
-      throw new CryptoAPIError(`Unsupported cryptocurrency symbol: ${symbol}`)
-    }
-
-    const response = await fetch(
-      `${COINGECKO_API_URL}/simple/price?ids=${coinId}&vs_currencies=usd`
-    )
+    // Call our local API which includes currency conversion
+    const response = await fetch(`/api/prices/crypto?symbol=${encodeURIComponent(upperSymbol)}&currency=${currency}`)
 
     if (!response.ok) {
-      throw new Error('Failed to fetch price from CoinGecko')
+      const errorData = await response.json()
+      throw new CryptoAPIError(errorData.error || 'Failed to fetch crypto price')
     }
 
     const data = await response.json()
-    if (!data[coinId]?.usd) {
-      throw new CryptoAPIError(`No price data found for ${symbol}`)
-    }
-
-    return data[coinId].usd
+    return data.price
   } catch (error) {
     if (error instanceof CryptoAPIError) {
       throw error

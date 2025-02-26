@@ -175,12 +175,17 @@ export default {
         slideUpAndFade: {
           from: { opacity: '0', transform: 'translateY(8px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        pulse: {
+          '0%, 100%': { opacity: '0.8' },
+          '50%': { opacity: '0.4' }
         }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         slideUpAndFade: 'slideUpAndFade 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
+        pulse: 'pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'
       },
       fontFamily: {
         sans: ['var(--font-inter)', ...fontFamily.sans],

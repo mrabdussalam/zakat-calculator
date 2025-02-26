@@ -26,14 +26,14 @@ export const createCryptoSlice: StateCreator<
   lastError: null,
 
   // Actions
-  addCoin: async (symbol: string, quantity: number) => {
+  addCoin: async (symbol: string, quantity: number, currency: string = 'USD') => {
     if (typeof quantity !== 'number' || !isFinite(quantity) || quantity < 0) {
       console.warn(`Invalid crypto quantity: ${quantity} for ${symbol}`)
       return
     }
 
     try {
-      const currentPrice = await getCryptoPrice(symbol)
+      const currentPrice = await getCryptoPrice(symbol, currency)
       const marketValue = roundCurrency(quantity * currentPrice)
       const zakatDue = roundCurrency(marketValue * ZAKAT_RATE)
 
@@ -43,7 +43,8 @@ export const createCryptoSlice: StateCreator<
           quantity,
           currentPrice: roundCurrency(currentPrice),
           marketValue,
-          zakatDue
+          zakatDue,
+          currency
         }]
 
         const total = roundCurrency(newCoins.reduce((sum: number, coin: CryptoHolding) => sum + coin.marketValue, 0))
@@ -95,7 +96,7 @@ export const createCryptoSlice: StateCreator<
     }))
   },
 
-  updatePrices: async () => {
+  updatePrices: async (currency: string = 'USD') => {
     set({ isLoading: true, lastError: null })
     
     const state = get()
@@ -113,7 +114,7 @@ export const createCryptoSlice: StateCreator<
       // Update each coin individually to handle failures gracefully
       for (const coin of coins) {
         try {
-          const currentPrice = await getCryptoPrice(coin.symbol)
+          const currentPrice = await getCryptoPrice(coin.symbol, currency)
           const marketValue = roundCurrency(coin.quantity * currentPrice)
           const zakatDue = roundCurrency(marketValue * ZAKAT_RATE)
 
@@ -123,7 +124,8 @@ export const createCryptoSlice: StateCreator<
               ...coin,
               currentPrice: roundCurrency(currentPrice),
               marketValue,
-              zakatDue
+              zakatDue,
+              currency
             }
           }
         } catch (error) {
@@ -203,7 +205,7 @@ export const createCryptoSlice: StateCreator<
           label: `${coin.symbol} (${coin.quantity} coins)`,
           tooltip: `${coin.quantity} ${coin.symbol} at ${roundCurrency(coin.currentPrice).toLocaleString('en-US', {
             style: 'currency',
-            currency: 'USD'
+            currency: coin.currency || 'USD'
           })} each`,
           percentage: total > 0 ? roundCurrency((coin.marketValue / total) * 100) : 0,
           isExempt: false

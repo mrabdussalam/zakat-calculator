@@ -5,8 +5,17 @@ import { Button } from "@/components/ui/button"
 import { Form } from "@/components/ui/form/form"
 import { Select } from "@/components/ui/form/select"
 import { Label } from "@/components/ui/form/label"
+import { NISAB } from "@/store/constants"
 
 interface NisabThreshold {
+  nisabThreshold: number;
+  currency: string;
+  timestamp: string;
+  metadata: {
+    goldPrice: number;
+    goldWeight: number;
+    unit: string;
+  }
   gold: {
     grams: number
     value: number
@@ -15,7 +24,6 @@ interface NisabThreshold {
     grams: number
     value: number
   }
-  currency: string
   lastUpdated: string
 }
 
@@ -40,12 +48,47 @@ export function NisabFetcher({
       try {
         setLoading(true)
         setError(null)
-        // TODO: Replace with actual API call
+        console.log(`NisabFetcher: Fetching nisab data for currency ${currency}`)
         const response = await fetch(`/api/nisab?currency=${currency}`)
-        if (!response.ok) throw new Error('Failed to fetch Nisab threshold')
+        
+        if (!response.ok) {
+          console.error(`NisabFetcher: API response not OK - status ${response.status}`)
+          throw new Error('Failed to fetch Nisab threshold')
+        }
+        
         const data = await response.json()
-        setNisab(data)
-      } catch (err) {
+        console.log('NisabFetcher: Raw nisab data received:', data);
+        
+        // Validate required fields from API response
+        if (!data || typeof data.nisabThreshold !== 'number') {
+          console.error('NisabFetcher: Invalid nisab data - missing nisabThreshold', data)
+          throw new Error('Invalid nisab data received')
+        }
+        
+        // Transform the data to match our component's expected format
+        const transformedData = {
+          nisabThreshold: data.nisabThreshold,
+          currency: data.currency,
+          timestamp: data.timestamp,
+          metadata: data.metadata || {},
+          // Add calculated properties based on metadata
+          gold: {
+            grams: data.metadata?.metalType === 'gold' ? data.metadata.metalWeight : NISAB.GOLD.GRAMS,
+            value: data.metadata?.metalType === 'gold' ? data.nisabThreshold : 
+              NISAB.GOLD.GRAMS * (data.metadata?.metalType === 'silver' ? data.metadata.metalPrice * 90 : 94)  // Approximate gold value if silver based
+          },
+          silver: {
+            grams: data.metadata?.metalType === 'silver' ? data.metadata.metalWeight : NISAB.SILVER.GRAMS,
+            value: data.metadata?.metalType === 'silver' ? data.nisabThreshold : 
+              NISAB.SILVER.GRAMS * (data.metadata?.metalType === 'gold' ? data.metadata.metalPrice / 90 : 1)  // Approximate silver value if gold based
+          },
+          lastUpdated: data.timestamp
+        };
+        
+        console.log('NisabFetcher: Transformed nisab data:', transformedData);
+        setNisab(transformedData);
+      } catch (error) {
+        console.error('NisabFetcher: Error fetching nisab:', error);
         setError('Unable to fetch current Nisab threshold. Please try again.')
       } finally {
         setLoading(false)
@@ -63,6 +106,7 @@ export function NisabFetcher({
       ? nisab.gold.value 
       : nisab.silver.value
 
+    console.log(`NisabFetcher: Selected threshold ${threshold} ${currency} using method ${selectedMethod}`)
     onSelect(threshold)
   }
 
@@ -112,8 +156,8 @@ export function NisabFetcher({
               value={selectedMethod}
               onChange={(e) => setSelectedMethod(e.target.value as 'gold' | 'silver')}
             >
-              <option value="gold">Based on Gold ({nisab.gold.grams}g)</option>
-              <option value="silver">Based on Silver ({nisab.silver.grams}g)</option>
+              <option value="gold">Based on Gold ({NISAB.GOLD.GRAMS}g)</option>
+              <option value="silver">Based on Silver ({NISAB.SILVER.GRAMS}g)</option>
             </Select>
           </div>
 

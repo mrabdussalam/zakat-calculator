@@ -51,6 +51,7 @@ export interface StockValues {
 export interface StockPrices {
   prices: Record<string, number>
   lastUpdated?: Date
+  currency?: string
 }
 
 export const stocks: AssetType = {

@@ -573,7 +573,6 @@ export function RetirementCalculator({
           </section>
         )}
 
-        {/* Temporarily hidden calculator summary
         {(accessibility === 'accessible' || accountDetails.isWithdrawn || accountDetails.balance > 0) && breakdown && (
           <section>
             <CalculatorSummary
@@ -582,6 +581,7 @@ export function RetirementCalculator({
               sections={summaryItems}
               hawlMet={true}
               zakatAmount={zakatDue}
+              currency={currency}
               footnote={accessibility === 'accessible' ? {
                 text: "Zakat is calculated on the net amount after taxes and penalties.",
                 tooltip: "This ensures you only pay Zakat on the amount you can actually access."
@@ -595,7 +595,6 @@ export function RetirementCalculator({
             />
           </section>
         )}
-        */}
       </div>
 
       {/* Navigation */}

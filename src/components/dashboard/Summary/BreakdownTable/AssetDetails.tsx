@@ -51,13 +51,13 @@ export function AssetDetails({ items, currency, hawlMet }: AssetDetailsProps) {
             </div>
             <div className="flex items-center gap-2 sm:gap-4">
               <span className="w-[100px] sm:w-[140px] text-right text-gray-500">
-                {formatCurrency(item.value)}
+                {formatCurrency(item.value, currency)}
               </span>
               <span className="hidden sm:block w-[140px] text-right text-gray-500">
-                {formatCurrency(item.zakatable)}
+                {formatCurrency(item.zakatable, currency)}
               </span>
               <span className="w-[80px] sm:w-[100px] text-right text-gray-500">
-                {formatCurrency(item.zakatDue)}
+                {formatCurrency(item.zakatDue, currency)}
               </span>
             </div>
           </motion.div>

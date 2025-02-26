@@ -145,6 +145,7 @@ export function BreakdownTable({
           totalAssets={totalAssets}
           zakatableValue={breakdown.zakatable}
           zakatDue={breakdown.zakatDue}
+          currency={currency}
         />
       </div>
     </div>

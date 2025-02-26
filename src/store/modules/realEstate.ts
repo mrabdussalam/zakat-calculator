@@ -98,8 +98,8 @@ export const createRealEstateSlice: StateCreator<ZakatState> = (set, get) => ({
   isValid: true,
 
   // Actions
-  setRealEstateValue: (field, value) => {
-    set((state) => {
+  setRealEstateValue: (field: keyof RealEstateValues, value: number | boolean) => {
+    set((state: ZakatState) => {
       const newValues = {
         ...state.realEstateValues,
         [field]: typeof value === 'number' ? roundCurrency(value) : value
@@ -121,7 +121,7 @@ export const createRealEstateSlice: StateCreator<ZakatState> = (set, get) => ({
     })
   },
 
-  setRealEstateHawlMet: (value) => {
+  setRealEstateHawlMet: (value: boolean) => {
     set({ realEstateHawlMet: value })
   },
 
@@ -178,6 +178,7 @@ export const createRealEstateSlice: StateCreator<ZakatState> = (set, get) => ({
   },
 
   getRealEstateBreakdown: () => {
+    const state = get();
     const { realEstateValues, realEstateHawlMet } = get()
     
     // Calculate values
@@ -224,7 +225,7 @@ export const createRealEstateSlice: StateCreator<ZakatState> = (set, get) => ({
           zakatable: 0,
           zakatDue: 0,
           label: 'Primary Residence',
-          tooltip: `Primary residence is exempt from Zakat (${formatCurrency(primaryResidenceValue)})`
+          tooltip: `Primary residence is exempt from Zakat (${formatCurrency(primaryResidenceValue, state.currency)})`
         },
         rental: {
           value: rentalIncome,
@@ -232,7 +233,7 @@ export const createRealEstateSlice: StateCreator<ZakatState> = (set, get) => ({
           zakatable: realEstateHawlMet ? rentalNet : 0,
           zakatDue: rentalZakatDue,
           label: 'Rental Property',
-          tooltip: `Rental income: ${formatCurrency(rentalIncome)}, Expenses: ${formatCurrency(rentalExpenses)}, Net: ${formatCurrency(rentalNet)}`
+          tooltip: `Rental income: ${formatCurrency(rentalIncome, state.currency)}, Expenses: ${formatCurrency(rentalExpenses, state.currency)}, Net: ${formatCurrency(rentalNet, state.currency)}`
         },
         property_for_sale: {
           value: propertyForSaleValue,
@@ -241,7 +242,7 @@ export const createRealEstateSlice: StateCreator<ZakatState> = (set, get) => ({
           zakatDue: propertyForSaleZakatDue,
           label: 'Property for Sale',
           tooltip: propertyForSaleActive 
-            ? `Property is actively listed for sale (${formatCurrency(propertyForSaleValue)})` 
+            ? `Property is actively listed for sale (${formatCurrency(propertyForSaleValue, state.currency)})` 
             : 'Not currently for sale'
         },
         vacant_land: {
@@ -251,8 +252,8 @@ export const createRealEstateSlice: StateCreator<ZakatState> = (set, get) => ({
           zakatDue: vacantLandZakatDue,
           label: vacantLandSold ? 'Vacant Land (Sold)' : 'Vacant Land',
           tooltip: vacantLandSold 
-            ? `Land has been sold for ${formatCurrency(salePrice)}` 
-            : `Land is not currently for sale (${formatCurrency(vacantLandValue)})`
+            ? `Land has been sold for ${formatCurrency(salePrice, state.currency)}` 
+            : `Land is not currently for sale (${formatCurrency(vacantLandValue, state.currency)})`
         }
       }
     }

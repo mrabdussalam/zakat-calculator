@@ -109,6 +109,55 @@ export const useZakatStore = create<ZakatState>(
           cryptoSlice.resetCryptoValues?.()
         },
 
+        // Reset all calculators when currency changes
+        // This is a specialized version of reset that focuses on clearing data
+        // without resetting other user preferences
+        resetAllCalculators: () => {
+          console.log('Performing currency change reset for all calculators')
+          
+          // Add a delay to ensure metal prices are properly loaded
+          setTimeout(() => {
+            // Get the user's currency preference
+            let userCurrency = 'USD'
+            try {
+              const savedCurrency = localStorage.getItem('selected-currency')
+              if (savedCurrency) {
+                userCurrency = savedCurrency
+              }
+            } catch (error) {
+              console.error('Failed to load currency preference:', error)
+            }
+            
+            // Reset all calculator values but preserve other settings including currency
+            // This is more targeted than the full reset
+            set((state) => {
+              console.log('Resetting calculator values - current state:', Object.keys(state));
+              return {
+                ...state,
+                currency: userCurrency || state.currency || 'USD',
+                metalsValues: initialState.metalsValues,
+                cashValues: initialState.cashValues,
+                stockValues: initialState.stockValues,
+                retirement: initialState.retirement,
+                realEstateValues: initialState.realEstateValues,
+                cryptoValues: initialState.cryptoValues
+              };
+            });
+            
+            // Also call individual reset functions to ensure complete reset
+            // Do this with small delays to avoid race conditions
+            setTimeout(() => cashSlice.resetCashValues?.(), 50);
+            setTimeout(() => metalsSlice.resetMetalsValues?.(), 100);
+            setTimeout(() => stocksSlice.resetStockValues?.(), 150);
+            setTimeout(() => retirementSlice.resetRetirement?.(), 200);
+            setTimeout(() => realEstateSlice.resetRealEstateValues?.(), 250);
+            setTimeout(() => cryptoSlice.resetCryptoValues?.(), 300);
+            
+            // Keep hawl status as is or reset based on requirements
+            console.log('Completed reset of all calculator values')
+          }, 300); // Delay the reset to ensure prices are properly loaded
+        },
+
         // Get complete breakdown
         getBreakdown: () => {
           const state = get()
@@ -147,7 +196,39 @@ export const useZakatStore = create<ZakatState>(
     },
     {
       name: 'zakat-store',
-      version: 1
+      version: 1,
+      partialize: (state) => {
+        // Only persist these values to localStorage
+        const { 
+          metalsValues,
+          cashValues,
+          stockValues,
+          retirement,
+          realEstateValues,
+          cryptoValues,
+          cashHawlMet,
+          metalsHawlMet,
+          stockHawlMet,
+          retirementHawlMet,
+          realEstateHawlMet,
+          cryptoHawlMet
+        } = state as ZakatState;
+        
+        return {
+          metalsValues,
+          cashValues,
+          stockValues,
+          retirement,
+          realEstateValues,
+          cryptoValues,
+          cashHawlMet,
+          metalsHawlMet,
+          stockHawlMet,
+          retirementHawlMet,
+          realEstateHawlMet,
+          cryptoHawlMet
+        };
+      }
     }
   )
 )

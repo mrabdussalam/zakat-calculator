@@ -5,7 +5,22 @@ export interface StockPrice {
   price: number
   lastUpdated: Date
   currency?: string
+  sourceCurrency?: string
   exchangeName?: string
+  conversionApplied?: boolean
+  requestedCurrency?: string
+}
+
+export interface StockPriceResponse {
+  symbol: string
+  price: number
+  lastUpdated: string
+  sourceCurrency: string
+  currency: string
+  conversionApplied: boolean
+  requestedCurrency: string
+  exchangeName?: string
+  error?: string
 }
 
 export class StockAPIError extends Error {
@@ -46,96 +61,77 @@ async function fetchWithRetry(url: string, retries = MAX_RETRIES): Promise<Respo
   }
 }
 
-export async function getStockPrice(symbol: string): Promise<StockPrice> {
-  if (!symbol || typeof symbol !== 'string') {
-    throw new StockAPIError('Invalid symbol', 400)
-  }
-
+export const getStockPrice = async (symbol: string, currency: string = 'USD'): Promise<StockPriceResponse> => {
   try {
-    const response = await fetchWithRetry(`${BASE_URL}?symbol=${encodeURIComponent(symbol.trim())}`)
+    console.log(`Searching stock price for ${symbol} in ${currency}`);
+    
+    const apiUrl = `${BASE_URL}?symbol=${encodeURIComponent(symbol)}&currency=${encodeURIComponent(currency)}`;
+    const response = await fetch(apiUrl);
     
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
+      const errorData = await response.json();
       throw new StockAPIError(
-        errorData.error || `Failed to fetch stock price: ${response.status} ${response.statusText}`,
+        errorData.error || `Failed to fetch stock price for ${symbol}`,
         response.status,
         symbol
-      )
+      );
     }
-
-    const data = await response.json()
-
-    // Validate the response data
-    if (!data || typeof data.price !== 'number' || !isFinite(data.price)) {
-      throw new StockAPIError(`Invalid price data received for ${symbol}`, 400, symbol)
+    
+    const data = await response.json() as StockPriceResponse;
+    
+    if (!data || typeof data.price !== 'number') {
+      throw new StockAPIError(`Invalid or missing price data for ${symbol}`);
     }
-
-    // Ensure we have a valid price
-    const price = Number(data.price)
-    if (isNaN(price) || !isFinite(price) || price < 0) {
-      throw new StockAPIError(`Invalid price format for ${symbol}`, 400, symbol)
-    }
-
-    return {
-      symbol: data.symbol,
-      price: price,
-      lastUpdated: new Date(data.lastUpdated),
-      currency: data.currency,
-      exchangeName: data.exchangeName
-    }
+    
+    return data;
   } catch (error) {
-    console.error(`Failed to fetch price for ${symbol}:`, error)
+    console.error(`Error fetching stock price for ${symbol}:`, error);
     if (error instanceof StockAPIError) {
-      throw error
+      throw error;
     }
     throw new StockAPIError(
-      `Failed to fetch price for ${symbol}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      500,
-      symbol
-    )
+      error instanceof Error ? error.message : `Failed to fetch stock price for ${symbol}`
+    );
   }
-}
+};
 
-export async function getBatchStockPrices(symbols: string[]): Promise<StockPrice[]> {
-  if (!Array.isArray(symbols) || symbols.length === 0) {
-    throw new StockAPIError('Invalid symbols array', 400)
-  }
-
-  // Deduplicate and validate symbols
-  const uniqueSymbols = [...new Set(symbols.filter(Boolean).map(s => s.trim()))]
-  if (uniqueSymbols.length === 0) {
-    throw new StockAPIError('No valid symbols provided', 400)
-  }
-
+export const getBatchStockPrices = async (symbols: string[], currency: string = 'USD'): Promise<StockPriceResponse[]> => {
   try {
-    // Process each symbol individually with retry logic
-    const results = await Promise.all(
-      uniqueSymbols.map(async symbol => {
-        try {
-          return await getStockPrice(symbol)
-        } catch (error) {
-          console.error(`Failed to fetch price for ${symbol}:`, error)
-          return null
+    console.log(`Fetching batch stock prices for ${symbols.length} symbols in ${currency}`);
+    const results: StockPriceResponse[] = [];
+    
+    // Process in batches to avoid overloading
+    const batchSize = 5;
+    for (let i = 0; i < symbols.length; i += batchSize) {
+      const batch = symbols.slice(i, i + batchSize);
+      const promises = batch.map(symbol => getStockPrice(symbol, currency));
+      
+      // Wait for this batch to complete before proceeding
+      const batchResults = await Promise.allSettled(promises);
+      
+      // Process results, adding only successful ones
+      batchResults.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          results.push(result.value);
+        } else {
+          console.error(`Failed to fetch price for ${batch[index]}:`, result.reason);
         }
-      })
-    )
-    
-    // Filter out failed requests
-    const validResults = results.filter((result): result is StockPrice => result !== null)
-    
-    if (validResults.length === 0) {
-      throw new StockAPIError('Failed to fetch any stock prices', 500)
+      });
+      
+      // Small delay between batches
+      if (i + batchSize < symbols.length) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
     }
     
-    return validResults
+    return results;
   } catch (error) {
-    console.error('Failed to fetch batch stock prices:', error)
-    if (error instanceof StockAPIError) {
-      throw error
-    }
-    throw new StockAPIError('Failed to fetch batch stock prices', 500)
+    console.error('Error in batch stock prices:', error);
+    throw new StockAPIError(
+      error instanceof Error ? error.message : 'Failed to fetch batch stock prices'
+    );
   }
-}
+};
 
 export async function validateSymbol(symbol: string): Promise<boolean> {
   if (!symbol || typeof symbol !== 'string') {

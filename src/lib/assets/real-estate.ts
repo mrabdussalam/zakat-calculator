@@ -58,7 +58,7 @@ export const realEstate: AssetType = {
     return rentalZakatable + propertyForSaleZakatable + vacantLandZakatable
   },
 
-  getBreakdown: (values: RealEstateValues, _prices: undefined, hawlMet: boolean): AssetBreakdown => {
+  getBreakdown: (values: RealEstateValues, _prices: undefined, hawlMet: boolean, currency: string = 'USD'): AssetBreakdown => {
     if (!values) {
       return {
         total: 0,
@@ -113,7 +113,7 @@ export const realEstate: AssetType = {
         zakatable: rentalZakatable,
         zakatDue: rentalZakatDue,
         label: 'Rental Income',
-        tooltip: `Net rental income after expenses: ${formatCurrency(netRentalIncome)}`
+        tooltip: `Net rental income after expenses: ${formatCurrency(netRentalIncome, currency)}`
       },
       property_for_sale: {
         value: propertyForSaleValue,
@@ -132,7 +132,7 @@ export const realEstate: AssetType = {
         zakatDue: vacantLandZakatDue,
         label: 'Vacant Land',
         tooltip: isVacantLandSold
-          ? `Land was sold for ${formatCurrency(salePrice)}`
+          ? `Land was sold for ${formatCurrency(salePrice, currency)}`
           : 'Land has not been sold'
       }
     }

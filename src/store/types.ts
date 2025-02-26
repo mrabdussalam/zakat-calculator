@@ -7,7 +7,8 @@ import { RealEstateSlice } from './modules/realEstate'
 import { AssetBreakdown as LibAssetBreakdown, CompanyFinancials } from '@/lib/assets/types'
 import { StateCreator } from 'zustand'
 import { CryptoSlice } from './modules/crypto'
-import { StockValues, StockPrices, StockHolding } from '@/lib/assets/stocks'
+import { StockValues as LibStockValues, StockPrices as LibStockPrices, StockHolding } from '@/lib/assets/stocks'
+import { WeightUnit } from '@/lib/utils/units'
 
 // Re-export types with new names to avoid conflicts
 export type StockValues = LibStockValues
@@ -39,6 +40,10 @@ export interface MetalsValues {
   silver_investment: number
 }
 
+export interface MetalsPreferences {
+  weightUnit: WeightUnit
+}
+
 // Stock Types
 export interface StockPrices {
   currentMarketPrice: number
@@ -55,6 +60,10 @@ export interface PassiveInvestment {
 
 export interface ActiveStock extends StockHolding {
   lastUpdated?: string
+  currency?: string
+  symbol: string
+  marketValue: number
+  zakatDue: number
 }
 
 export interface StockValues {

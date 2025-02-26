@@ -106,3 +106,26 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 - Shared utilities for common operations
 - Maintain type safety throughout
 
+## Internationalization and Currency Support
+
+### Currency Selector Component
+
+The application includes a robust currency selector component that allows users to switch between different currencies:
+
+- **Multi-currency Support**: Supports a wide range of global currencies with proper formatting
+- **Dynamic Exchange Rates**: Fetches real-time exchange rates from reliable APIs with fallback mechanisms
+- **UI Features**:
+  - Animated hover states using Framer Motion
+  - Displays full currency names on hover
+  - Custom flag SVG system
+  - Mobile-responsive grid layout
+
+## Local Development
+
+When developing locally, remember to:
+
+1. Run `npm install` to install all dependencies
+2. Set up environment variables in `.env.local`
+3. Run `npm run dev` to start the development server
+4. Run tests with `npm test`
+

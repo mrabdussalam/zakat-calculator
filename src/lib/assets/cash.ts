@@ -24,7 +24,7 @@ export const cash: AssetType = {
     }, 0)
   },
 
-  getBreakdown: (values: CashValues, _prices: undefined, hawlMet: boolean): AssetBreakdown => {
+  getBreakdown: (values: CashValues, _prices: undefined, hawlMet: boolean, currency: string = 'USD'): AssetBreakdown => {
     const items = Object.entries(values).reduce((acc, [key, value]) => {
       if (key === 'foreign_currency_entries') return acc
       
@@ -43,7 +43,7 @@ export const cash: AssetType = {
             word.charAt(0).toUpperCase() + word.slice(1)
           ).join(' '),
           tooltip: hawlMet 
-            ? `Full amount is zakatable: ${formatCurrency(safeValue)}`
+            ? `Full amount is zakatable: ${formatCurrency(safeValue, currency)}`
             : 'Hawl period not met yet'
         }
       }

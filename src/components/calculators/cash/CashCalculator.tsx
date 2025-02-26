@@ -4,8 +4,6 @@ import { useCallback, useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/form/input'
 import { Label } from '@/components/ui/label'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { InfoIcon } from '@/components/ui/icons'
 import { 
   Tooltip,
   TooltipTrigger,
@@ -14,17 +12,15 @@ import {
 } from "@/components/ui/tooltip"
 import { useZakatStore } from '@/store/zakatStore'
 import { evaluateExpression } from '@/lib/utils'
-import { CalculatorSummary } from '@/components/ui/calculator-summary'
 import { FAQ } from '@/components/ui/faq'
 import { ASSET_FAQS } from '@/config/faqs'
 import { useCurrencyStore } from '@/lib/services/currency'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DeleteIcon } from '@/components/ui/icons/icon-delete'
 import { PlusIcon } from 'lucide-react'
-import { CURRENCY_NAMES } from '@/lib/services/currency'
 import { CurrencySelector } from '@/components/CurrencySelector'
 import { CashValues, ForeignCurrencyEntry } from '@/store/types'
 import { CalculatorNav } from '@/components/ui/calculator-nav'
+import { useForeignCurrency } from '@/hooks/useForeignCurrency'
 
 interface CashCalculatorProps {
   currency: string
@@ -101,6 +97,41 @@ const EXPENSES = [
   }
 ]
 
+// Add a ConversionStatus component for better user feedback
+const ConversionStatus = ({ 
+  isLoading,
+  error,
+  warning,
+  onRetry
+}: {
+  isLoading: boolean;
+  error: string | null;
+  warning: string | null;
+  onRetry: () => void;
+}) => {
+  // Only show errors that require user action
+  if (error) {
+    return (
+      <div className="text-sm text-red-600 bg-red-50 p-2 rounded-md flex justify-between items-center mt-2">
+        <div>
+          <span className="font-medium">Error:</span> {error}
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={onRetry} 
+          className="ml-2 text-xs h-7"
+        >
+          Retry
+        </Button>
+      </div>
+    );
+  }
+  
+  // Don't show loading or general warning states to keep UI clean
+  return null;
+};
+
 export function CashCalculator({ 
   currency, 
   onCalculatorChange,
@@ -133,34 +164,62 @@ export function CashCalculator({
       }
     }, {} as InputValues)
   )
-
-  // Initialize with entries from store or default
-  const [foreignCurrencies, setForeignCurrencies] = useState<ForeignCurrencyEntry[]>(() => {
-    if (Array.isArray(cashValues.foreign_currency_entries) && cashValues.foreign_currency_entries.length > 0) {
-      return cashValues.foreign_currency_entries
-    }
-    if (typeof cashValues.foreign_currency === 'number' && cashValues.foreign_currency > 0) {
-      return [{
-        amount: cashValues.foreign_currency,
-        currency: currency
-      }]
-    }
-    return [{ amount: 0, currency: 'EUR', rawInput: '' }]
-  })
   
-  const { rates, fetchRates, convertAmount, isLoading } = useCurrencyStore()
-
+  const { rates, fetchRates, convertAmount, isLoading, error } = useCurrencyStore()
+  
+  // Add the retry mechanism for fetching rates
+  const retryFetchRates = useCallback((retryCount = 0, maxRetries = 3) => {
+    if (retryCount >= maxRetries) {
+      console.warn(`Failed to fetch exchange rates after ${maxRetries} attempts`);
+      return;
+    }
+    
+    fetchRates(currency)
+      .catch(() => {
+        // Exponential backoff for retries
+        const delay = Math.pow(2, retryCount) * 1000;
+        console.log(`Retrying rate fetch in ${delay}ms (attempt ${retryCount + 1}/${maxRetries})`);
+        setTimeout(() => retryFetchRates(retryCount + 1, maxRetries), delay);
+      });
+  }, [currency, fetchRates]);
+  
+  // Fetch rates when currency changes with retry mechanism
+  useEffect(() => {
+    retryFetchRates();
+  }, [currency, retryFetchRates]);
+  
+  // Log whenever foreign currency entries change in the store
+  useEffect(() => {
+    console.log('CashCalculator: Foreign currency entries in store:', cashValues.foreign_currency_entries);
+  }, [cashValues.foreign_currency_entries]);
+  
+  // Use the custom hook to manage foreign currency with improved options
+  const updateForeignCurrencyStore = useCallback((entries: ForeignCurrencyEntry[], total: number) => {
+    console.log('CashCalculator: Updating foreign currency in store:', entries, total);
+    setCashValue('foreign_currency_entries', entries);
+    setCashValue('foreign_currency', total);
+  }, [setCashValue]);
+  
+  const {
+    foreignCurrencies,
+    conversionWarning,
+    handleForeignCurrencyChange,
+    removeForeignCurrency,
+    addForeignCurrency
+  } = useForeignCurrency({
+    currency,
+    storeEntries: cashValues.foreign_currency_entries,
+    storeTotal: cashValues.foreign_currency,
+    convertAmount,
+    updateStore: updateForeignCurrencyStore
+  });
+  
   // Set initial hawl status only once on mount
   useEffect(() => {
     if (!cashHawlMet) {
       setCashHawlMet(true)
     }
   }, [cashHawlMet, setCashHawlMet])
-
-  // Fetch rates when currency changes
-  useEffect(() => {
-    fetchRates(currency)
-  }, [currency, fetchRates])
 
   // Sync with store values
   useEffect(() => {
@@ -181,9 +240,6 @@ export function CashCalculator({
       setInputValues(newInputValues)
     }
   }, [cashValues, inputValues])
-
-  // Add state for search
-  const [searchOpen, setSearchOpen] = useState(false)
 
   const handleValueChange = (categoryId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = event.target.value
@@ -262,121 +318,6 @@ export function CashCalculator({
     }).format(value)
   }
 
-  // Sync with store when foreign currency entries change
-  useEffect(() => {
-    if (Array.isArray(cashValues.foreign_currency_entries) && cashValues.foreign_currency_entries.length > 0) {
-      setForeignCurrencies(prev => {
-        // Only update if entries are different
-        const areEntriesDifferent = cashValues.foreign_currency_entries.length !== prev.length ||
-          cashValues.foreign_currency_entries.some((entry: ForeignCurrencyEntry, i: number) => 
-            entry.amount !== prev[i]?.amount || entry.currency !== prev[i]?.currency
-          )
-        
-        if (areEntriesDifferent) {
-          return cashValues.foreign_currency_entries
-        }
-        return prev
-      })
-    }
-  }, [cashValues.foreign_currency_entries])
-
-  // Update store with both total and entries
-  const updateForeignCurrencyStore = useCallback((entries: ForeignCurrencyEntry[]) => {
-    const totalInBaseCurrency = entries.reduce((sum, entry) => {
-      if (entry.currency === currency) {
-        return sum + entry.amount
-      }
-      return sum + (convertAmount?.(entry.amount, entry.currency, currency) || 0)
-    }, 0)
-    
-    // Only update if values are different
-    if (Math.abs(totalInBaseCurrency - (cashValues.foreign_currency || 0)) > 0.01 ||
-        !Array.isArray(cashValues.foreign_currency_entries) ||
-        entries.length !== cashValues.foreign_currency_entries.length ||
-        entries.some((entry: ForeignCurrencyEntry, i: number) => 
-          entry.amount !== cashValues.foreign_currency_entries[i]?.amount ||
-          entry.currency !== cashValues.foreign_currency_entries[i]?.currency
-        )) {
-      // Use requestAnimationFrame to defer state updates
-      requestAnimationFrame(() => {
-        setCashValue('foreign_currency', totalInBaseCurrency)
-        setCashValue('foreign_currency_entries', entries)
-      })
-    }
-  }, [cashValues, currency, convertAmount, setCashValue])
-
-  // Update the handleForeignCurrencyChange to use the new store update function
-  const handleForeignCurrencyChange = (index: number, field: 'amount' | 'currency', value: string) => {
-    if (field === 'amount') {
-      // Allow numbers, decimal points, basic math operators, and spaces
-      if (!/^[\d+\-*/.() ]*$/.test(value) && value !== '') {
-        return // Ignore invalid characters
-      }
-    }
-
-    setForeignCurrencies(prev => {
-      const updated = [...prev]
-      if (field === 'amount') {
-        try {
-          // Always store the raw input value first
-          updated[index] = {
-            ...updated[index],
-            rawInput: value
-          }
-
-          // Handle empty input
-          if (!value) {
-            updated[index].amount = 0
-            updateForeignCurrencyStore(updated)
-            return updated
-          }
-
-          // Only evaluate if the expression is complete (not ending with an operator)
-          if (!/[+\-*/.]$/.test(value)) {
-            // Remove any commas before evaluating
-            const cleanInput = value.replace(/,/g, '')
-            const numericValue = evaluateExpression(cleanInput)
-            if (!isNaN(numericValue)) {
-              updated[index].amount = numericValue
-              updateForeignCurrencyStore(updated)
-            }
-          }
-        } catch (error) {
-          console.warn('Invalid calculation:', error)
-        }
-      } else {
-        updated[index].currency = value
-        updateForeignCurrencyStore(updated)
-      }
-      return updated
-    })
-  }
-
-  // Update removeForeignCurrency to use the new store update function
-  const removeForeignCurrency = (index: number) => {
-    setForeignCurrencies(prev => {
-      const updated = prev.filter((_, i) => i !== index)
-      
-      if (updated.length === 0) {
-        const defaultEntries = [{ amount: 0, currency: 'EUR', rawInput: '' }]
-        updateForeignCurrencyStore(defaultEntries)
-        return defaultEntries
-      }
-      
-      updateForeignCurrencyStore(updated)
-      return updated
-    })
-  }
-
-  // Update addForeignCurrency to use the new store update function
-  const addForeignCurrency = () => {
-    setForeignCurrencies(prev => {
-      const updated = [...prev, { amount: 0, currency: 'EUR', rawInput: '' }]
-      updateForeignCurrencyStore(updated)
-      return updated
-    })
-  }
-
   return (
     <TooltipProvider>
       <div className="space-y-8 w-full">
@@ -399,7 +340,17 @@ export function CashCalculator({
                     </Label>
                   </div>
                   {category.id === 'foreign_currency' ?
-                    <div className="space-y-4 w-full">
+                    <div className="space-y-3 w-full">
+                      {/* Show error status only when needed */}
+                      {error && (
+                        <ConversionStatus
+                          isLoading={isLoading}
+                          error={error}
+                          warning={null}
+                          onRetry={() => retryFetchRates(0)}
+                        />
+                      )}
+                      
                       {foreignCurrencies.map((entry: ForeignCurrencyEntry, index: number) => (
                         <div key={index} className="w-full">
                           <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full">
@@ -415,8 +366,10 @@ export function CashCalculator({
                                 inputMode="decimal"
                                 pattern="[\d+\-*/.() ]*"
                                 className="bg-white w-full"
-                                value={entry.rawInput || (entry.amount > 0 ? entry.amount.toString() : '')}
-                                onChange={(e) => handleForeignCurrencyChange(index, 'amount', e.target.value)}
+                                value={entry.rawInput || ''}
+                                onChange={(e) => {
+                                  handleForeignCurrencyChange(index, 'amount', e.target.value);
+                                }}
                                 placeholder="Enter amount"
                               />
                             </div>
@@ -424,9 +377,9 @@ export function CashCalculator({
                               variant="ghost"
                               size="sm"
                               onClick={() => removeForeignCurrency(index)}
-                              className="text-gray-500 hover:text-red-500 w-full sm:w-auto shrink-0"
+                              className="text-gray-500 hover:text-red-500 hover:bg-red-50 group transition-colors w-full sm:w-auto shrink-0"
                             >
-                              <DeleteIcon className="h-4 w-4" />
+                              <DeleteIcon className="h-4 w-4 group-hover:text-red-500 transition-colors" />
                               <span className="ml-2 sm:hidden">Remove</span>
                             </Button>
                           </div>
@@ -463,77 +416,6 @@ export function CashCalculator({
               ))}
             </div>
           </section>
-
-          {/* Hawl section commented out since we're assuming it's always met
-          <section className="pt-8 border-t border-gray-100">
-            <div className="space-y-1">
-              <h3 className="text-base font-semibold text-gray-900">Minimum Holding Period (Hawl)</h3>
-              <p className="text-sm text-gray-600">
-                Has this amount of wealth been in your possession for one complete lunar year?
-              </p>
-            </div>
-            <div className="mt-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <Button
-                  variant={cashHawlMet ? 'default' : 'outline'}
-                  onClick={() => handleHawlChange(true)}
-                >
-                  Yes
-                </Button>
-                <Button
-                  variant={!cashHawlMet ? 'default' : 'outline'}
-                  onClick={() => handleHawlChange(false)}
-                >
-                  No
-                </Button>
-              </div>
-            </div>
-          </section>
-          */}
-
-          {/* Temporarily hidden calculator summary
-          {getTotalCash() > 0 && (
-            <CalculatorSummary
-              title="Cash Holdings Summary"
-              sections={[
-                {
-                  title: "Cash Holdings",
-                  items: [
-                    ...CASH_CATEGORIES.map(category => ({
-                      label: category.name,
-                      value: formatDisplayValue(
-                        category.id === 'foreign_currency' 
-                          ? (cashValues.foreign_currency || 0)
-                          : (cashValues[category.id as keyof typeof cashValues] as number) || 0
-                      )
-                    })),
-                    {
-                      label: "Total Cash",
-                      value: formatDisplayValue(getTotalCash())
-                    }
-                  ]
-                },
-                {
-                  title: "Zakat Calculation",
-                  showBorder: true,
-                  items: [
-                    {
-                      label: "Total Cash",
-                      value: formatDisplayValue(getTotalCash()),
-                      tooltip: "This is the total amount of your cash and cash equivalents that is eligible for Zakat calculation."
-                    }
-                  ]
-                }
-              ]}
-              hawlMet={cashHawlMet}
-              zakatAmount={getTotalZakatableCash() * 0.025}
-              footnote={{
-                text: "Note: According to Islamic guidelines, Zakat is calculated on the total cash holdings without deducting expenses.",
-                tooltip: "While you may have expenses and debts, Zakat is calculated on your total cash holdings. This is because Zakat is due on the wealth itself, regardless of future spending plans or obligations."
-              }}
-            />
-          )}
-          */}
         </div>
 
         {/* Navigation */}

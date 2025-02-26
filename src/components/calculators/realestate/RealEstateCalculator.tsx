@@ -123,6 +123,7 @@ export function RealEstateCalculator({
                 values={realEstateValues}
                 errors={realEstateErrors as Record<string, string | undefined>}
                 onValueChange={handleValueChange}
+                currency={currency}
               />
             )
           },
@@ -134,6 +135,7 @@ export function RealEstateCalculator({
                 values={realEstateValues}
                 errors={realEstateErrors as Record<string, string | undefined>}
                 onValueChange={handleValueChange}
+                currency={currency}
               />
             )
           },
@@ -146,6 +148,7 @@ export function RealEstateCalculator({
                 errors={realEstateErrors as Record<string, string | undefined>}
                 onValueChange={handleValueChange}
                 onToggleChange={handleToggleChange}
+                currency={currency}
               />
             )
           },
@@ -154,7 +157,7 @@ export function RealEstateCalculator({
             label: 'Vacant',
             content: (
               <VacantLandTab
-                currency="USD"
+                currency={currency}
                 values={realEstateValues}
                 errors={realEstateErrors as Record<string, string | undefined>}
                 onValueChange={handleValueChange}
