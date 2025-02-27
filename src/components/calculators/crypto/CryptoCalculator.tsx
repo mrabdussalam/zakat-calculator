@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/form/input'
 import { Label } from '@/components/ui/label'
@@ -46,14 +46,109 @@ export function CryptoCalculator({
     getCryptoBreakdown
   } = useZakatStore()
 
+  // Add a state to track if store has been hydrated
+  const [storeHydrated, setStoreHydrated] = useState(false)
+
   const [newSymbol, setNewSymbol] = useState('')
   const [newQuantity, setNewQuantity] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  // Initialize component
+  // Add a listener for the store hydration event
   useEffect(() => {
+    const handleHydrationComplete = () => {
+      console.log('CryptoCalculator: Store hydration complete event received')
+      setStoreHydrated(true)
+
+      // After hydration, safely initialize form values from store with a small delay
+      setTimeout(() => {
+        console.log('CryptoCalculator: Initializing values from store after hydration');
+
+        // Set hawl status first
+        setCryptoHawl(cryptoHawlMet);
+        onHawlUpdate(cryptoHawlMet);
+
+        // Notify parent component of current values
+        if (onUpdateValues) {
+          onUpdateValues({
+            total_crypto_value: getTotalCrypto(),
+            zakatable_crypto_value: getTotalZakatableCrypto()
+          });
+        }
+
+        console.log('CryptoCalculator: Values initialized from store after hydration');
+      }, 50); // Small delay to ensure store is fully ready
+    }
+
+    // Listen for the custom hydration event
+    window.addEventListener('zakatStoreHydrated', handleHydrationComplete)
+
+    // Check if hydration already happened
+    if (typeof window !== 'undefined') {
+      // Safe way to check for custom property without TypeScript errors
+      const win = window as any;
+      if (win.zakatStoreHydrationComplete) {
+        handleHydrationComplete();
+      }
+    }
+
+    return () => {
+      window.removeEventListener('zakatStoreHydrated', handleHydrationComplete)
+    }
+  }, [cryptoHawlMet, getTotalCrypto, getTotalZakatableCrypto, onHawlUpdate, onUpdateValues, setCryptoHawl])
+
+  // Initialize component - only run after hydration is complete
+  useEffect(() => {
+    // Skip initialization during hydration to prevent overwriting store values
+    if (!storeHydrated) return;
+
     setCryptoHawl(initialHawlMet)
-  }, [initialHawlMet, setCryptoHawl])
+  }, [initialHawlMet, setCryptoHawl, storeHydrated])
+
+  // Add a listener to detect store resets
+  useEffect(() => {
+    // Only process resets after hydration is complete to prevent false resets
+    if (!storeHydrated) return;
+
+    const handleReset = () => {
+      console.log('CryptoCalculator: Store reset event detected');
+
+      // Check if this is still during initial page load
+      if (typeof window !== 'undefined') {
+        // Safe way to check for custom property without TypeScript errors
+        const win = window as any;
+        if (win.isInitialPageLoad) {
+          console.log('CryptoCalculator: Ignoring reset during initial page load');
+          return;
+        }
+      }
+
+      // This is a user-initiated reset, so clear all local state
+      console.log('CryptoCalculator: Clearing local state due to user-initiated reset');
+
+      // Clear form inputs
+      setNewSymbol('');
+      setNewQuantity('');
+      setError(null);
+
+      // Ensure the total is updated after reset
+      setTimeout(() => {
+        onUpdateValues({
+          total_crypto_value: 0,
+          zakatable_crypto_value: 0
+        });
+      }, 100);
+    };
+
+    // Listen for both possible reset event names
+    window.addEventListener('store-reset', handleReset);
+    window.addEventListener('zakat-store-reset', handleReset);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('store-reset', handleReset);
+      window.removeEventListener('zakat-store-reset', handleReset);
+    };
+  }, [storeHydrated, onUpdateValues]);
 
   // Handle adding new coin
   const handleAddCoin = async (e: React.FormEvent) => {
@@ -62,7 +157,7 @@ export function CryptoCalculator({
 
     try {
       await addCoin(newSymbol, Number(newQuantity), currency)
-      
+
       // Clear form
       setNewSymbol('')
       setNewQuantity('')
@@ -80,7 +175,7 @@ export function CryptoCalculator({
   // Handle removing a coin
   const handleRemoveCoin = (symbol: string) => {
     removeCoin(symbol)
-    
+
     // Update parent with new totals
     onUpdateValues({
       total_crypto_value: getTotalCrypto(),
@@ -92,7 +187,7 @@ export function CryptoCalculator({
   const handleRefreshPrices = async () => {
     try {
       await updatePrices(currency)
-      
+
       // Update parent with new totals
       onUpdateValues({
         total_crypto_value: getTotalCrypto(),
@@ -232,8 +327,8 @@ export function CryptoCalculator({
           </div>
         )}
 
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           disabled={isLoading || !newSymbol || !newQuantity}
           className="w-full"
         >
@@ -248,7 +343,7 @@ export function CryptoCalculator({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ 
+            transition={{
               duration: 0.3,
               ease: [0.2, 0.4, 0.2, 1]
             }}
@@ -274,7 +369,7 @@ export function CryptoCalculator({
                 </Button>
               </div>
             </div>
-            <motion.div 
+            <motion.div
               className="space-y-2"
               initial="hidden"
               animate="visible"
@@ -300,7 +395,7 @@ export function CryptoCalculator({
                     hidden: { opacity: 0, y: 15 },
                     visible: { opacity: 1, y: 0 }
                   }}
-                  transition={{ 
+                  transition={{
                     duration: 0.4,
                     ease: [0.2, 0.4, 0.2, 1]
                   }}
@@ -371,8 +466,8 @@ export function CryptoCalculator({
       */}
 
       {/* Navigation */}
-      <CalculatorNav 
-        currentCalculator="crypto" 
+      <CalculatorNav
+        currentCalculator="crypto"
         onCalculatorChange={onCalculatorChange}
         onOpenSummary={onOpenSummary}
       />

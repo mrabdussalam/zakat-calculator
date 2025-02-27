@@ -504,50 +504,42 @@ export function CashCalculator({
 
   // Add a listener for the store hydration event
   useEffect(() => {
-    const handleHydrationComplete = (event?: Event) => {
-      console.log('CashCalculator: Store hydration complete event received', event);
+    const handleHydrationComplete = () => {
+      console.log('CashCalculator: Store hydration complete event received')
+      setStoreHydrated(true)
 
-      // Mark the store as hydrated
-      setStoreHydrated(true);
+      // After hydration, safely initialize form values from store with a small delay
+      setTimeout(() => {
+        console.log('CashCalculator: Initializing values from store after hydration');
 
-      // Check if this is part of initial page load
-      const customEvent = event as CustomEvent;
-      const isInitialLoad = customEvent?.detail?.isInitialPageLoad;
+        // Set initial values from store
+        if (cashValues) {
+          // Set hawl status first
+          setCashHawlMet(cashHawlMet);
+          onHawlUpdate(cashHawlMet);
 
-      console.log('CashCalculator: Hydration during initial page load:', isInitialLoad);
+          // Notify parent component of current values
+          if (onUpdateValues) {
+            // Check if we're using a TypeScript compatible version
+            const typeSafeUpdate = {
+              cash_on_hand: cashValues.cash_on_hand || 0,
+              checking_account: cashValues.checking_account || 0,
+              savings_account: cashValues.savings_account || 0,
+              digital_wallets: cashValues.digital_wallets || 0,
+              foreign_currency: cashValues.foreign_currency || 0
+            };
 
-      // Only update the UI with values during initial hydration
-      // This prevents inadvertent resets during page load
-      if (isInitialLoad) {
-        // We're still in the initial page load, so we should:
-        // 1. Initialize form values from the store
-        // 2. Do not trigger any validation or updates yet
-        console.log('CashCalculator: initializing form values from store during initial hydration');
-
-        // Handle foreign currency entries sync during initial load
-        if (cashValues.foreign_currency_entries &&
-          cashValues.foreign_currency_entries.length > 0) {
-          // Directly set foreign currency entries from store
-          setCashValue('foreign_currency_entries', cashValues.foreign_currency_entries);
-        }
-
-        // Set input values from store
-        setInputValues((prev) => {
-          const updatedInputs: InputValues = { ...prev };
-
-          // Update each form field with store value
-          Object.keys(cashValues).forEach((key) => {
-            if (key !== 'foreign_currency_entries') {
-              const value = cashValues[key as keyof StoreCashValues];
-              if (typeof value === 'number' && !isNaN(value)) {
-                updatedInputs[key as CashKey] = value.toString();
-              }
+            // Add foreign currency entries separately to avoid type issues
+            if (cashValues.foreign_currency_entries) {
+              (typeSafeUpdate as any).foreign_currency_entries = cashValues.foreign_currency_entries;
             }
-          });
 
-          return updatedInputs;
-        });
-      }
+            onUpdateValues(typeSafeUpdate);
+          }
+
+          console.log('CashCalculator: Values initialized from store after hydration');
+        }
+      }, 50); // Small delay to ensure store is fully ready
     }
 
     // Listen for the custom hydration event
@@ -558,14 +550,14 @@ export function CashCalculator({
       // Safe way to check for custom property without TypeScript errors
       const win = window as any;
       if (win.hasDispatchedHydrationEvent) {
-        handleHydrationComplete()
+        handleHydrationComplete();
       }
     }
 
     return () => {
       window.removeEventListener('store-hydration-complete', handleHydrationComplete)
     }
-  }, [cashValues, setCashValue, onUpdateValues, retryFetchRates])
+  }, [cashValues, setCashHawlMet, onHawlUpdate, onUpdateValues])
 
   // Optimize currency change event listeners
   useEffect(() => {
@@ -617,13 +609,6 @@ export function CashCalculator({
     convertAmount,
     updateStore: updateForeignCurrencyStore
   });
-
-  // Set initial hawl status only once on mount
-  useEffect(() => {
-    if (!cashHawlMet) {
-      setCashHawlMet(true)
-    }
-  }, [cashHawlMet, setCashHawlMet])
 
   // Sync with store values - only after hydration is complete
   useEffect(() => {

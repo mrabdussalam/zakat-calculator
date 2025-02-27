@@ -163,15 +163,18 @@ export interface ZakatBreakdown {
 export interface ZakatState extends CashSlice, MetalsSlice, StocksSlice, RetirementSlice, RealEstateSlice, CryptoSlice, NisabSlice {
   // Core properties
   currency: string
-  
+
   // Reset functions
   reset: () => void
-  resetAllCalculators: () => void  
+  resetAllCalculators: () => void
   resetWithCurrencyChange: (newCurrency: string) => boolean
-  
+
   // Currency functions
   setCurrency: (newCurrency: string) => void
   updateMetalPricesForNewCurrency: (newCurrency: string) => void
+
+  // Persistence functions
+  forcePersist: () => void
 
   // Breakdown
   getBreakdown: () => {

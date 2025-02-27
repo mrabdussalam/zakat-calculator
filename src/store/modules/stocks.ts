@@ -103,8 +103,8 @@ const migratePassiveInvestments = (state: CurrentPassiveInvestmentState): Passiv
           pricePerShare: 0,
           marketValue: 0
         }],
-        method: typeof state.method === 'string' && ['quick', 'detailed'].includes(state.method) 
-          ? state.method 
+        method: typeof state.method === 'string' && ['quick', 'detailed'].includes(state.method)
+          ? state.method
           : 'quick',
         marketValue: typeof state.marketValue === 'number' ? state.marketValue : 0,
         zakatableValue: typeof state.zakatableValue === 'number' ? state.zakatableValue : 0,
@@ -133,8 +133,8 @@ const migratePassiveInvestments = (state: CurrentPassiveInvestmentState): Passiv
           pricePerShare: 0,
           marketValue: 0
         }],
-        method: typeof state.method === 'string' && ['quick', 'detailed'].includes(state.method) 
-          ? state.method 
+        method: typeof state.method === 'string' && ['quick', 'detailed'].includes(state.method)
+          ? state.method
           : 'quick',
         marketValue: typeof state.marketValue === 'number' ? state.marketValue : 0,
         zakatableValue: typeof state.zakatableValue === 'number' ? state.zakatableValue : 0,
@@ -157,22 +157,22 @@ const migratePassiveInvestments = (state: CurrentPassiveInvestmentState): Passiv
       return {
         version: '2.0' as const,
         investments: Array.isArray(state.investments) ? state.investments : [],
-        method: typeof state.method === 'string' && ['quick', 'detailed'].includes(state.method) 
-          ? state.method 
+        method: typeof state.method === 'string' && ['quick', 'detailed'].includes(state.method)
+          ? state.method
           : 'quick',
         marketValue: typeof state.marketValue === 'number' ? state.marketValue : 0,
         zakatableValue: typeof state.zakatableValue === 'number' ? state.zakatableValue : 0,
         companyData: state.companyData || undefined,
         hawlStatus: {
-          isComplete: typeof state.hawlStatus?.isComplete === 'boolean' 
-            ? state.hawlStatus.isComplete 
+          isComplete: typeof state.hawlStatus?.isComplete === 'boolean'
+            ? state.hawlStatus.isComplete
             : false,
           startDate: state.hawlStatus?.startDate || new Date().toISOString(),
           endDate: state.hawlStatus?.endDate
         },
         displayProperties: {
-          currency: typeof state.displayProperties?.currency === 'string' 
-            ? state.displayProperties.currency 
+          currency: typeof state.displayProperties?.currency === 'string'
+            ? state.displayProperties.currency
             : 'USD',
           method: state.method === 'quick' ? '30% Rule' : 'CRI Method',
           totalLabel: state.method === 'quick' ? 'Total Investments' : 'Total Company Assets'
@@ -260,11 +260,11 @@ export interface StocksSlice {
 const initialStockValues: StockValues = {
   // Active Trading 
   activeStocks: [],
-  
+
   // Required fields
   market_value: 0,
   zakatable_value: 0,
-  
+
   // Optional fields
   total_dividend_earnings: 0,
   fund_value: 0,
@@ -309,27 +309,27 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
       if (!symbol || shares <= 0) {
         throw new Error('Invalid symbol or shares')
       }
-      
+
       // Validate the symbol against API
       if (!manualPrice) {
         const state = get()
         // Use provided currency, or the store's currency, or fallback to USD
         const currentCurrency = currency || state.currency || 'USD'
         const { price, lastUpdated } = await getStockPrice(symbol, currentCurrency)
-        
+
         // Calculate market value and zakat due
         const marketValue = roundCurrency(shares * price)
         const zakatDue = roundCurrency(marketValue * ZAKAT_RATE)
-        
+
         // Add to state
         set((state: ZakatState) => {
           // Check if stock already exists
           const existingIndex = state.stockValues.activeStocks.findIndex(
             (s: ActiveStock) => s.symbol.toUpperCase() === symbol.toUpperCase()
           )
-          
+
           let updatedStocks = [...state.stockValues.activeStocks]
-          
+
           if (existingIndex >= 0) {
             // Update existing stock
             const existing = updatedStocks[existingIndex]
@@ -352,7 +352,7 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
               lastUpdated: new Date(lastUpdated).toISOString()
             })
           }
-          
+
           return {
             stockValues: {
               ...state.stockValues,
@@ -365,16 +365,16 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
         const price = manualPrice
         const marketValue = roundCurrency(shares * price)
         const zakatDue = roundCurrency(marketValue * ZAKAT_RATE)
-        
+
         // Add to state
         set((state: ZakatState) => {
           // Check if stock already exists
           const existingIndex = state.stockValues.activeStocks.findIndex(
             (s: ActiveStock) => s.symbol.toUpperCase() === symbol.toUpperCase()
           )
-          
+
           let updatedStocks = [...state.stockValues.activeStocks]
-          
+
           if (existingIndex >= 0) {
             // Update existing stock
             const existing = updatedStocks[existingIndex]
@@ -397,7 +397,7 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
               lastUpdated: new Date().toISOString()
             })
           }
-          
+
           return {
             stockValues: {
               ...state.stockValues,
@@ -416,7 +416,7 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
     try {
       // Fetch current price
       const { price, lastUpdated } = await getStockPrice(symbol)
-      
+
       // Ensure we have a valid numeric price
       if (typeof price !== 'number' || !isFinite(price)) {
         throw new Error(`Invalid price received for ${symbol}: ${price}`)
@@ -431,14 +431,14 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
       set((state) => {
         const updatedStocks = state.stockValues.activeStocks.map((stock) =>
           stock.symbol === symbol
-            ? { 
-                ...stock, 
-                shares, 
-                currentPrice: price,
-                marketValue,
-                zakatDue,
-                lastUpdated: new Date(lastUpdated).toISOString()
-              }
+            ? {
+              ...stock,
+              shares,
+              currentPrice: price,
+              marketValue,
+              zakatDue,
+              lastUpdated: new Date(lastUpdated).toISOString()
+            }
             : stock
         )
 
@@ -472,53 +472,53 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
     try {
       const state = get();
       const activeStocks = state.stockValues?.activeStocks || [];
-      
+
       if (activeStocks.length === 0) {
         return; // No stocks to update
       }
-      
+
       // Get symbols to update
       const symbols = activeStocks.map((stock: ActiveStock) => stock.symbol);
-      
+
       // Use provided target currency, or the store's currency, or fallback to USD
       const currentCurrency = targetCurrency || state.currency || 'USD';
       console.log(`Updating stock prices to currency: ${currentCurrency}`);
-      
+
       // Initialize the currency store with proper type
       let currencyStore: CurrencyStore | undefined;
-      
+
       // Try to get the currency store from the window object if in browser environment
       if (typeof window !== 'undefined' && (window as any).useCurrencyStore) {
         currencyStore = (window as any).useCurrencyStore.getState() as CurrencyStore;
       }
-      
+
       // Track success/failure counts for logging
       let successCount = 0;
       let failureCount = 0;
       let conversionCount = 0;
-      
+
       // Fetch updated prices - the API will try to convert currencies
       console.log(`Fetching current stock prices for ${symbols.length} symbols in ${currentCurrency}`);
       const updatedPrices = await getBatchStockPrices(symbols, currentCurrency);
       console.log(`Received ${updatedPrices.length} prices from API`);
-      
+
       // Update prices in state
       set((state: ZakatState) => {
         const updatedStocks = state.stockValues.activeStocks.map((stock: ActiveStock) => {
           const updated = updatedPrices.find(p => p.symbol.toUpperCase() === stock.symbol.toUpperCase());
-          
+
           if (updated) {
             successCount++;
-            
+
             // Check if API conversion was applied
             if (updated.conversionApplied && updated.currency === currentCurrency) {
               console.log(`Stock price for ${stock.symbol} converted to ${currentCurrency} by API`);
               conversionCount++;
-              
+
               // Calculate market value based on updated price and shares
               const marketValue = roundCurrency(stock.shares * updated.price);
               const zakatDue = roundCurrency(marketValue * ZAKAT_RATE);
-              
+
               return {
                 ...stock,
                 currentPrice: updated.price,
@@ -531,7 +531,7 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
             } else {
               // API returned price in original currency
               console.log(`Stock price for ${stock.symbol} in original currency: ${updated.currency}`);
-              
+
               // If we have currency store, try client-side conversion
               if (currencyStore && currencyStore.convertAmount && updated.currency !== currentCurrency) {
                 try {
@@ -541,15 +541,15 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
                     updated.currency,
                     currentCurrency
                   );
-                  
+
                   if (convertedPrice !== originalPrice) {
                     console.log(`Converted price for ${stock.symbol}: ${originalPrice} ${updated.currency} → ${convertedPrice} ${currentCurrency}`);
                     conversionCount++;
-                    
+
                     // Calculate market value based on converted price
                     const marketValue = roundCurrency(stock.shares * convertedPrice);
                     const zakatDue = roundCurrency(marketValue * ZAKAT_RATE);
-                    
+
                     return {
                       ...stock,
                       currentPrice: convertedPrice,
@@ -564,11 +564,11 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
                   console.error(`Failed to convert ${stock.symbol} price:`, conversionError);
                 }
               }
-              
+
               // If no conversion was possible, keep original currency
               const marketValue = roundCurrency(stock.shares * updated.price);
               const zakatDue = roundCurrency(marketValue * ZAKAT_RATE);
-              
+
               return {
                 ...stock,
                 currentPrice: updated.price,
@@ -581,16 +581,16 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
             }
           } else {
             failureCount++;
-            
+
             // If we couldn't get an updated price but have stock with currency and price
             // Leave it unchanged
             console.log(`No updated price for ${stock.symbol}, keeping existing data`);
             return stock;
           }
         });
-        
+
         console.log(`Stock update results: ${successCount} fetched, ${conversionCount} converted, ${failureCount} failed`);
-        
+
         return {
           stockValues: {
             ...state.stockValues,
@@ -599,7 +599,7 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
           currency: currentCurrency // Update global currency
         };
       });
-      
+
       // Recalculate totals after updating stock prices
       const zakatStore = get();
       if (typeof zakatStore.getTotalStocks === 'function') {
@@ -608,7 +608,7 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
       if (typeof zakatStore.getTotalZakatableStocks === 'function') {
         zakatStore.getTotalZakatableStocks();
       }
-      
+
     } catch (error) {
       console.error('Failed to update stock prices:', error);
       throw error;
@@ -626,7 +626,7 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
   },
 
   resetStockValues: () => {
-    set({ 
+    set({
       stockValues: {
         ...initialStockValues,
         passiveInvestments: {
@@ -664,13 +664,13 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
   // Getters
   getTotalStocks: () => {
     const state = get()
-    
+
     // Get active stocks total
     const activeTotal = Array.isArray(state.stockValues?.activeStocks)
       ? state.stockValues.activeStocks.reduce(
-          (sum: number, stock: ActiveStock) => sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0),
-          0
-        )
+        (sum: number, stock: ActiveStock) => sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0),
+        0
+      )
       : 0
 
     // Get passive investments total from new state structure
@@ -691,9 +691,9 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
     // Get active stocks total (fully zakatable)
     const activeTotal = Array.isArray(state.stockValues?.activeStocks)
       ? state.stockValues.activeStocks.reduce(
-          (sum: number, stock: ActiveStock) => sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0),
-          0
-        )
+        (sum: number, stock: ActiveStock) => sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0),
+        0
+      )
       : 0
 
     // Get passive investments zakatable amount
@@ -744,16 +744,16 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
     // Add active trading stocks
     if (Array.isArray(state.stockValues?.activeStocks) && state.stockValues.activeStocks.length > 0) {
       items.active_trading = {
-        value: state.stockValues.activeStocks.reduce((sum, stock) => 
+        value: state.stockValues.activeStocks.reduce((sum, stock) =>
           sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0), 0),
         isZakatable: state.stockHawlMet,
-        zakatable: state.stockHawlMet ? state.stockValues.activeStocks.reduce((sum, stock) => 
+        zakatable: state.stockHawlMet ? state.stockValues.activeStocks.reduce((sum, stock) =>
           sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0), 0) : 0,
-        zakatDue: state.stockHawlMet ? roundCurrency(state.stockValues.activeStocks.reduce((sum, stock) => 
+        zakatDue: state.stockHawlMet ? roundCurrency(state.stockValues.activeStocks.reduce((sum, stock) =>
           sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0), 0) * ZAKAT_RATE) : 0,
         label: 'Active Trading',
         tooltip: 'Full market value is zakatable',
-        percentage: total > 0 ? roundCurrency((state.stockValues.activeStocks.reduce((sum, stock) => 
+        percentage: total > 0 ? roundCurrency((state.stockValues.activeStocks.reduce((sum, stock) =>
           sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0), 0) / total) * 100) : 0
       }
     }
@@ -770,7 +770,7 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
         zakatable: state.stockHawlMet ? passiveZakatable : 0,
         zakatDue: state.stockHawlMet ? roundCurrency(passiveZakatable * ZAKAT_RATE) : 0,
         label: `Passive Investments (${method === 'quick' ? '30% Rule' : 'CRI Method'})`,
-        tooltip: method === 'quick' 
+        tooltip: method === 'quick'
           ? '30% of market value is zakatable'
           : 'Based on company financials',
         percentage: total > 0 ? roundCurrency((passiveValue / total) * 100) : 0
@@ -832,11 +832,11 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
         version: '2.0',
         method,
         investments: Array.isArray(data?.investments) ? data.investments : (currentState?.investments || []),
-        marketValue: typeof calculations?.marketValue === 'number' 
-          ? calculations.marketValue 
+        marketValue: typeof calculations?.marketValue === 'number'
+          ? calculations.marketValue
           : (currentState?.marketValue || 0),
-        zakatableValue: typeof calculations?.zakatableValue === 'number' 
-          ? calculations.zakatableValue 
+        zakatableValue: typeof calculations?.zakatableValue === 'number'
+          ? calculations.zakatableValue
           : (currentState?.zakatableValue || 0),
         hawlStatus: currentState?.hawlStatus || {
           isComplete: false,
@@ -848,7 +848,7 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
           totalLabel: method === 'quick' ? 'Total Investments' : 'Total Company Assets'
         }
       }
-      
+
       // If we have company data, add it to the state properly
       if (data?.companyData) {
         // Create a separate companyData object to add to state
@@ -863,7 +863,7 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
             sharePercentage: data.companyData.yourShares / data.companyData.totalShares * 100
           }
         };
-        
+
         // Handle this separately since it's not in the type
         (newState as any).companyData = companyDataToAdd;
       }
@@ -892,11 +892,11 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
       if (stockAsset) {
         const newTotal = stockAsset.calculateTotal(updatedState.stockValues!, get().stockPrices)
         const newZakatable = stockAsset.calculateZakatable(
-          updatedState.stockValues!, 
-          get().stockPrices, 
+          updatedState.stockValues!,
+          get().stockPrices,
           get().stockHawlMet
         )
-        
+
         if (updatedState.stockValues) {
           updatedState.stockValues.market_value = newTotal
           updatedState.stockValues.zakatable_value = newZakatable
@@ -912,20 +912,20 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
 
   meetsNisabThreshold: () => {
     const state = get()
-    
+
     // Get metal prices from the metals slice
     const metalPrices = state.metalPrices || { gold: 0, silver: 0 }
-    
+
     // Calculate nisab thresholds
     const goldNisab = NISAB.GOLD * metalPrices.gold
     const silverNisab = NISAB.SILVER * metalPrices.silver
-    
+
     // Use the lower of the two nisab values
     const nisabThreshold = Math.min(goldNisab, silverNisab)
-    
+
     // Get total stock value
     const totalStockValue = state.getTotalStocks()
-    
+
     return totalStockValue >= nisabThreshold
   }
 }) 

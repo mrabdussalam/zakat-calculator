@@ -40,6 +40,7 @@ import { MetalPrices } from '@/store/modules/metals.types'
 
 // Import our new hooks and METAL_CATEGORIES from the hooks package
 import { useMetalsForm, useMetalsPrices, METAL_CATEGORIES, MetalCategory } from '@/hooks/calculators/metals'
+import { useStoreHydration } from '@/hooks/useStoreHydration'
 
 interface PersonalJewelryFormProps {
   currency: string
@@ -60,6 +61,9 @@ export function PersonalJewelryForm({
   initialValues = {},
   initialHawlMet = true
 }: PersonalJewelryFormProps) {
+  // Check if store is hydrated
+  const isStoreHydrated = useStoreHydration()
+
   // Use our custom hooks
   const {
     inputValues,

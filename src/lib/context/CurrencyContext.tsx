@@ -9,23 +9,23 @@ function clearCalculatorValuesFromStorage() {
     // Get the current state from localStorage
     const storageKey = 'zakat-store';
     const storedData = localStorage.getItem(storageKey);
-    
+
     if (!storedData) {
       console.log('No stored data found in localStorage');
       return;
     }
-    
+
     // Parse the stored data
     const parsed = JSON.parse(storedData);
     const state = parsed.state;
-    
+
     if (!state) {
       console.log('No state found in stored data');
       return;
     }
-    
+
     console.log('Before reset - stored state keys:', Object.keys(state));
-    
+
     // Reset calculator values while preserving other settings
     const updatedState = {
       ...state,
@@ -84,20 +84,20 @@ function clearCalculatorValuesFromStorage() {
         zakatable_value: 0
       }
     };
-    
+
     // Save the updated state back to localStorage
     parsed.state = updatedState;
     localStorage.setItem(storageKey, JSON.stringify(parsed));
-    
+
     // Also update any computed or cached values that might be stored separately
     try {
       // Clear any nisab cache values
-      const nisabCacheKeys = Object.keys(localStorage).filter(key => 
+      const nisabCacheKeys = Object.keys(localStorage).filter(key =>
         key.startsWith('nisab-') || key.includes('cache')
       );
-      
+
       console.log('Clearing related cache keys:', nisabCacheKeys);
-      
+
       // Remove any cache keys
       nisabCacheKeys.forEach(key => {
         localStorage.removeItem(key);
@@ -105,7 +105,7 @@ function clearCalculatorValuesFromStorage() {
     } catch (cacheError) {
       console.error('Error clearing cache values:', cacheError);
     }
-    
+
     console.log('Successfully cleared calculator values from localStorage');
     console.log('After reset - stored state keys:', Object.keys(updatedState));
   } catch (error) {
@@ -137,26 +137,39 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
   const [isConverting, setIsConverting] = useState(false);
   // Track the last time we reset due to currency change
   const [lastCurrencyReset, setLastCurrencyReset] = useState<Date | null>(null);
-  
+
   // Check on startup if there might be inconsistent state
   useEffect(() => {
     try {
       // Check if URL has a currency change indicator
       const urlParams = new URLSearchParams(window.location.search);
       const hasResetParam = urlParams.has('t');
-      
+
       if (hasResetParam) {
         console.log('Detected currency change from URL param, checking for stale values');
-        
-        // Verify the store state is clean
-        const { resetAllCalculators } = useZakatStore.getState();
-        if (typeof resetAllCalculators === 'function') {
-          // Clear localStorage values
-          clearCalculatorValuesFromStorage();
-          
-          // Then reset the store
-          resetAllCalculators();
-          console.log('Successfully reset calculator values on startup');
+
+        // Get the current currency from the store
+        const currentCurrency = useZakatStore.getState().currency;
+
+        // Get the stored currency preference from localStorage
+        const storedCurrency = localStorage.getItem('selected-currency');
+
+        // Only reset if there's an actual currency mismatch
+        if (storedCurrency && storedCurrency !== currentCurrency) {
+          console.log(`Currency mismatch detected: Store has ${currentCurrency}, preference is ${storedCurrency}`);
+
+          // Verify the store state is clean
+          const { resetAllCalculators } = useZakatStore.getState();
+          if (typeof resetAllCalculators === 'function') {
+            // Clear localStorage values
+            clearCalculatorValuesFromStorage();
+
+            // Then reset the store
+            resetAllCalculators();
+            console.log('Successfully reset calculator values due to currency change');
+          }
+        } else {
+          console.log('No currency mismatch detected, skipping reset on page refresh');
         }
       }
     } catch (error) {
@@ -170,7 +183,7 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
     // We'll define a custom event that will be dispatched when currency changes
     const handleCurrencyChange = (event: CustomEvent) => {
       console.log('Currency changed event received', event.detail);
-      
+
       // Save the newly selected currency for later use
       if (event.detail?.to) {
         try {
@@ -180,30 +193,30 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
           console.error('Failed to save currency preference:', error);
         }
       }
-      
+
       // IMPORTANT: Don't reset on initial page load
       // Check if this is a triggered change vs. initial page load
       const isInitialLoad = !event.detail?.from || event.detail.isInitialLoad;
-      
+
       if (isInitialLoad) {
         console.log('Skipping reset during initial page load');
         return;
       }
-      
+
       // Set converting flag to prevent multiple fetches
       setIsConverting(true);
-      
+
       try {
         // Get the resetAllCalculators function from the store
         const { resetAllCalculators } = useZakatStore.getState();
-        
+
         // Check if the function exists before calling it
         if (typeof resetAllCalculators === 'function') {
           console.log('Calling resetAllCalculators from store');
-          
+
           // Reset all calculators
           resetAllCalculators();
-          
+
           // Update the last reset timestamp
           const now = new Date();
           setLastCurrencyReset(now);
@@ -211,7 +224,7 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
         } else {
           console.error('resetAllCalculators function not found in zakatStore');
         }
-        
+
         // The CurrencySelector will handle the reload, but we'll set a timeout just in case
         // This allows for any asynchronous operations to complete before reload
         if (event.detail?.shouldForceReload) {
@@ -227,11 +240,11 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
         }, 200);
       }
     };
-    
+
     // Listen for currency change events
     window.addEventListener('currency-changed', handleCurrencyChange as EventListener);
     console.log('Currency change event listener registered');
-    
+
     // Clean up the listener
     return () => {
       window.removeEventListener('currency-changed', handleCurrencyChange as EventListener);

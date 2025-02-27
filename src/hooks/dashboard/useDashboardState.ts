@@ -79,7 +79,7 @@ interface UseDashboardStateProps {
 export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}) {
   // Create prevCurrency ref before state initialization to avoid reference error
   const prevCurrency = useRef<string>(DEFAULT_STATE.currency)
-  
+
   // Initialize with default state and load from localStorage if available
   const [state, setState] = useState<DashboardState>(() => {
     // Client-side only
@@ -87,18 +87,18 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
       console.log('🟡 Server-side rendering, using default state')
       return DEFAULT_STATE
     }
-    
+
     console.log('🟢 Initializing dashboard state on client')
-    
+
     try {
       // Check what's in localStorage currently
       const allKeys = Object.keys(localStorage)
       console.log('🟢 Current localStorage keys:', allKeys)
-      
+
       // First, try to load the complete state from localStorage
       const saved = localStorage.getItem('zakatState')
       console.log('🟢 Found saved state in localStorage:', !!saved)
-      
+
       if (saved) {
         try {
           const parsed = JSON.parse(saved)
@@ -108,40 +108,40 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
             hasAssetValues: parsed && parsed.assetValues ? true : false,
             version: parsed?.version || 'not found'
           })
-          
+
           if (parsed && typeof parsed === 'object') {
             // Check if the saved state has any values
-            const savedHasValues = Object.entries(parsed.assetValues || {}).some(([assetType, values]: [string, any]) => 
+            const savedHasValues = Object.entries(parsed.assetValues || {}).some(([assetType, values]: [string, any]) =>
               Object.keys(values || {}).length > 0
             )
-            
+
             console.log('🟢 Saved state has values:', savedHasValues, {
               assetTypes: Object.keys(parsed.assetValues || {}),
-              valueDetails: Object.entries(parsed.assetValues || {}).map(([key, value]: [string, any]) => 
+              valueDetails: Object.entries(parsed.assetValues || {}).map(([key, value]: [string, any]) =>
                 `${key}: ${Object.keys(value || {}).length} fields`
               )
             })
-          
+
             // Create a complete state with fallbacks to defaults and ensure structure integrity
             const restoredState = ensureCompleteState({
               ...parsed,
               setupCompleted: true
             });
-            
+
             // Check if we have a user currency preference (highest priority)
             const userCurrencyPreference = localStorage.getItem('selected-currency')
             if (userCurrencyPreference) {
               restoredState.currency = userCurrencyPreference
               console.log('🟢 Applied user currency preference to restored state:', userCurrencyPreference)
             }
-            
+
             // Set prevCurrency to match the current state to prevent unwanted conversions
             prevCurrency.current = restoredState.currency
-            
+
             console.log('🟢 Successfully restored state from localStorage:', {
               currency: restoredState.currency,
               selectedAsset: restoredState.selectedAsset,
-              hasValues: Object.keys(restoredState.assetValues).some(key => 
+              hasValues: Object.keys(restoredState.assetValues).some(key =>
                 Object.keys(restoredState.assetValues[key]).length > 0
               ),
               assetValueCount: Object.keys(restoredState.assetValues).reduce((acc, key) => {
@@ -149,35 +149,35 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
                 return acc + Object.keys(restoredState.assetValues[assetKey]).length;
               }, 0)
             })
-            
+
             return restoredState
           }
         } catch (e) {
           console.error('❌ Failed to parse saved state:', e)
         }
       }
-      
+
       // If no saved state, create new default state
       console.log('🟠 No valid saved state found, creating new default state')
       const newState = { ...DEFAULT_STATE }
-      
+
       // Check for currency preference
       const userCurrencyPreference = localStorage.getItem('selected-currency')
       if (userCurrencyPreference) {
         newState.currency = userCurrencyPreference
         console.log('🟠 Using user currency preference for new state:', userCurrencyPreference)
       }
-      
+
       // Initialize prevCurrency ref
       prevCurrency.current = newState.currency
-      
+
       // Ensure the state is complete
       const completeState = ensureCompleteState(newState);
-      
+
       // Save the initial state to localStorage
       localStorage.setItem('zakatState', JSON.stringify(completeState))
       localStorage.setItem('zakat-state-version', LOCAL_STATE_VERSION)
-      
+
       console.log('🟠 Created new default state with currency:', completeState.currency)
       return completeState
     } catch (error) {
@@ -185,9 +185,9 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
       return DEFAULT_STATE
     }
   })
-  
+
   const [isHydrated, setIsHydrated] = useState(false)
-  
+
   // Save state changes to localStorage
   useEffect(() => {
     if (isHydrated) {
@@ -202,27 +202,27 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
       }))
     }
   }, [
-    isHydrated, 
-    state.currency, 
-    state.selectedAsset, 
-    state.assetValues, 
-    state.hawlMet, 
+    isHydrated,
+    state.currency,
+    state.selectedAsset,
+    state.assetValues,
+    state.hawlMet,
     state.nisabThreshold
   ])
 
   // Log changes to state.assetValues for debugging
   useEffect(() => {
     if (!isHydrated) return
-    
+
     // Debug log to see if values are changing
-    const hasValues = Object.entries(state.assetValues).some(([assetType, values]) => 
+    const hasValues = Object.entries(state.assetValues).some(([assetType, values]) =>
       Object.keys(values).length > 0
     )
-    
+
     console.log('Asset values updated:', {
       hasValues,
       selectedAsset: state.selectedAsset,
-      assetValueCount: Object.keys(state.assetValues).reduce((acc, key) => 
+      assetValueCount: Object.keys(state.assetValues).reduce((acc, key) =>
         acc + Object.keys(state.assetValues[key]).length, 0
       )
     })
@@ -237,20 +237,20 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
     try {
       const savedAfterHydration = localStorage.getItem('zakatState')
       const parsedAfterHydration = savedAfterHydration ? JSON.parse(savedAfterHydration) : null
-      const hasValuesAfterHydration = parsedAfterHydration ? 
-        Object.entries(parsedAfterHydration.assetValues || {}).some(([assetType, values]: [string, any]) => 
+      const hasValuesAfterHydration = parsedAfterHydration ?
+        Object.entries(parsedAfterHydration.assetValues || {}).some(([assetType, values]: [string, any]) =>
           Object.keys(values || {}).length > 0
         ) : false
-      
+
       console.log('🟣 localStorage check after hydration:', {
         exists: !!savedAfterHydration,
         hasValues: hasValuesAfterHydration,
         parsedCurrency: parsedAfterHydration?.currency,
         stateCurrency: state.currency,
-        keysMatch: parsedAfterHydration && state ? 
-          JSON.stringify(Object.keys(parsedAfterHydration).sort()) === 
-          JSON.stringify(Object.keys({...state, version: ''}).sort()) : 
-          false 
+        keysMatch: parsedAfterHydration && state ?
+          JSON.stringify(Object.keys(parsedAfterHydration).sort()) ===
+          JSON.stringify(Object.keys({ ...state, version: '' }).sort()) :
+          false
       })
     } catch (error) {
       console.error('❌ Error checking localStorage after hydration:', error)
@@ -259,10 +259,10 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
     // Get values from Zustand store after hydration
     try {
       const zakatStore = useZakatStore.getState()
-      
+
       // Import values from Zustand store into dashboard state
       const updatedAssetValues = { ...state.assetValues }
-      
+
       // Import cash values
       if (zakatStore.cashValues) {
         updatedAssetValues.cash = Object.entries(zakatStore.cashValues)
@@ -272,7 +272,7 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
             [key]: value
           }), {})
       }
-      
+
       // Import metals values
       if (zakatStore.metalsValues) {
         updatedAssetValues['precious-metals'] = Object.entries(zakatStore.metalsValues)
@@ -282,7 +282,7 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
             [key]: value
           }), {})
       }
-      
+
       // Import stock values
       if (zakatStore.stockValues) {
         updatedAssetValues.stocks = Object.entries(zakatStore.stockValues)
@@ -292,7 +292,7 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
             [key]: value
           }), {})
       }
-      
+
       // Import retirement values
       if (zakatStore.retirement) {
         updatedAssetValues.retirement = Object.entries(zakatStore.retirement)
@@ -302,7 +302,7 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
             [key]: value
           }), {})
       }
-      
+
       // Import real estate values
       if (zakatStore.realEstateValues) {
         updatedAssetValues['real-estate'] = Object.entries(zakatStore.realEstateValues)
@@ -312,14 +312,14 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
             [key]: value
           }), {})
       }
-      
+
       // Import crypto total value
       if (zakatStore.cryptoValues && typeof zakatStore.cryptoValues.total_value === 'number') {
         updatedAssetValues.crypto = {
           total_value: zakatStore.cryptoValues.total_value
         }
       }
-      
+
       // Import hawl status
       const updatedHawlMet = { ...state.hawlMet }
       updatedHawlMet.cash = zakatStore.cashHawlMet
@@ -328,13 +328,13 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
       updatedHawlMet.retirement = zakatStore.retirementHawlMet
       updatedHawlMet['real-estate'] = zakatStore.realEstateHawlMet
       updatedHawlMet.crypto = zakatStore.cryptoHawlMet
-      
+
       // Check if we have any values to update
-      const hasZustandValues = Object.values(updatedAssetValues).some(assetType => 
-        Object.keys(assetType).length > 0 && 
+      const hasZustandValues = Object.values(updatedAssetValues).some(assetType =>
+        Object.keys(assetType).length > 0 &&
         Object.values(assetType).some(value => typeof value === 'number' && value > 0)
       )
-      
+
       console.log('🟣 Found values in Zustand store:', hasZustandValues, {
         cash: Object.keys(updatedAssetValues.cash).length,
         metals: Object.keys(updatedAssetValues['precious-metals']).length,
@@ -343,7 +343,7 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
         realEstate: Object.keys(updatedAssetValues['real-estate']).length,
         crypto: Object.keys(updatedAssetValues.crypto).length
       })
-      
+
       if (hasZustandValues) {
         // Update state with values from Zustand store
         setState(prevState => ({
@@ -351,15 +351,15 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
           assetValues: updatedAssetValues,
           hawlMet: updatedHawlMet
         }))
-        
+
         console.log('🟣 Imported values from Zustand store to dashboard state')
       }
-      
+
       // Sync currency with Zustand
       if (zakatStore.metalPrices?.currency !== state.currency && typeof zakatStore.setCurrency === 'function') {
         console.log('Syncing Zustand store with dashboard currency:', state.currency)
         zakatStore.setCurrency(state.currency)
-        
+
         // Update metal prices currency if needed
         if (zakatStore.metalPrices) {
           zakatStore.setMetalPrices({
@@ -377,16 +377,16 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
   useEffect(() => {
     // Only run after hydration
     if (!isHydrated) return
-    
+
     // Listen for Zustand store changes
     try {
       const zakatStore = useZakatStore.getState()
-      
+
       // Create an interval to check for Zustand store changes
       const syncInterval = setInterval(() => {
         const currentStore = useZakatStore.getState()
         // Check if any of our tracked asset values have changed
-        
+
         // Check cash values
         const cashValues = Object.entries(currentStore.cashValues)
           .filter(([key, value]) => typeof value === 'number' && key !== 'foreign_currency_entries')
@@ -394,13 +394,13 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
             ...acc,
             [key]: value
           }), {})
-          
+
         const hasCashChanges = Object.keys(cashValues).some(key => {
           // Ensure state.assetValues.cash exists before accessing its properties
           const currentValue = state.assetValues?.cash?.[key] || 0;
           return cashValues[key as keyof typeof cashValues] !== currentValue;
         });
-        
+
         if (hasCashChanges) {
           console.log('🔄 Detected cash changes in Zustand store, syncing to dashboard state')
           setState(prevState => ({
@@ -414,12 +414,12 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
             }
           }))
         }
-        
+
         // Similarly check other asset types
         // We could add them here, but let's keep the code simple for now
-        
+
       }, 5000) // Check every 5 seconds
-      
+
       return () => clearInterval(syncInterval)
     } catch (error) {
       console.error('Error in Zustand sync effect:', error)
@@ -429,7 +429,7 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
   // Save state to localStorage whenever it changes
   useEffect(() => {
     if (!isHydrated) return
-    
+
     try {
       // Ensure assetValues structure is complete before saving
       const completeAssetValues = {
@@ -441,19 +441,19 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
         crypto: state.assetValues?.crypto || {},
         'debt-receivable': state.assetValues?.['debt-receivable'] || {}
       }
-      
+
       // Create a serializable version of the state with complete structure
       const stateToSave = {
         ...state,
         assetValues: completeAssetValues,
         version: LOCAL_STATE_VERSION
       }
-      
+
       // Check if there are any values before saving
-      const hasValues = Object.entries(completeAssetValues).some(([assetType, values]) => 
+      const hasValues = Object.entries(completeAssetValues).some(([assetType, values]) =>
         Object.keys(values).length > 0
       )
-      
+
       // Save to localStorage
       localStorage.setItem('zakatState', JSON.stringify(stateToSave))
       console.log('🔵 Saved dashboard state to localStorage:', {
@@ -465,19 +465,19 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
           return acc + Object.keys(completeAssetValues[assetKey]).length;
         }, 0)
       })
-      
+
       // Immediately verify that the data was saved properly
       const savedData = localStorage.getItem('zakatState')
       const parsedSaved = savedData ? JSON.parse(savedData) : null
-      const savedHasValues = parsedSaved ? Object.entries(parsedSaved.assetValues).some(([assetType, values]: [string, any]) => 
+      const savedHasValues = parsedSaved ? Object.entries(parsedSaved.assetValues).some(([assetType, values]: [string, any]) =>
         Object.keys(values).length > 0
       ) : false
-      
+
       console.log('🔵 Verification of saved state:', {
         dataExists: !!savedData,
         savedHasValues,
         savedCurrency: parsedSaved?.currency,
-        savedAsset: parsedSaved?.selectedAsset 
+        savedAsset: parsedSaved?.selectedAsset
       })
     } catch (error) {
       console.error('❌ Error saving state to localStorage:', error)
@@ -502,7 +502,7 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
         ...prev.assetValues,
         [state.selectedAsset!]: {} as Record<string, number> // Clear previous values for this asset type with proper typing
       }
-      
+
       // Only add non-zero values
       Object.entries(newValues).forEach(([key, value]) => {
         if (typeof value === 'number' && value !== 0 && state.selectedAsset) {
@@ -538,7 +538,7 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
       ...prev,
       nisabThreshold: amount
     }))
-    
+
     // Call the callback if provided
     if (onNisabUpdate) {
       onNisabUpdate(amount)
@@ -549,10 +549,10 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
   useEffect(() => {
     // Only add the listener if we're properly hydrated
     if (!isHydrated) return
-    
+
     const handleStoreReset = (event: Event) => {
       console.log('Dashboard: Store reset event detected from another component')
-      
+
       // Check if this is still during initial page load
       if (typeof window !== 'undefined' && 'isInitialPageLoad' in window) {
         const w = window as any
@@ -561,10 +561,10 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
           return
         }
       }
-      
+
       // This is coming from another component or action
       console.log('Dashboard: Processing external reset event')
-      
+
       // Reset local dashboard state to match the store reset
       setState(prev => ({
         ...prev,
@@ -574,10 +574,10 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
         // Keep user preferences like currency and completed setup
       }))
     }
-    
+
     // Listen for the store-reset event
     window.addEventListener('store-reset', handleStoreReset)
-    
+
     // Cleanup
     return () => {
       window.removeEventListener('store-reset', handleStoreReset)
@@ -588,10 +588,10 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
   const handleReset = useCallback(() => {
     try {
       console.log('Resetting the application state')
-      
+
       // Use the Zustand store's reset function which now has enhanced handling
       const zakatStore = useZakatStore.getState()
-      
+
       // Call the reset function directly
       if (typeof zakatStore.reset === 'function') {
         zakatStore.reset()
@@ -599,7 +599,7 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
       } else {
         console.error('Reset function not found in Zustand store')
       }
-      
+
       // Also reset the local dashboard state
       setState(prev => ({
         ...prev,
@@ -608,28 +608,28 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
         hawlMet: {}, // Clear hawl status
         // Keep user preferences like currency and completed setup
       }))
-      
+
       // For additional cleanup, clear any temporary calculation records
       localStorage.removeItem('currency-conversion-record')
-      
+
       // Confirm reset to user - using the correct toast pattern
       toast({
         title: 'Reset successful',
         description: 'All calculator values have been reset',
         variant: 'success'
       })
-      
+
       return true
     } catch (error) {
       console.error('Reset failed with error:', error)
-      
+
       // Show error toast - using the correct toast pattern
       toast({
         title: 'Reset failed',
         description: 'An error occurred while resetting. Please try again.',
         variant: 'destructive'
       })
-      
+
       return false
     }
   }, [])
@@ -645,7 +645,7 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
       if (key.includes('total') || key.includes('zakatable')) return sum
       return sum + (typeof value === 'number' ? value : 0)
     }, 0)
-    
+
     // Add the base total
     acc[`${assetType}_total`] = assetTotal
 
@@ -684,10 +684,10 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
   }, {} as Record<string, number>)
 
   // Calculate total assets and zakatable amount
-  const totalAssets = Object.values(assetTotals).reduce((sum, value) => 
+  const totalAssets = Object.values(assetTotals).reduce((sum, value) =>
     sum + (typeof value === 'number' ? value : 0), 0)
-  
-  const totalZakatable = Object.values(zakatableTotals).reduce((sum, value) => 
+
+  const totalZakatable = Object.values(zakatableTotals).reduce((sum, value) =>
     sum + (typeof value === 'number' ? value : 0), 0)
 
   // Check if any asset type with non-zero zakatable amount meets hawl
@@ -704,7 +704,7 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
     state,
     isHydrated,
     prevCurrency: prevCurrency.current,
-    
+
     // Calculated values
     processedValues,
     assetTotals,
@@ -713,14 +713,14 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
     totalZakatable,
     anyHawlMet,
     isEligible,
-    
+
     // Event handlers
     handleAssetSelect,
     handleUpdateValues,
     handleHawlUpdate,
     handleNisabUpdate,
     handleReset,
-    
+
     // Other methods
     setState
   }

@@ -276,6 +276,7 @@ export const useZakatStore = create<ZakatState>()(
 
                     // ENHANCEMENT: Force UI refresh for all calculators
                     // Create a synthetic state update to trigger component re-renders
+                    // without adding new properties
                     const currentState = get();
                     // Temporarily modify and restore a property to force state update
                     // without adding new properties
@@ -625,25 +626,92 @@ export const useZakatStore = create<ZakatState>()(
               meetsNisab: state.getNisabStatus()
             }
           }
+        },
+
+        // Manual persist function to force saving to localStorage
+        forcePersist: () => {
+          try {
+            // Get the current state
+            const state = get();
+
+            // Log the current state - commented out but preserved
+            /*
+            console.log('Manually persisting state to localStorage', {
+              hasCashValues: !!state.cashValues,
+              cashOnHand: state.cashValues?.cash_on_hand,
+              timestamp: new Date().toISOString()
+            });
+            */
+
+            // Force the persist middleware to save the current state
+            if (typeof window !== 'undefined' && window.localStorage) {
+              // Get the partialize function to extract the state to persist
+              const partialState = {
+                metalsValues: state.metalsValues,
+                cashValues: state.cashValues,
+                stockValues: state.stockValues,
+                retirement: state.retirement,
+                realEstateValues: state.realEstateValues,
+                cryptoValues: state.cryptoValues,
+                cashHawlMet: state.cashHawlMet,
+                metalsHawlMet: state.metalsHawlMet,
+                stockHawlMet: state.stockHawlMet,
+                retirementHawlMet: state.retirementHawlMet,
+                realEstateHawlMet: state.realEstateHawlMet,
+                cryptoHawlMet: state.cryptoHawlMet,
+                metalPrices: state.metalPrices,
+                nisabData: state.nisabData,
+                currency: state.currency
+              };
+
+              // Manually save to localStorage
+              const storageValue = JSON.stringify({
+                state: partialState,
+                version: 0,
+                timestamp: Date.now()
+              });
+
+              localStorage.setItem('zakat-store', storageValue);
+
+              // Debug logging - commented out but preserved
+              /*
+              console.log('Manually persisted state to localStorage', {
+                size: storageValue.length,
+                timestamp: new Date().toISOString()
+              });
+
+              // Verify the save
+              const savedData = localStorage.getItem('zakat-store');
+              if (savedData) {
+                const parsed = JSON.parse(savedData);
+                console.log('Verified manual persist:', {
+                  cashOnHand: parsed.state?.cashValues?.cash_on_hand,
+                  timestamp: new Date(parsed.timestamp).toISOString()
+                });
+              }
+              */
+            }
+          } catch (error) {
+            console.error('Error in manual persist:', error);
+          }
         }
       }
     },
     {
       name: 'zakat-store',
       version: 1,
-      // Add safe storage for Next.js with SSR
+      // Improved storage configuration for Next.js with SSR
       storage: typeof window !== 'undefined'
         ? createJSONStorage(() => ({
           getItem: (name) => {
             try {
               const data = localStorage.getItem(name);
-              if (!data) return null;
+              if (!data) {
+                console.log(`No data found in localStorage for "${name}"`);
+                return null;
+              }
 
-              // Try to parse the data
-              const parsed = JSON.parse(data);
-
-              // If we need to validate the data, do it here
-              console.log(`Retrieved store "${name}" from localStorage`);
+              console.log(`Retrieved store "${name}" from localStorage (${data.length} bytes)`);
               return data;
             } catch (error) {
               console.error(`Error getting item "${name}" from localStorage:`, error);
@@ -652,15 +720,46 @@ export const useZakatStore = create<ZakatState>()(
           },
           setItem: (name, value) => {
             try {
+              // Log the value being saved for debugging
+              console.log(`Saving to localStorage: ${name}`, {
+                valueLength: value.length,
+                preview: value.substring(0, 100) + '...',
+                timestamp: new Date().toISOString()
+              });
+
               localStorage.setItem(name, value);
-              console.log(`Saved store "${name}" to localStorage`);
+              console.log(`Saved store "${name}" to localStorage (${value.length} bytes)`);
+
+              // Verify the save was successful by reading it back
+              const savedData = localStorage.getItem(name);
+              if (savedData) {
+                console.log(`Verified save: ${name} is in localStorage (${savedData.length} bytes)`);
+              } else {
+                console.warn(`Failed to verify save: ${name} not found in localStorage after saving`);
+              }
             } catch (error) {
               console.error(`Error setting item "${name}" in localStorage:`, error);
+              // If we hit a quota error, try to clear some space
+              if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+                try {
+                  // Try to remove old backup data that might be taking up space
+                  localStorage.removeItem('zakat-emergency-backup-timestamp');
+                  localStorage.removeItem('zakat-last-hidden');
+                  localStorage.removeItem('last-refresh-time');
+
+                  // Try again after clearing space
+                  localStorage.setItem(name, value);
+                  console.log(`Successfully saved store "${name}" after clearing space`);
+                } catch (retryError) {
+                  console.error(`Still failed to save store after clearing space:`, retryError);
+                }
+              }
             }
           },
           removeItem: (name) => {
             try {
               localStorage.removeItem(name);
+              console.log(`Removed store "${name}" from localStorage`);
             } catch (error) {
               console.error(`Error removing item "${name}" from localStorage:`, error);
             }
@@ -687,29 +786,49 @@ export const useZakatStore = create<ZakatState>()(
           realEstateHawlMet,
           cryptoHawlMet,
           metalPrices,
-          nisabData
+          nisabData,
+          currency
         } = state as ZakatState;
 
-        return {
-          metalsValues,
-          cashValues,
-          stockValues,
-          retirement,
-          realEstateValues,
-          cryptoValues,
+        // Log what's being persisted for debugging
+        console.log('Partializing state for persistence', {
+          hasCashValues: !!cashValues,
+          hasMetalsValues: !!metalsValues,
+          hasStockValues: !!stockValues,
+          hasRetirement: !!retirement,
+          hasRealEstateValues: !!realEstateValues,
+          hasCryptoValues: !!cryptoValues,
+          currency,
+          cashOnHand: cashValues?.cash_on_hand
+        });
+
+        // Create a deep copy to ensure we're not storing references
+        const persistedState = {
+          metalsValues: metalsValues ? { ...metalsValues } : metalsValues,
+          cashValues: cashValues ? { ...cashValues } : cashValues,
+          stockValues: stockValues ? { ...stockValues } : stockValues,
+          retirement: retirement ? { ...retirement } : retirement,
+          realEstateValues: realEstateValues ? { ...realEstateValues } : realEstateValues,
+          cryptoValues: cryptoValues ? { ...cryptoValues } : cryptoValues,
           cashHawlMet,
           metalsHawlMet,
           stockHawlMet,
           retirementHawlMet,
           realEstateHawlMet,
           cryptoHawlMet,
-          metalPrices,
-          nisabData
+          metalPrices: metalPrices ? { ...metalPrices } : metalPrices,
+          nisabData: nisabData ? { ...nisabData } : nisabData,
+          currency
         };
+
+        // Log the actual state being persisted
+        console.log('Persisting state with cash_on_hand =', persistedState.cashValues?.cash_on_hand);
+
+        return persistedState;
       },
-      // ENHANCEMENT: Properly handle hydration with our custom function
+      // Improved onRehydrateStorage to handle hydration more reliably
       onRehydrateStorage: () => {
-        console.log('Starting store rehydration');
+        console.log('Starting store rehydration process');
 
         return (state, error) => {
           if (error) {
@@ -723,7 +842,7 @@ export const useZakatStore = create<ZakatState>()(
           } else if (state) {
             console.log('Successfully rehydrated store with state keys:', Object.keys(state || {}));
 
-            // DEBUG: Add verbose logging of hydrated values to diagnose persistence issues
+            // Log the hydrated values for debugging
             console.log('HYDRATED STATE VALUES:', {
               metalsValues: state.metalsValues ? 'Present' : 'Missing',
               cashValues: state.cashValues ? 'Present' : 'Missing',
@@ -732,88 +851,24 @@ export const useZakatStore = create<ZakatState>()(
               realEstateValues: state.realEstateValues ? 'Present' : 'Missing',
               cryptoValues: state.cryptoValues ? 'Present' : 'Missing',
               nisabData: state.nisabData ? 'Present' : 'Missing',
-              metalPrices: state.metalPrices ? 'Present' : 'Missing'
+              metalPrices: state.metalPrices ? 'Present' : 'Missing',
+              currency: state.currency || 'Not Set'
             });
 
-            // For page refresh detection to ensure proper rehydration
+            // Dispatch success events for both event names
             if (typeof window !== 'undefined') {
-              const lastRefreshTime = localStorage.getItem('last-refresh-time');
-              const isPageRefresh = lastRefreshTime && (Date.now() - parseInt(lastRefreshTime)) < 5000;
+              // Set global flags
+              (window as any).zakatStoreHydrationComplete = true;
+              (window as any).hasDispatchedHydrationEvent = true;
 
-              if (isPageRefresh) {
-                console.log('Page refresh detected during rehydration - ensuring all values are preserved');
+              // Dispatch both events for compatibility
+              window.dispatchEvent(new Event('zakatStoreHydrated'));
+              window.dispatchEvent(new Event('store-hydration-complete'));
 
-                // Re-apply the full state to ensure all values are preserved after refresh
-                setTimeout(() => {
-                  try {
-                    // Get fresh state after initial hydration
-                    const currentState = useZakatStore.getState();
-
-                    // If we want to force a complete rehydration, we can update the store here
-                    useZakatStore.setState({
-                      ...currentState,
-                      ...state
-                    });
-
-                    console.log('Successfully enforced full state preservation after refresh');
-                  } catch (err) {
-                    console.error('Error ensuring state preservation after refresh:', err);
-                  }
-                }, 100);
-              }
-            }
-
-            // Force a refresh of nisab data if needed but not immediately
-            if (state.nisabData && state.metalPrices) {
-              console.log('Refreshing nisab data after rehydration');
-
-              // Schedule this after a slight delay to avoid blocking the UI
-              setTimeout(() => {
-                try {
-                  // Get fresh state after hydration
-                  const currentState = useZakatStore.getState();
-
-                  // Ensure metalPrices and nisabData have the same currency
-                  if (currentState.metalPrices?.currency !== currentState.nisabData?.currency) {
-                    if (typeof currentState.forceRefreshNisabForCurrency === 'function') {
-                      currentState.forceRefreshNisabForCurrency(currentState.metalPrices.currency)
-                        .catch(err => console.error('Error refreshing nisab after hydration:', err));
-                    }
-                  }
-                } catch (err) {
-                  console.error('Error in post-hydration nisab refresh:', err);
-                }
-              }, 1000);
-            }
-
-            // Dispatch successful hydration event
-            if (typeof window !== 'undefined') {
-              // Set a flag that other components can check
-              // @ts-ignore - This is a custom property we're adding to window
-              window.hasDispatchedHydrationEvent = true;
-
-              // Dispatch the event with a small delay to ensure React components are mounted
-              setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('store-hydration-complete', {
-                  detail: { timestamp: Date.now() }
-                }));
-                console.log('Zustand store: Hydration complete event dispatched');
-              }, 100);
+              console.log('Dispatched hydration success events from onRehydrateStorage');
             }
           } else {
             console.warn('Zustand store: Rehydration completed but no state was recovered');
-            // Still dispatch the event so components can initialize with default values
-            if (typeof window !== 'undefined') {
-              // @ts-ignore - This is a custom property we're adding to window
-              window.hasDispatchedHydrationEvent = true;
-
-              setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('store-hydration-complete', {
-                  detail: { empty: true, timestamp: Date.now() }
-                }));
-                console.log('Zustand store: Empty hydration complete event dispatched');
-              }, 100);
-            }
           }
         };
       }

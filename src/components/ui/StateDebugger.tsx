@@ -7,7 +7,7 @@ import { Button } from './button'
 export function StateDebugger() {
   const [localStorageState, setLocalStorageState] = useState<string | null>(null)
   const [showDebugger, setShowDebugger] = useState(false)
-  
+
   // Load current store values from localStorage for comparison
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -19,13 +19,15 @@ export function StateDebugger() {
       }
     }
   }, [])
-  
+
   // Get current store state
   const currentState = useZakatStore.getState()
-  
+
   // Function to manually trigger store hydration
   const forceHydration = () => {
     try {
+      // Access the persist API if it exists - commented out but preserved
+      /*
       // @ts-expect-error - Access the persist API if it exists
       if (useZakatStore.persist && typeof useZakatStore.persist.rehydrate === 'function') {
         // @ts-expect-error
@@ -34,17 +36,22 @@ export function StateDebugger() {
       } else {
         alert('Store does not have persist.rehydrate method')
       }
+      */
     } catch (error) {
       console.error('Error during store hydration:', error)
       alert(`Hydration error: ${error}`)
     }
   }
-  
+
   // Toggle debug display
   const toggleDebugger = () => {
     setShowDebugger(!showDebugger)
   }
-  
+
+  // Always return null to hide the component while preserving functionality
+  return null
+
+  /* Original UI - commented out but preserved for future use
   if (!showDebugger) {
     return (
       <div className="fixed bottom-4 right-4 z-50">
@@ -141,4 +148,5 @@ export function StateDebugger() {
       </div>
     </div>
   )
+  */
 } 

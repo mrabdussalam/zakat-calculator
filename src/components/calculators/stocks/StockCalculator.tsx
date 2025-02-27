@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/form/input'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { InfoIcon } from 'lucide-react'
-import { 
+import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -15,7 +15,7 @@ import {
 import { useZakatStore } from '@/store/zakatStore'
 import { evaluateExpression } from '@/lib/utils'
 import type { StockValues } from '@/lib/assets/stocks'
-import type { PassiveInvestmentState } from '@/store/types'
+import type { PassiveInvestment } from '@/store/types'
 import { Tabs } from '@/components/ui/tabs'
 import { ActiveTradingTab } from './tabs/ActiveTradingTab'
 import { PassiveInvestmentsTab, type PassiveCalculations } from './tabs/PassiveInvestmentsTab'
@@ -41,7 +41,39 @@ interface StockHolding {
   lastUpdated: Date
 }
 
-export function StockCalculator({ 
+// Define the PassiveInvestmentState interface directly in this file
+interface CompanyFinancials {
+  cash: number
+  receivables: number
+  inventory: number
+  totalShares: number
+  yourShares: number
+  displayProperties?: {
+    currency: string
+    sharePercentage: number
+  }
+}
+
+interface PassiveInvestmentState {
+  version: '2.0'
+  method: 'quick' | 'detailed'
+  investments: PassiveInvestment[]
+  marketValue: number
+  zakatableValue: number
+  companyData?: CompanyFinancials
+  hawlStatus: {
+    isComplete: boolean
+    startDate?: string
+    endDate?: string
+  }
+  displayProperties: {
+    currency: string
+    method: string
+    totalLabel: string
+  }
+}
+
+export function StockCalculator({
   currency,
   onUpdateValues,
   onHawlUpdate,
@@ -67,13 +99,14 @@ export function StockCalculator({
   } = useZakatStore()
 
   const stockAsset = getAssetType('stocks')
-  
+
   const [newTicker, setNewTicker] = useState('')
   const [newShares, setNewShares] = useState('')
+  const [newPricePerShare, setNewPricePerShare] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [passiveCalculations, setPassiveCalculations] = useState<PassiveCalculations | null>(null)
-  
+
   // Add a state to track if store has been hydrated
   const [storeHydrated, setStoreHydrated] = useState(false)
 
@@ -82,79 +115,47 @@ export function StockCalculator({
     const handleHydrationComplete = () => {
       console.log('StockCalculator: Store hydration complete event received')
       setStoreHydrated(true)
-      
-      // After hydration, safely initialize form state from store
+
+      // After hydration, safely initialize form values from store with a small delay
       setTimeout(() => {
-        // Additional initialization logic could be added here
-        console.log('StockCalculator: Initialized form values after hydration')
-      }, 50) // Small delay to ensure store is fully ready
+        console.log('StockCalculator: Initializing values from store after hydration');
+
+        // Set initial values from store
+        if (stockValues) {
+          // Set Hawl status first
+          setStockHawl(stockHawlMet);
+          onHawlUpdate(stockHawlMet);
+
+          // Initialize form with empty values - we don't need to try to access non-existent properties
+          // The actual stock values are stored in activeStocks array
+          console.log('StockCalculator: Using activeStocks from store:', stockValues.activeStocks);
+        }
+
+        console.log('StockCalculator: Values initialized from store after hydration');
+      }, 50); // Small delay to ensure store is fully ready
     }
-    
+
     // Listen for the custom hydration event
     window.addEventListener('store-hydration-complete', handleHydrationComplete)
-    
+
     // Check if hydration already happened
-    if (typeof window !== 'undefined' && 'hasDispatchedHydrationEvent' in window) {
-      // @ts-ignore - This is set by StoreHydration component
-      if (window.hasDispatchedHydrationEvent) {
-        handleHydrationComplete()
+    if (typeof window !== 'undefined') {
+      // Safe way to check for custom property without TypeScript errors
+      const win = window as any;
+      if (win.hasDispatchedHydrationEvent) {
+        handleHydrationComplete();
       }
     }
-    
+
     return () => {
       window.removeEventListener('store-hydration-complete', handleHydrationComplete)
     }
-  }, [])
-
-  // Initialize component - only after hydration
-  useEffect(() => {
-    if (storeHydrated) {
-      setStockHawl(initialHawlMet)
-    }
-  }, [initialHawlMet, setStockHawl, storeHydrated])
-
-  // Add a listener to detect store resets
-  useEffect(() => {
-    // Only process resets after hydration is complete to prevent false resets
-    if (!storeHydrated) return;
-    
-    const handleReset = (event?: Event) => {
-      console.log('StockCalculator: Store reset event detected');
-      
-      // Check if this is still during initial page load
-      if (typeof window !== 'undefined' && 'isInitialPageLoad' in window) {
-        // @ts-ignore - Custom property added to window
-        if (window.isInitialPageLoad) {
-          console.log('StockCalculator: Ignoring reset during initial page load');
-          return;
-        }
-      }
-      
-      // This is a user-initiated reset, so clear all local state
-      console.log('StockCalculator: Clearing local state due to user-initiated reset');
-      
-      // Reset all form fields
-      setNewTicker('');
-      setNewShares('');
-      setError(null);
-      
-      // Clear local calculated state
-      setPassiveCalculations(null);
-    };
-    
-    // Listen for the store-reset event
-    window.addEventListener('store-reset', handleReset);
-    
-    // Cleanup
-    return () => {
-      window.removeEventListener('store-reset', handleReset);
-    };
-  }, [storeHydrated]);
+  }, [stockValues, setStockHawl, onHawlUpdate, stockHawlMet])
 
   // Handle value changes for passive/dividend/fund tabs
   const handleValueChange = (fieldId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = event.target.value
-    
+
     // Only allow numbers, decimal points, and basic math operators
     if (!/^[\d+\-*/.() ]*$/.test(inputValue) && inputValue !== '') {
       return // Ignore invalid characters
@@ -163,7 +164,7 @@ export function StockCalculator({
     try {
       // Convert to numeric value (handles calculations)
       const numericValue = evaluateExpression(inputValue)
-      
+
       // Only update store if we have a valid number
       if (!isNaN(numericValue) && stockAsset) {
         // Update the store
@@ -174,7 +175,7 @@ export function StockCalculator({
           ...stockValues,
           [fieldId]: numericValue
         }
-        
+
         const total = stockAsset.calculateTotal(updatedValues, stockPrices)
         const zakatable = stockAsset.calculateZakatable(updatedValues, stockPrices, stockHawlMet)
 
@@ -195,12 +196,12 @@ export function StockCalculator({
     if (!stockAsset) return
 
     setPassiveCalculations(calculations)
-    
+
     // Create new passive investment state
     const newPassiveState: PassiveInvestmentState = {
       version: '2.0',
       method: calculations.method,
-      investments: calculations.method === 'quick' ? 
+      investments: calculations.method === 'quick' ?
         calculations.breakdown.items.map(item => ({
           id: item.id,
           name: item.label,
@@ -211,15 +212,14 @@ export function StockCalculator({
       marketValue: calculations.totalMarketValue,
       zakatableValue: calculations.zakatableValue,
       companyData: calculations.method === 'detailed' ? {
-        cash: stockValues.company_cash || 0,
-        receivables: stockValues.company_receivables || 0,
-        inventory: stockValues.company_inventory || 0,
-        totalShares: stockValues.total_shares_issued || 0,
-        yourShares: stockValues.passive_shares || 0,
+        cash: 0,
+        receivables: 0,
+        inventory: 0,
+        totalShares: 0,
+        yourShares: 0,
         displayProperties: {
           currency,
-          sharePercentage: stockValues.total_shares_issued > 0 ? 
-            (stockValues.passive_shares / stockValues.total_shares_issued) * 100 : 0
+          sharePercentage: 0
         }
       } : undefined,
       hawlStatus: {
@@ -237,8 +237,12 @@ export function StockCalculator({
     updatePassiveInvestmentsStore(calculations.method, {
       investments: newPassiveState.investments,
       companyData: newPassiveState.companyData
-    }, calculations)
-    
+    }, {
+      marketValue: calculations.totalMarketValue,
+      zakatableValue: calculations.zakatableValue,
+      method: calculations.method
+    })
+
     // Update parent with all values
     onUpdateValues({
       total_stock_value: stockAsset.calculateTotal({ ...stockValues, passiveInvestments: newPassiveState }, stockPrices),
@@ -259,7 +263,7 @@ export function StockCalculator({
     try {
       // Pass currency when adding stock
       await addActiveStock(newTicker, Number(newShares), manualPrice, currency)
-      
+
       // Clear form
       setNewTicker('')
       setNewShares('')
@@ -286,7 +290,7 @@ export function StockCalculator({
     if (!stockAsset) return
 
     removeActiveStock(ticker)
-    
+
     // Get updated totals using the asset type system
     const total = stockAsset.calculateTotal(stockValues, stockPrices)
     const zakatable = stockAsset.calculateZakatable(stockValues, stockPrices, stockHawlMet)
@@ -303,11 +307,11 @@ export function StockCalculator({
     if (!stockAsset) return
 
     setIsLoading(true)
-    
+
     try {
       // Pass currency to the update function
       await updateStockPrices(currency)
-      
+
       // Get updated totals using the asset type system
       const total = stockAsset.calculateTotal(stockValues, stockPrices)
       const zakatable = stockAsset.calculateZakatable(stockValues, stockPrices, stockHawlMet)
@@ -367,7 +371,7 @@ export function StockCalculator({
           ...(passiveCalculations?.totalMarketValue ? [{
             label: passiveCalculations?.method === 'quick' ? "Passive Investments (30% Rule)" : "Passive Investments (CRI)",
             value: formatCurrency(stockHawlMet ? passiveCalculations?.zakatableValue || 0 : 0),
-            tooltip: passiveCalculations?.method === 'quick' 
+            tooltip: passiveCalculations?.method === 'quick'
               ? "30% of market value is considered zakatable"
               : "Based on your share of company's liquid assets",
             marketValue: passiveCalculations.totalMarketValue, // Add full market value for reference
@@ -445,8 +449,8 @@ export function StockCalculator({
       />
 
       {/* Navigation */}
-      <CalculatorNav 
-        currentCalculator="stocks" 
+      <CalculatorNav
+        currentCalculator="stocks"
         onCalculatorChange={onCalculatorChange}
         onOpenSummary={onOpenSummary}
       />

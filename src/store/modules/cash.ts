@@ -70,31 +70,94 @@ export const createCashSlice: StateCreator<
         console.warn(`Invalid foreign_currency_entries value:`, value);
         return;
       }
-      
-      // Debug logging
-      console.log('Setting foreign_currency_entries in store:', value);
-      
-      set((state: ZakatState) => ({
-        cashValues: {
-          ...state.cashValues,
-          foreign_currency_entries: value
-        }
-      }));
+
+      // Debug logging - commented out but preserved
+      // console.log('Setting foreign_currency_entries in store:', value);
+
+      set((state: ZakatState) => {
+        const newState = {
+          cashValues: {
+            ...state.cashValues,
+            foreign_currency_entries: value
+          }
+        };
+
+        // Log the update for debugging - commented out but preserved
+        /* 
+        console.log('Updated cashValues with foreign_currency_entries:', {
+          before: state.cashValues?.foreign_currency_entries?.length || 0,
+          after: value.length,
+          timestamp: new Date().toISOString()
+        });
+        */
+
+        return newState;
+      });
       return;
     }
-    
+
     // Normal number value handling
     if (!isValidCurrencyAmount(value as number)) {
       console.warn(`Invalid cash value: ${value} for ${key}`);
       return;
     }
 
-    set((state: ZakatState) => ({
-      cashValues: {
-        ...state.cashValues,
-        [key]: roundCurrency(value as number)
+    const roundedValue = roundCurrency(value as number);
+    // console.log(`Setting ${key} to ${roundedValue} in cash store`);
+
+    set((state: ZakatState) => {
+      const newState = {
+        cashValues: {
+          ...state.cashValues,
+          [key]: roundedValue
+        }
+      };
+
+      // Log the update for debugging - commented out but preserved
+      /*
+      console.log('Updated cashValues:', {
+        key,
+        before: state.cashValues?.[key],
+        after: roundedValue,
+        timestamp: new Date().toISOString()
+      });
+      */
+
+      return newState;
+    });
+
+    // Verify the update was successful - commented out but preserved
+    /*
+    setTimeout(() => {
+      const state = store.getState();
+      const currentValue = state.cashValues?.[key];
+
+      console.log(`Verification - ${key} value after update:`, {
+        expected: roundedValue,
+        actual: currentValue,
+        match: currentValue === roundedValue
+      });
+
+      // Force a persist if needed
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          const storeData = localStorage.getItem('zakat-store');
+          if (storeData) {
+            const parsed = JSON.parse(storeData);
+            const storedValue = parsed.state?.cashValues?.[key];
+
+            console.log(`Verification - ${key} value in localStorage:`, {
+              expected: roundedValue,
+              stored: storedValue,
+              match: storedValue === roundedValue
+            });
+          }
+        } catch (error) {
+          console.error('Error verifying localStorage:', error);
+        }
       }
-    }));
+    }, 100);
+    */
   },
 
   updateCashValues: (values) => {
@@ -108,7 +171,7 @@ export const createCashSlice: StateCreator<
 
   setCashHawlMet: (value) => set({ cashHawlMet: value }),
 
-  resetCashValues: () => set({ 
+  resetCashValues: () => set({
     cashValues: initialCashValues,
     cashHawlMet: true
   }),
@@ -162,7 +225,7 @@ export const createCashSlice: StateCreator<
           zakatable: state.cashHawlMet ? roundCurrency(item.value) : 0,
           zakatDue: state.cashHawlMet ? roundCurrency(item.value * ZAKAT_RATE) : 0,
           label: item.label,
-          tooltip: state.cashHawlMet 
+          tooltip: state.cashHawlMet
             ? `Full amount is zakatable: ${formatCurrency(item.value, state.currency)}`
             : 'Hawl period not met yet'
         }

@@ -46,19 +46,19 @@ export default function DashboardPage() {
     handleReset,
     isEligible
   } = useDashboardState()
-  
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isMobileSummaryOpen, setIsMobileSummaryOpen] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [shouldAnimate, setShouldAnimate] = useState(false)
-  
+
   // Use the currency conversion hook
   const { isConverting: isConvertingCurrency } = useDashboardCurrencyConversion({
     currency: state.currency,
     isHydrated,
     onNisabUpdated: handleNisabUpdate
   })
-  
+
   // Add window size detection
   useEffect(() => {
     const handleResize = () => {
@@ -84,7 +84,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const transitionTime = params.get('t')
-    
+
     if (transitionTime) {
       // If we have a transition timestamp, wait a bit before starting animations
       setTimeout(() => {
@@ -105,10 +105,10 @@ export default function DashboardPage() {
   useEffect(() => {
     // Only run on client and after hydration
     if (!isHydrated) return;
-    
+
     // Get the current state from the Zakat store
     const zakatStore = useZakatStore.getState();
-    
+
     // Check if metalPrices exists and has a currency
     if (zakatStore.metalPrices && zakatStore.metalPrices.currency) {
       // If the currency doesn't match the dashboard currency
@@ -117,7 +117,7 @@ export default function DashboardPage() {
           dashboardCurrency: state.currency,
           metalPricesCurrency: zakatStore.metalPrices.currency
         });
-        
+
         // If we're not in the middle of a conversion
         if (!isConvertingCurrency) {
           console.log('Attempting emergency currency fix in Dashboard');
@@ -128,10 +128,10 @@ export default function DashboardPage() {
 
   // Animation variants
   const containerVariants = {
-    hidden: { 
+    hidden: {
       opacity: 0
     },
-    visible: { 
+    visible: {
       opacity: 1,
       transition: {
         when: "beforeChildren",
@@ -142,11 +142,11 @@ export default function DashboardPage() {
   }
 
   const columnVariants = {
-    hidden: { 
+    hidden: {
       opacity: 0,
       x: -20
     },
-    visible: { 
+    visible: {
       opacity: 1,
       x: 0,
       transition: {
@@ -173,19 +173,19 @@ export default function DashboardPage() {
           hasZakatState: 'zakatState' in localStorage,
           stateSize: savedState ? savedState.length : 0
         })
-        
+
         if (savedState) {
           try {
             const parsed = JSON.parse(savedState)
-            const hasValues = parsed && parsed.assetValues ? 
-              Object.entries(parsed.assetValues).some(([type, values]) => 
+            const hasValues = parsed && parsed.assetValues ?
+              Object.entries(parsed.assetValues).some(([type, values]) =>
                 Object.keys(values || {}).length > 0
               ) : false
-            
+
             console.log('🌟 Dashboard localStorage content check:', {
               hasAssetValues: !!parsed?.assetValues,
               hasValues,
-              assetCount: parsed && parsed.assetValues ? 
+              assetCount: parsed && parsed.assetValues ?
                 Object.keys(parsed.assetValues).length : 0,
               currency: parsed?.currency
             })
@@ -202,7 +202,7 @@ export default function DashboardPage() {
   // Don't render until hydration is complete
   if (!isHydrated) {
     return (
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2 }}
@@ -221,15 +221,15 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-      
-      <motion.div 
+
+      <motion.div
         className="h-screen w-screen overflow-hidden bg-white relative"
         initial="hidden"
         animate={shouldAnimate ? "visible" : "hidden"}
         variants={containerVariants}
       >
         {/* Mobile Top Bar */}
-        <motion.div 
+        <motion.div
           variants={innerVariants}
           className="lg:hidden fixed top-0 left-0 right-0 z-10 bg-white border-b border-gray-100"
         >
@@ -276,14 +276,14 @@ export default function DashboardPage() {
         {/* Mobile Menu */}
         <AnimatePresence>
           {isMobileMenuOpen && (
-            <motion.div 
+            <motion.div
               className="md:hidden fixed inset-0 z-50 bg-black/20"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              <motion.div 
+              <motion.div
                 className="absolute left-0 top-0 bottom-0 w-80 bg-white shadow-lg flex flex-col"
                 initial={{ x: "-100%" }}
                 animate={{ x: 0 }}
@@ -331,7 +331,7 @@ export default function DashboardPage() {
         {/* Mobile Summary Overlay */}
         <AnimatePresence>
           {isMobileSummaryOpen && (
-            <motion.div 
+            <motion.div
               className="lg:hidden fixed inset-0 z-50 bg-white"
               initial={{ opacity: 0, y: "100%" }}
               animate={{ opacity: 1, y: 0 }}
@@ -364,11 +364,11 @@ export default function DashboardPage() {
             </motion.div>
           )}
         </AnimatePresence>
-        
+
         {/* Main Layout */}
         <div className="w-full h-full grid lg:grid-cols-[auto_minmax(500px,1fr)_minmax(400px,1.5fr)] md:grid-cols-[auto_1fr] grid-cols-[100%] transition-all duration-200">
           {/* Left Column - Asset Selection */}
-          <motion.div 
+          <motion.div
             variants={innerVariants}
             className={cn(
               "min-h-0 md:block hidden relative transition-all duration-200 bg-gray-50/80",
@@ -382,7 +382,7 @@ export default function DashboardPage() {
             />
 
             <div className="h-full flex flex-col">
-              <motion.div 
+              <motion.div
                 variants={innerVariants}
                 className="p-6 flex-none"
               >
@@ -394,7 +394,7 @@ export default function DashboardPage() {
                 </h2>
               </motion.div>
               <div className="flex-1 min-h-0">
-                <MotionScrollArea 
+                <MotionScrollArea
                   variants={innerVariants}
                   className="h-full"
                 >
@@ -415,7 +415,7 @@ export default function DashboardPage() {
           </motion.div>
 
           {/* Middle Column - Smart Calculator */}
-          <motion.div 
+          <motion.div
             variants={innerVariants}
             className={cn(
               "min-h-0 border-l border-gray-100 lg:pt-0 pt-16 w-full transition-all duration-200",
@@ -423,21 +423,21 @@ export default function DashboardPage() {
             )}
           >
             <div className="h-full flex flex-col">
-              <motion.div 
+              <motion.div
                 variants={innerVariants}
                 className="p-4 sm:p-6 flex-none"
               >
                 <div className="flex items-center gap-3">
                   <h2 className="text-2xl font-nb-international text-gray-900 font-medium tracking-tight">
-                    {state.selectedAsset 
-                      ? CALCULATOR_TITLES[state.selectedAsset as keyof typeof CALCULATOR_TITLES] || 
-                        ASSETS.find(a => a.id === state.selectedAsset)?.name 
+                    {state.selectedAsset
+                      ? CALCULATOR_TITLES[state.selectedAsset as keyof typeof CALCULATOR_TITLES] ||
+                      ASSETS.find(a => a.id === state.selectedAsset)?.name
                       : "Select an asset to begin"}
                   </h2>
                 </div>
               </motion.div>
               <div className="flex-1 min-h-0">
-                <MotionScrollArea 
+                <MotionScrollArea
                   variants={innerVariants}
                   className="h-full"
                 >
@@ -463,12 +463,12 @@ export default function DashboardPage() {
           </motion.div>
 
           {/* Right Column - Dashboard/Summary */}
-          <motion.div 
+          <motion.div
             variants={innerVariants}
             className="min-h-0 border-l border-gray-100 lg:block hidden"
           >
             <div className="h-full flex flex-col">
-              <motion.div 
+              <motion.div
                 variants={innerVariants}
                 className="p-6 flex-none"
               >
@@ -485,7 +485,7 @@ export default function DashboardPage() {
                 </div>
               </motion.div>
               <div className="flex-1 min-h-0">
-                <MotionScrollArea 
+                <MotionScrollArea
                   variants={innerVariants}
                   className="h-full"
                 >
@@ -495,9 +495,8 @@ export default function DashboardPage() {
                         currency={state.currency}
                       />
                     </div>
-                    <div className="mt-4 pl-6 text-left text-gray-300">
-                      <p className="![font-size:12px] flex items-center gap-1.5">
-                        <LockIcon className="h-3.5 w-3.5" /> 
+                    <div className="mt-4 text-center text-gray-300">
+                      <p className="![font-size:12px]">
                         All calculations are performed locally in your browser — no financial data leaves your device
                       </p>
                     </div>

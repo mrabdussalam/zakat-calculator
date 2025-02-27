@@ -11,7 +11,7 @@ import { FAQ } from '@/components/ui/faq'
 import { ASSET_FAQS } from '@/config/faqs'
 import { cn } from '@/lib/utils'
 import { InfoIcon } from '@/components/ui/icons'
-import { 
+import {
   Tooltip,
   TooltipTrigger,
   TooltipContent
@@ -40,7 +40,7 @@ interface RetirementCalculatorProps {
   initialHawlMet?: boolean
 }
 
-export function RetirementCalculator({ 
+export function RetirementCalculator({
   currency,
   onUpdateValues,
   onHawlUpdate,
@@ -56,6 +56,9 @@ export function RetirementCalculator({
     setRetirementHawlMet,
     getRetirementBreakdown
   } = useZakatStore()
+
+  // Add a state to track if store has been hydrated
+  const [storeHydrated, setStoreHydrated] = useState(false)
 
   // Get the retirement breakdown
   const retirementBreakdown = getRetirementBreakdown()
@@ -93,7 +96,7 @@ export function RetirementCalculator({
 
   // State for fund accessibility
   const [accessibility, setAccessibility] = useState<'accessible' | 'restricted'>('restricted')
-  
+
   // State for account details
   const [accountDetails, setAccountDetails] = useState<AccountDetails>({
     balance: 0,
@@ -103,13 +106,96 @@ export function RetirementCalculator({
     withdrawnAmount: 0
   })
 
+  // Add a listener for the store hydration event
+  useEffect(() => {
+    const handleHydrationComplete = () => {
+      console.log('RetirementCalculator: Store hydration complete event received')
+      setStoreHydrated(true)
+
+      // After hydration, safely initialize form values from store with a small delay
+      setTimeout(() => {
+        console.log('RetirementCalculator: Initializing values from store after hydration');
+
+        // Set hawl status first
+        setRetirementHawlMet(retirementHawlMet);
+        onHawlUpdate(retirementHawlMet);
+
+        // Check for accessible funds
+        if (retirementValues.traditional_401k > 0) {
+          setAccessibility('accessible')
+          setAccountDetails(prev => ({
+            ...prev,
+            balance: retirementValues.traditional_401k,
+            taxRate: 20,
+            penaltyRate: 10,
+            isWithdrawn: false,
+            withdrawnAmount: 0
+          }))
+        }
+        // Check for locked funds
+        else if (retirementValues.pension > 0) {
+          setAccessibility('restricted')
+          setAccountDetails(prev => ({
+            ...prev,
+            balance: retirementValues.pension,
+            isWithdrawn: false,
+            withdrawnAmount: 0
+          }))
+        }
+        // Check for withdrawn funds
+        else if (retirementValues.other_retirement > 0) {
+          setAccessibility('restricted')
+          setAccountDetails(prev => ({
+            ...prev,
+            balance: 0,
+            isWithdrawn: true,
+            withdrawnAmount: retirementValues.other_retirement
+          }))
+        }
+
+        // Notify parent component of current values
+        if (onUpdateValues) {
+          onUpdateValues({
+            traditional_401k: retirementValues.traditional_401k || 0,
+            traditional_ira: retirementValues.traditional_ira || 0,
+            roth_401k: retirementValues.roth_401k || 0,
+            roth_ira: retirementValues.roth_ira || 0,
+            pension: retirementValues.pension || 0,
+            other_retirement: retirementValues.other_retirement || 0
+          });
+        }
+
+        console.log('RetirementCalculator: Values initialized from store after hydration');
+      }, 50); // Small delay to ensure store is fully ready
+    }
+
+    // Listen for the custom hydration event
+    window.addEventListener('store-hydration-complete', handleHydrationComplete)
+
+    // Check if hydration already happened
+    if (typeof window !== 'undefined') {
+      // Safe way to check for custom property without TypeScript errors
+      const win = window as any;
+      if (win.hasDispatchedHydrationEvent) {
+        handleHydrationComplete();
+      }
+    }
+
+    return () => {
+      window.removeEventListener('store-hydration-complete', handleHydrationComplete)
+    }
+  }, [retirementValues, retirementHawlMet, setRetirementHawlMet, onHawlUpdate, onUpdateValues])
+
   // Set hawl met to true since retirement is always considered to have met hawl
   useEffect(() => {
     setRetirementHawlMet(true)
   }, [setRetirementHawlMet])
 
-  // Sync initial values from store
+  // Sync initial values from store - only run after hydration is complete
   useEffect(() => {
+    // Only run this effect after hydration to prevent wiping out values during initialization
+    if (!storeHydrated) return;
+
     // Check for accessible funds
     if (retirementValues.traditional_401k > 0) {
       setAccessibility('accessible')
@@ -121,7 +207,7 @@ export function RetirementCalculator({
         isWithdrawn: false,
         withdrawnAmount: 0
       }))
-    } 
+    }
     // Check for locked funds
     else if (retirementValues.pension > 0) {
       setAccessibility('restricted')
@@ -142,13 +228,68 @@ export function RetirementCalculator({
         withdrawnAmount: retirementValues.other_retirement
       }))
     }
-  }, [retirementValues]) // Update when store values change
+  }, [retirementValues, storeHydrated]) // Update when store values change and after hydration
+
+  // Add a listener to detect store resets
+  useEffect(() => {
+    // Only process resets after hydration is complete to prevent false resets
+    if (!storeHydrated) return;
+
+    const handleReset = () => {
+      console.log('RetirementCalculator: Store reset event detected');
+
+      // Check if this is still during initial page load
+      if (typeof window !== 'undefined') {
+        // Safe way to check for custom property without TypeScript errors
+        const win = window as any;
+        if (win.isInitialPageLoad) {
+          console.log('RetirementCalculator: Ignoring reset during initial page load');
+          return;
+        }
+      }
+
+      // This is a user-initiated reset, so clear all local state
+      console.log('RetirementCalculator: Clearing local state due to user-initiated reset');
+
+      // Reset to default values
+      setAccessibility('restricted');
+      setAccountDetails({
+        balance: 0,
+        taxRate: 20,
+        penaltyRate: 10,
+        isWithdrawn: false,
+        withdrawnAmount: 0
+      });
+
+      // Ensure the total is updated after reset
+      setTimeout(() => {
+        onUpdateValues({
+          traditional_401k: 0,
+          traditional_ira: 0,
+          roth_401k: 0,
+          roth_ira: 0,
+          pension: 0,
+          other_retirement: 0
+        });
+      }, 100);
+    };
+
+    // Listen for both possible reset event names
+    window.addEventListener('store-reset', handleReset);
+    window.addEventListener('zakat-store-reset', handleReset);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('store-reset', handleReset);
+      window.removeEventListener('zakat-store-reset', handleReset);
+    };
+  }, [storeHydrated, onUpdateValues]);
 
   // Handle accessibility change
   const handleAccessibilityChange = (value: string) => {
     const newAccessibility = value as 'accessible' | 'restricted'
     const currentBalance = accountDetails.balance
-    
+
     setAccessibility(newAccessibility)
 
     if (newAccessibility === 'accessible') {
@@ -180,7 +321,7 @@ export function RetirementCalculator({
 
     if (accessibility === 'accessible') {
       const balance = field === 'balance' ? value : accountDetails.balance
-      
+
       // For accessible funds, store gross amount in traditional_401k
       setRetirementValue('traditional_401k', balance)
       setRetirementValue('traditional_ira', 0)
@@ -243,17 +384,17 @@ export function RetirementCalculator({
   }
 
   // Format currency helper
-  const formatCurrency = (value: number) => 
-    new Intl.NumberFormat(undefined, { 
-      style: 'currency', 
-      currency: currency 
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: currency
     }).format(value)
 
   // Calculate results for display
-  const netAmount = accessibility === 'accessible' 
+  const netAmount = accessibility === 'accessible'
     ? calculateNetAmount(accountDetails.balance, accountDetails.taxRate, accountDetails.penaltyRate)
-    : accountDetails.isWithdrawn 
-      ? accountDetails.withdrawnAmount 
+    : accountDetails.isWithdrawn
+      ? accountDetails.withdrawnAmount
       : 0
 
   // Prepare summary sections based on accessibility
@@ -480,7 +621,7 @@ export function RetirementCalculator({
                 <p className="text-sm text-gray-600">
                   Your retirement funds are restricted until retirement. There are two scholarly views on Zakat for such funds:
                 </p>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-100">
                     <div className="mb-2">
@@ -489,7 +630,7 @@ export function RetirementCalculator({
                     </div>
                     <p className="text-sm text-gray-600">Pay Zakat yearly on the estimated amount you would receive after penalties and taxes (2.5% of net withdrawable amount).</p>
                   </div>
-                  
+
                   <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-100">
                     <div className="mb-2">
                       <p className="text-[10px] font-medium text-gray-900 uppercase tracking-widest">View 2</p>
@@ -598,8 +739,8 @@ export function RetirementCalculator({
       </div>
 
       {/* Navigation */}
-      <CalculatorNav 
-        currentCalculator="retirement" 
+      <CalculatorNav
+        currentCalculator="retirement"
         onCalculatorChange={onCalculatorChange}
         onOpenSummary={onOpenSummary}
       />
