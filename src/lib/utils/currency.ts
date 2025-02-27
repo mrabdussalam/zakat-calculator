@@ -35,14 +35,51 @@ export function formatCurrency(
   currency = 'USD',
   locale = 'en-US'
 ): string {
-  if (value === undefined || value === null) return ''
+  // Handle null/undefined values
+  if (value === undefined || value === null) return '';
   
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(value)
+  // Ensure we have a valid number
+  if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) {
+    console.warn('Invalid number passed to formatCurrency:', value);
+    value = 0;
+  }
+  
+  // Validate currency - ensure it's one of our supported currencies or default to USD
+  const validatedCurrency = SUPPORTED_CURRENCIES[currency as SupportedCurrency] ? currency : 'USD';
+  
+  // Get symbol for fallback formatting
+  const symbol = SUPPORTED_CURRENCIES[validatedCurrency as SupportedCurrency]?.symbol || '$';
+  
+  // Format with toFixed for simple fallback
+  const formattedValue = value.toFixed(2);
+  
+  // Safe formatted output using multiple fallback strategies
+  try {
+    // First try: The simplest and most reliable approach - no locale, just currency
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: validatedCurrency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value);
+  } catch (error) {
+    console.warn('Primary currency formatting failed:', error);
+    
+    // Fallback 1: Try with USD as a very safe default
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(value);
+    } catch (e) {
+      console.warn('Secondary currency formatting failed:', e);
+      
+      // Final fallback: Manual string formatting
+      return `${symbol}${formattedValue}`;
+    }
+  }
 }
 
 /**
@@ -54,13 +91,33 @@ export function formatPercentage(
   minimumFractionDigits = 2,
   maximumFractionDigits = 2
 ): string {
-  if (value === undefined || value === null) return ''
+  // Handle null/undefined values
+  if (value === undefined || value === null) return '';
   
-  return new Intl.NumberFormat(locale, {
-    style: 'percent',
-    minimumFractionDigits,
-    maximumFractionDigits
-  }).format(value / 100)
+  // Ensure we have a valid number
+  if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) {
+    console.warn('Invalid number passed to formatPercentage:', value);
+    value = 0;
+  }
+  
+  // Calculate percentage value
+  const percentValue = value / 100;
+  
+  // Format with toFixed for reliability
+  const formattedValue = (percentValue * 100).toFixed(maximumFractionDigits) + '%';
+  
+  // Try Intl.NumberFormat
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'percent',
+      minimumFractionDigits,
+      maximumFractionDigits
+    }).format(percentValue);
+  } catch (error) {
+    console.error('Error formatting percentage:', error);
+    // Fallback to basic formatting
+    return formattedValue;
+  }
 }
 
 /**

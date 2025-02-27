@@ -67,7 +67,12 @@ export interface MetalsSlice {
   }
 }
 
-export const createMetalsSlice: StateCreator<ZakatState> = (set, get) => ({
+export const createMetalsSlice: StateCreator<
+  ZakatState,
+  [],
+  [],
+  MetalsSlice
+> = (set, get) => ({
   // Initial state
   metalsValues: initialMetalsValues,
   metalPrices: initialMetalPrices,
@@ -75,7 +80,7 @@ export const createMetalsSlice: StateCreator<ZakatState> = (set, get) => ({
   metalsPreferences: initialMetalsPreferences,
 
   // Actions
-  setMetalsValue: (key: keyof MetalsValues, value: number) => 
+  setMetalsValue: (key: keyof MetalsValues, value: number) =>
     set((state: ZakatState) => ({
       metalsValues: {
         ...state.metalsValues,
@@ -89,12 +94,12 @@ export const createMetalsSlice: StateCreator<ZakatState> = (set, get) => ({
     // Ensure currency information is preserved
     const state = get();
     const currency = prices.currency || state.metalPrices?.currency || 'USD';
-    
+
     console.log('Setting metal prices:', {
       ...prices,
       currency
     });
-    
+
     // Always ensure we set the currency
     set({
       metalPrices: {
@@ -102,7 +107,7 @@ export const createMetalsSlice: StateCreator<ZakatState> = (set, get) => ({
         currency
       }
     });
-    
+
     // Trigger nisab update with the new prices
     // This ensures nisab values are always in sync with metal prices
     setTimeout(() => {
@@ -110,14 +115,14 @@ export const createMetalsSlice: StateCreator<ZakatState> = (set, get) => ({
         const currentState = get();
         if (currentState.updateNisabWithPrices) {
           console.log('Synchronizing nisab calculations with updated metal prices');
-          
+
           // Ensure we have a valid lastUpdated value
           let lastUpdated = prices.lastUpdated;
           // If it's neither a Date nor a string, create a new Date
           if (!(lastUpdated instanceof Date) && typeof lastUpdated !== 'string') {
             lastUpdated = new Date();
           }
-          
+
           currentState.updateNisabWithPrices({
             gold: prices.gold,
             silver: prices.silver,
@@ -134,7 +139,7 @@ export const createMetalsSlice: StateCreator<ZakatState> = (set, get) => ({
 
   setMetalsHawl: (value: boolean) => set({ metalsHawlMet: value }),
 
-  setMetalsWeightUnit: (unit: WeightUnit) => 
+  setMetalsWeightUnit: (unit: WeightUnit) =>
     set((state: ZakatState) => ({
       metalsPreferences: {
         ...state.metalsPreferences,
@@ -172,7 +177,7 @@ export const createMetalsSlice: StateCreator<ZakatState> = (set, get) => ({
   getMetalsBreakdown: () => {
     const { metalsValues, metalPrices, metalsHawlMet } = get()
     const results = computeMetalsResults(metalsValues, metalPrices, metalsHawlMet)
-    
+
     const items: Record<string, { value: number; weight: number; isZakatable: boolean; isExempt: boolean; zakatable: number; zakatDue: number }> = {
       gold_regular: {
         value: results.breakdown.gold.regular.value,

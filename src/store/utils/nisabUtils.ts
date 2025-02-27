@@ -3,14 +3,14 @@ import { NISAB } from '../constants'
 import { convertCurrency } from '../../app/api/utils/currency'
 
 // Add environment detection for Replit
-const IS_REPLIT = typeof window !== 'undefined' && 
-  (window.location.hostname.includes('replit') || 
-   window.location.hostname.endsWith('.repl.co'));
+const IS_REPLIT = typeof window !== 'undefined' &&
+  (window.location.hostname.includes('replit') ||
+    window.location.hostname.endsWith('.repl.co'));
 
 // Add offline fallback prices that will be used when API calls fail
 export const OFFLINE_FALLBACK_PRICES = {
-  gold: 65, // USD per gram
-  silver: 0.85, // USD per gram
+  gold: 93.98, // USD per gram (updated to match other fallback values)
+  silver: 1.02, // USD per gram (updated to match other fallback values)
   lastUpdated: new Date().toISOString(),
   currency: 'USD', // Explicitly mark these as USD values
   rates: {
@@ -89,30 +89,30 @@ export const FALLBACK_EXCHANGE_RATES: Record<string, Record<string, number>> = {
 export function getFallbackExchangeRate(from: string, to: string): number | null {
   // If currencies are the same, return 1
   if (from === to) return 1;
-  
+
   // Check if we have a direct rate from source to target
   if (FALLBACK_EXCHANGE_RATES[from]?.[to]) {
     return FALLBACK_EXCHANGE_RATES[from][to];
   }
-  
+
   // If we have rates for target to source, use the inverse
   if (FALLBACK_EXCHANGE_RATES[to]?.[from]) {
     return 1 / FALLBACK_EXCHANGE_RATES[to][from];
   }
-  
+
   // Try to triangulate through USD if we have rates for both currencies to/from USD
   if (from !== 'USD' && to !== 'USD') {
-    const fromToUsd = FALLBACK_EXCHANGE_RATES['USD']?.[from] ? 
-                      (1 / FALLBACK_EXCHANGE_RATES['USD'][from]) : 
-                      FALLBACK_EXCHANGE_RATES[from]?.['USD'];
-                      
+    const fromToUsd = FALLBACK_EXCHANGE_RATES['USD']?.[from] ?
+      (1 / FALLBACK_EXCHANGE_RATES['USD'][from]) :
+      FALLBACK_EXCHANGE_RATES[from]?.['USD'];
+
     const usdToTarget = FALLBACK_EXCHANGE_RATES['USD']?.[to];
-    
+
     if (fromToUsd && usdToTarget) {
       return fromToUsd * usdToTarget;
     }
   }
-  
+
   // No fallback rate available
   return null;
 }
@@ -121,32 +121,32 @@ export function getFallbackExchangeRate(from: string, to: string): number | null
 export async function fetchNisabData(currency: string, forceRefresh = false) {
   const BASE_URL = typeof window !== 'undefined' ? window.location.origin : '';
   const MAX_RETRIES = 3;
-  
+
   // If we've had too many consecutive failures, go directly to fallback
   if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES && !forceRefresh) {
     console.warn(`Too many consecutive API failures (${consecutiveFailures}), using fallback without trying API`);
-    
+
     // Try to use local cache first if available
     if (nisabLocalCache.data && (Date.now() - nisabLocalCache.lastUpdated < 24 * 60 * 60 * 1000)) {
       console.log('Using nisab local cache due to API unavailability');
       return nisabLocalCache.data;
     }
-    
+
     return getOfflineFallbackNisabData({ currency });
   }
-  
+
   // Helper function for retries
   const fetchWithRetry = async (retryCount = 0): Promise<any> => {
     try {
       // REPLIT environment special handling for offline
       if (IS_REPLIT && retryCount > 0) {
         console.warn('Running on Replit with previous fetch failures, using offline fallback prices');
-        
+
         // Calculate nisab thresholds using fallback prices
         const goldNisabThreshold = OFFLINE_FALLBACK_PRICES.gold * NISAB.GOLD.GRAMS;
         const silverNisabThreshold = OFFLINE_FALLBACK_PRICES.silver * NISAB.SILVER.GRAMS;
         const nisabThreshold = Math.min(goldNisabThreshold, silverNisabThreshold);
-        
+
         return {
           nisabThreshold,
           silverPrice: OFFLINE_FALLBACK_PRICES.silver,
@@ -159,18 +159,18 @@ export async function fetchNisabData(currency: string, forceRefresh = false) {
           }
         };
       }
-      
+
       // Construct API URL with refresh parameter if needed
       const refreshParam = forceRefresh ? '&refresh=true' : '';
       const apiUrl = `${BASE_URL}/api/nisab?currency=${encodeURIComponent(currency)}&metal=silver${refreshParam}`;
-      
+
       // Set timeout to prevent hanging
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
-      
+
       const response = await fetch(
         apiUrl,
-        { 
+        {
           signal: controller.signal,
           cache: forceRefresh ? 'no-store' : 'default',
           headers: forceRefresh ? {
@@ -178,15 +178,15 @@ export async function fetchNisabData(currency: string, forceRefresh = false) {
           } : undefined
         }
       );
-      
+
       // Clear the timeout
       clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
         consecutiveFailures++;
         throw new Error(`Failed to fetch nisab data: ${response.status}`);
       }
-      
+
       // Parse JSON with proper error handling
       const responseText = await response.text();
       let data;
@@ -196,13 +196,13 @@ export async function fetchNisabData(currency: string, forceRefresh = false) {
         consecutiveFailures++;
         throw new Error(`JSON parse error: ${jsonError}`);
       }
-      
+
       // Validate and extract needed data
       if (typeof data !== 'object' || data === null || typeof data.nisabThreshold !== 'number') {
         consecutiveFailures++;
         throw new Error('Invalid nisab data received from API');
       }
-      
+
       // Extract metal prices if available
       let metalPrices = null;
       if (data.metadata?.calculatedThresholds) {
@@ -214,7 +214,7 @@ export async function fetchNisabData(currency: string, forceRefresh = false) {
           };
         }
       }
-      
+
       // Check if this is a fallback response due to API errors
       if (data.source && data.source.includes('fallback')) {
         console.warn(`Received fallback response from API: ${data.source}, reason: ${data.errorReason || 'unknown'}`);
@@ -222,7 +222,7 @@ export async function fetchNisabData(currency: string, forceRefresh = false) {
       } else {
         // Reset consecutive failures counter on success
         consecutiveFailures = 0;
-        
+
         // Update local cache with successful response
         nisabLocalCache.data = {
           nisabThreshold: data.nisabThreshold,
@@ -234,7 +234,7 @@ export async function fetchNisabData(currency: string, forceRefresh = false) {
         };
         nisabLocalCache.lastUpdated = Date.now();
       }
-      
+
       return {
         nisabThreshold: data.nisabThreshold,
         silverPrice: data.metadata?.calculatedThresholds?.silver?.price || 0,
@@ -243,36 +243,36 @@ export async function fetchNisabData(currency: string, forceRefresh = false) {
         currency: data.currency,
         metalPrices
       };
-      
+
     } catch (error: any) {
       // Increment consecutive failures counter
       consecutiveFailures++;
-      
+
       // Handle retries for network errors
       if (retryCount < MAX_RETRIES) {
-        const isNetworkError = 
-          error.name === 'TypeError' || 
+        const isNetworkError =
+          error.name === 'TypeError' ||
           error.name === 'AbortError' ||
           error.message.includes('API endpoint not found') ||
           error.message.includes('Failed to fetch');
-          
+
         if (isNetworkError) {
           console.warn(`Network error fetching nisab data, retrying (${retryCount + 1}/${MAX_RETRIES})...`);
-          
+
           // Wait with exponential backoff
           const delay = Math.pow(2, retryCount) * 1000;
           await new Promise(resolve => setTimeout(resolve, delay));
-          
+
           return fetchWithRetry(retryCount + 1);
         }
       }
-      
+
       // Try to use local cache first if available
       if (nisabLocalCache.data && (Date.now() - nisabLocalCache.lastUpdated < 24 * 60 * 60 * 1000)) {
         console.log('Error fetching nisab, using local cache');
         return nisabLocalCache.data;
       }
-      
+
       // For Replit environment, use fallback values
       if (IS_REPLIT) {
         return {
@@ -287,12 +287,12 @@ export async function fetchNisabData(currency: string, forceRefresh = false) {
           }
         };
       }
-      
+
       // If we've exhausted retries, use offline fallback
       return getOfflineFallbackNisabData({ currency });
     }
   };
-  
+
   // Start the fetch with retry logic
   return fetchWithRetry();
 }
@@ -301,28 +301,28 @@ export async function fetchNisabData(currency: string, forceRefresh = false) {
 export async function getOfflineFallbackNisabData(state: any, customCurrency?: string) {
   const currency = customCurrency || state.currency || state.metalPrices?.currency || 'USD';
   const fallbackCurrency = OFFLINE_FALLBACK_PRICES.currency; // 'USD'
-  
+
   try {
     // Detect if this might be happening during a page refresh
     const isPageRefresh = typeof window !== 'undefined' && !document.hasFocus();
-    
+
     // Start with fallback prices
     let goldPrice = OFFLINE_FALLBACK_PRICES.gold; // Always start with base fallback price
     let silverPrice = OFFLINE_FALLBACK_PRICES.silver; // Always start with base fallback price
-    
+
     // Log what's happening for debugging
     console.log(`getOfflineFallbackNisabData called with currency ${currency}, possible page refresh: ${isPageRefresh}`, {
       stateCurrency: state.currency,
       metalPricesCurrency: state.metalPrices?.currency,
       fallbackCurrency
     });
-    
+
     // Only convert if the currencies are different
     if (currency !== fallbackCurrency) {
       try {
         // Always attempt conversion for non-USD currencies, regardless of refresh state
         console.log(`Converting fallback prices from ${fallbackCurrency} to ${currency}`);
-        
+
         // Create a safe conversion function that won't throw
         const safeConvert = async (amount: number, from: string, to: string): Promise<number> => {
           try {
@@ -331,14 +331,14 @@ export async function getOfflineFallbackNisabData(state: any, customCurrency?: s
           } catch (conversionError) {
             // Log error but don't break the flow
             console.error(`Error converting ${amount} from ${from} to ${to}:`, conversionError);
-            
+
             // Use our hardcoded fallback rates if available
             const fallbackRate = getFallbackExchangeRate(from, to);
             if (fallbackRate !== null) {
               console.log(`Using hardcoded fallback rate for ${from} to ${to}: ${fallbackRate}`);
               return amount * fallbackRate;
             }
-            
+
             // Use a fallback conversion based on common currencies if possible
             // This is a basic fallback in case the API is down
             const commonRates: Record<string, number> = {
@@ -353,18 +353,18 @@ export async function getOfflineFallbackNisabData(state: any, customCurrency?: s
               'SAR': 3.75,
               'PKR': 290 // Adding explicit rate for PKR (~290 PKR per USD as of latest)
             };
-            
+
             if (from === 'USD' && commonRates[to]) {
               console.log(`Using fallback rate for ${to}: ${commonRates[to]}`);
               return amount * commonRates[to];
             }
-            
+
             // If all else fails, use unconverted amount but log a warning
             console.warn(`Cannot convert ${from} to ${to}, using original amount`);
             return amount;
           }
         };
-        
+
         // Convert the fallback prices from USD to the selected currency
         goldPrice = await safeConvert(goldPrice, fallbackCurrency, currency);
         silverPrice = await safeConvert(silverPrice, fallbackCurrency, currency);
@@ -374,10 +374,10 @@ export async function getOfflineFallbackNisabData(state: any, customCurrency?: s
         // If conversion fails, log the error but continue with original prices
       }
     }
-    
+
     // Calculate thresholds with the potentially converted prices
     const threshold = calculateNisabThreshold(goldPrice, silverPrice);
-    
+
     const result = {
       nisabThreshold: threshold,
       silverPrice,
@@ -389,7 +389,7 @@ export async function getOfflineFallbackNisabData(state: any, customCurrency?: s
         silver: silverPrice
       }
     };
-    
+
     console.log(`Fallback nisab data calculated for ${currency}:`, result);
     return result;
   } catch (error) {
@@ -398,7 +398,7 @@ export async function getOfflineFallbackNisabData(state: any, customCurrency?: s
     const goldPrice = OFFLINE_FALLBACK_PRICES.gold;
     const silverPrice = OFFLINE_FALLBACK_PRICES.silver;
     const threshold = calculateNisabThreshold(goldPrice, silverPrice);
-    
+
     return {
       nisabThreshold: threshold,
       silverPrice,

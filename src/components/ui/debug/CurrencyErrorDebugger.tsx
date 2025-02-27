@@ -1,3 +1,5 @@
+"use client"
+
 /**
  * This component is for development debugging purposes only.
  * It allows testing the currency conversion error handling mechanisms.

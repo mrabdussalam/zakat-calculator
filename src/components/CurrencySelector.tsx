@@ -241,6 +241,16 @@ export function CurrencySelector({ value, onValueChange }: CurrencySelectorProps
       return;
     }
 
+    // Validate the currency code
+    if (!currencyCode || typeof currencyCode !== 'string' || currencyCode.length !== 3) {
+      console.error(`Invalid currency code provided: ${currencyCode}`);
+      // Use USD as a safe fallback
+      currencyCode = 'USD';
+    }
+    
+    // Force to uppercase for consistency
+    currencyCode = currencyCode.toUpperCase();
+
     console.log(`Currency changing from ${value} to ${currencyCode}`);
     setIsLoading(true);
     setOpen(false);

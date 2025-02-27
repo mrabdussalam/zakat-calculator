@@ -156,6 +156,25 @@ export const useCurrencyStore = create<CurrencyState>((set, get) => ({
   },
 
   convertAmount: (amount: number, from: string, to: string) => {
+    // Validate amount
+    if (amount === undefined || amount === null || 
+        typeof amount !== 'number' || 
+        isNaN(amount) || !isFinite(amount)) {
+      console.warn('Invalid amount passed to convertAmount:', amount);
+      return 0;
+    }
+    
+    // Validate currency codes
+    if (!from || typeof from !== 'string') {
+      console.warn('Invalid source currency:', from);
+      return amount; // Return original amount as fallback
+    }
+    
+    if (!to || typeof to !== 'string') {
+      console.warn('Invalid target currency:', to);
+      return amount; // Return original amount as fallback
+    }
+    
     const { rates, baseCurrency } = get();
     const fromCurrency = from.toLowerCase();
     const toCurrency = to.toLowerCase();
@@ -170,6 +189,7 @@ export const useCurrencyStore = create<CurrencyState>((set, get) => ({
       return amount;
     }
     
+    // Verify if rates exist for both currencies
     if (!rates[fromCurrency]) {
       console.warn(`Cannot convert from ${fromCurrency}: Rate not available`);
       return amount;
@@ -180,26 +200,41 @@ export const useCurrencyStore = create<CurrencyState>((set, get) => ({
       return amount;
     }
     
-    // For conversions, we need to:
-    // 1. Calculate equivalent value in base currency (USD)
-    // 2. Then convert from base currency to target currency
-    
-    // If source currency is the base, we already have its base value
-    let inBaseCurrency;
-    if (fromCurrency === baseCurrency.toLowerCase()) {
-      inBaseCurrency = amount;
-    } else {
-      // Convert from source to base currency using the rate
-      // The rate is how many units of currency X equals 1 unit of base currency
-      inBaseCurrency = amount / rates[fromCurrency];
+    // Validate rates are positive numbers
+    if (typeof rates[fromCurrency] !== 'number' || rates[fromCurrency] <= 0) {
+      console.warn(`Invalid rate for ${fromCurrency}:`, rates[fromCurrency]);
+      return amount;
     }
-
-    // Now convert from base currency to target currency
-    if (toCurrency === baseCurrency.toLowerCase()) {
-      return inBaseCurrency;
-    } else {
-      // Convert from base to target using the rate
-      return inBaseCurrency * rates[toCurrency];
+    
+    if (typeof rates[toCurrency] !== 'number' || rates[toCurrency] <= 0) {
+      console.warn(`Invalid rate for ${toCurrency}:`, rates[toCurrency]);
+      return amount;
+    }
+    
+    try {
+      // For conversions, we need to:
+      // 1. Calculate equivalent value in base currency (USD)
+      // 2. Then convert from base currency to target currency
+      
+      // If source currency is the base, we already have its base value
+      let inBaseCurrency;
+      if (fromCurrency === baseCurrency.toLowerCase()) {
+        inBaseCurrency = amount;
+      } else {
+        // Convert from source to base currency using the rate
+        inBaseCurrency = amount / rates[fromCurrency];
+      }
+  
+      // Now convert from base currency to target currency
+      if (toCurrency === baseCurrency.toLowerCase()) {
+        return inBaseCurrency;
+      } else {
+        // Convert from base to target using the rate
+        return inBaseCurrency * rates[toCurrency];
+      }
+    } catch (error) {
+      console.error('Error during currency conversion:', error);
+      return amount; // Return original amount as fallback
     }
   }
 })); 

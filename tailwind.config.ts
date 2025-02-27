@@ -190,6 +190,7 @@ export default {
       fontFamily: {
         sans: ['var(--font-inter)', ...fontFamily.sans],
         'nb-international': ['var(--font-nb-international)', ...fontFamily.sans],
+        'aeonik': ['var(--font-aeonik)', ...fontFamily.sans],
       },
     },
   },

@@ -1,36 +1,54 @@
+'use client';
+
 import { Button } from "@/components/ui/button"
+import { SectionTitle, PageTitle } from "@/components/ui/SectionTitle";
 
 export default function TestPage() {
   return (
-    <div className="p-8 space-y-8">
-      <div className="space-y-4">
-        <h2 className="text-2xl font-medium">Button Variants</h2>
-        <div className="flex flex-wrap gap-4">
-          <Button>Default Button</Button>
-          <Button variant="secondary">Secondary Button</Button>
-          <Button variant="outline">Outline Button</Button>
-          <Button variant="ghost">Ghost Button</Button>
-          <Button variant="link">Link Button</Button>
-          <Button variant="destructive">Destructive Button</Button>
+    <div className="p-10">
+      <h1 className="mb-6">Font Test Page</h1>
+      
+      <div className="space-y-8">
+        <div>
+          <h2 className="mb-2">Default Heading (Inter)</h2>
+          <p className="mb-4">This is using the default font</p>
         </div>
-      </div>
-
-      <div className="space-y-4">
-        <h2 className="text-2xl font-medium">Button Sizes</h2>
-        <div className="flex flex-wrap items-center gap-4">
-          <Button size="sm">Small Button</Button>
-          <Button size="default">Default Button</Button>
-          <Button size="lg">Large Button</Button>
-          <Button size="icon">🔍</Button>
+        
+        <div>
+          <h2 className="mb-2 font-aeonik">Aeonik Regular Heading</h2>
+          <p className="mb-4">This is using Aeonik with regular weight</p>
         </div>
-      </div>
-
-      <div className="space-y-4">
-        <h2 className="text-2xl font-medium">Button States</h2>
-        <div className="flex flex-wrap gap-4">
-          <Button disabled>Disabled Button</Button>
-          <Button variant="secondary" disabled>Disabled Secondary</Button>
-          <Button variant="outline" disabled>Disabled Outline</Button>
+        
+        <div>
+          <h2 className="mb-2 font-aeonik font-medium">Aeonik Medium Heading</h2>
+          <p className="mb-4">This is using Aeonik with medium weight</p>
+        </div>
+        
+        <div>
+          <h2 className="mb-2 section-title">Section Title Class</h2>
+          <p className="mb-4">This is using the section-title class which applies Aeonik Medium</p>
+        </div>
+        
+        <div>
+          <h1 className="mb-2 page-title">Page Title Class</h1>
+          <p className="mb-4">This is using the page-title class which applies Aeonik Medium</p>
+        </div>
+        
+        <div>
+          <h2 style={{ fontFamily: "var(--font-aeonik), sans-serif", fontWeight: 500 }} className="mb-2">
+            Forced Aeonik Medium with Inline Style
+          </h2>
+          <p className="mb-4">This is using inline styles to force Aeonik Medium</p>
+        </div>
+        
+        <div>
+          <SectionTitle className="mb-2">SectionTitle Component</SectionTitle>
+          <p className="mb-4">This is using our new SectionTitle component</p>
+        </div>
+        
+        <div>
+          <PageTitle className="mb-2">PageTitle Component</PageTitle>
+          <p className="mb-4">This is using our new PageTitle component</p>
         </div>
       </div>
     </div>

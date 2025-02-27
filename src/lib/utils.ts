@@ -19,12 +19,45 @@ export function debounce<T extends (...args: any[]) => any>(
 }
 
 export function formatCurrency(amount: number, currency: string = 'USD'): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(amount)
+  // Handle null/undefined values
+  if (amount === undefined || amount === null) return '';
+  
+  // Ensure we have a valid number
+  if (typeof amount !== 'number' || isNaN(amount) || !isFinite(amount)) {
+    console.warn('Invalid number passed to formatCurrency:', amount);
+    amount = 0;
+  }
+  
+  // Format with toFixed for simple fallback
+  const formattedValue = amount.toFixed(2);
+  
+  // Safe formatted output using multiple fallback strategies
+  try {
+    // First try: The simplest approach - no locale, just currency
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  } catch (error) {
+    console.warn('Primary currency formatting failed:', error);
+    
+    // Fallback 1: Try with USD as a very safe default
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(amount);
+    } catch (e) {
+      console.warn('Secondary currency formatting failed:', e);
+      
+      // Final fallback: Basic string concatenation
+      return `${currency} ${formattedValue}`;
+    }
+  }
 }
 
 export function evaluateExpression(expression: string): number {
