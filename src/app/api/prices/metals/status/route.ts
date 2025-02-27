@@ -3,7 +3,6 @@ import { getRequestCounter } from '../route'
 
 export async function GET() {
   const counter = getRequestCounter()
-  const now = new Date()
   
   return NextResponse.json({
     requests: {

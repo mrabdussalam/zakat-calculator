@@ -46,8 +46,8 @@ export const computeMetalsResults = (
     
     // During transitions, use fallback prices but log it as a transition rather than error
     priceValid = false;
-    safetyPrices.gold = 65.52; // Default fallback
-    safetyPrices.silver = 0.85; // Default fallback
+    safetyPrices.gold = 93.98; // Updated fallback value
+    safetyPrices.silver = 1.02; // Updated fallback value
   } else {
     // Validate prices are positive numbers and provide detailed error context
     if (!Number.isFinite(safetyPrices?.gold) || safetyPrices?.gold <= 0) {
@@ -58,7 +58,7 @@ export const computeMetalsResults = (
         `Context: Currency=${safetyPrices?.currency}, Timestamp=${new Date().toISOString()}, ` +
         `Values present: ${JSON.stringify(values)}`
       );
-      safetyPrices.gold = 65.52; // Default fallback
+      safetyPrices.gold = 93.98; // Updated fallback value
     }
     
     if (!Number.isFinite(safetyPrices?.silver) || safetyPrices?.silver <= 0) {
@@ -69,7 +69,7 @@ export const computeMetalsResults = (
         `Context: Currency=${safetyPrices?.currency}, Timestamp=${new Date().toISOString()}, ` +
         `Values present: ${JSON.stringify(values)}`
       );
-      safetyPrices.silver = 0.85; // Default fallback
+      safetyPrices.silver = 1.02; // Updated fallback value
     }
   }
 
@@ -199,7 +199,7 @@ export function calculateNisabThreshold(
       `This might happen during currency transitions or API failures. ` +
       `Context: Current timestamp: ${new Date().toISOString()}`
     );
-    safetyPrices.gold = 65.52; // Default fallback
+    safetyPrices.gold = 93.98; // Updated fallback value
   }
   
   if (!Number.isFinite(safetyPrices?.silver) || safetyPrices?.silver <= 0) {
@@ -208,7 +208,7 @@ export function calculateNisabThreshold(
       `This might happen during currency transitions or API failures. ` +
       `Context: Current timestamp: ${new Date().toISOString()}`
     );
-    safetyPrices.silver = 0.72; // Default fallback
+    safetyPrices.silver = 1.02; // Updated fallback value
   }
   
   // Use the copied and validated prices for calculation

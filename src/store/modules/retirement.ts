@@ -12,6 +12,7 @@ export interface RetirementSlice {
   setRetirementValue: (key: keyof RetirementValues, value: number) => void
   setRetirementHawlMet: (hawlMet: boolean) => void
   resetRetirement: () => void
+  updateRetirementValues: (values: Partial<RetirementValues>) => void
   getRetirementTotal: () => number
   getRetirementZakatable: () => number
   getRetirementBreakdown: () => AssetBreakdown
@@ -88,6 +89,32 @@ export const createRetirementSlice: StateCreator<
         // Handle calculation errors
       }
     }
+  },
+
+  updateRetirementValues: (values: Partial<RetirementValues>) => {
+    // Validate the updated values
+    const currentValues = get().retirement
+    const newValues = {
+      ...currentValues,
+      ...values
+    }
+    
+    const validationResult = AssetValidation.validateInput('retirement', newValues)
+    if (!validationResult.isValid) {
+      console.error('Retirement validation failed:', validationResult.errors)
+      return
+    }
+
+    // Update values in store
+    set((state: ZakatState) => ({
+      retirement: {
+        ...state.retirement,
+        ...Object.entries(values).reduce((acc, [key, value]) => ({
+          ...acc,
+          [key]: typeof value === 'number' ? roundCurrency(value) : value
+        }), {})
+      }
+    }))
   },
 
   setRetirementHawlMet: (hawlMet: boolean) => 

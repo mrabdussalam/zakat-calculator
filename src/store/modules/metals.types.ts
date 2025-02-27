@@ -14,6 +14,7 @@ export interface MetalPrices {
   silver: number
   lastUpdated: Date
   isCache: boolean
+  source?: string
   currency: string
 }
 

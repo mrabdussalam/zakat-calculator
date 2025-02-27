@@ -73,11 +73,83 @@ export function StockCalculator({
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [passiveCalculations, setPassiveCalculations] = useState<PassiveCalculations | null>(null)
+  
+  // Add a state to track if store has been hydrated
+  const [storeHydrated, setStoreHydrated] = useState(false)
 
-  // Initialize component
+  // Add a listener for the store hydration event
   useEffect(() => {
-    setStockHawl(initialHawlMet)
+    const handleHydrationComplete = () => {
+      console.log('StockCalculator: Store hydration complete event received')
+      setStoreHydrated(true)
+      
+      // After hydration, safely initialize form state from store
+      setTimeout(() => {
+        // Additional initialization logic could be added here
+        console.log('StockCalculator: Initialized form values after hydration')
+      }, 50) // Small delay to ensure store is fully ready
+    }
+    
+    // Listen for the custom hydration event
+    window.addEventListener('store-hydration-complete', handleHydrationComplete)
+    
+    // Check if hydration already happened
+    if (typeof window !== 'undefined' && 'hasDispatchedHydrationEvent' in window) {
+      // @ts-ignore - This is set by StoreHydration component
+      if (window.hasDispatchedHydrationEvent) {
+        handleHydrationComplete()
+      }
+    }
+    
+    return () => {
+      window.removeEventListener('store-hydration-complete', handleHydrationComplete)
+    }
   }, [])
+
+  // Initialize component - only after hydration
+  useEffect(() => {
+    if (storeHydrated) {
+      setStockHawl(initialHawlMet)
+    }
+  }, [initialHawlMet, setStockHawl, storeHydrated])
+
+  // Add a listener to detect store resets
+  useEffect(() => {
+    // Only process resets after hydration is complete to prevent false resets
+    if (!storeHydrated) return;
+    
+    const handleReset = (event?: Event) => {
+      console.log('StockCalculator: Store reset event detected');
+      
+      // Check if this is still during initial page load
+      if (typeof window !== 'undefined' && 'isInitialPageLoad' in window) {
+        // @ts-ignore - Custom property added to window
+        if (window.isInitialPageLoad) {
+          console.log('StockCalculator: Ignoring reset during initial page load');
+          return;
+        }
+      }
+      
+      // This is a user-initiated reset, so clear all local state
+      console.log('StockCalculator: Clearing local state due to user-initiated reset');
+      
+      // Reset all form fields
+      setNewTicker('');
+      setNewShares('');
+      setError(null);
+      
+      // Clear local calculated state
+      setPassiveCalculations(null);
+    };
+    
+    // Listen for the store-reset event
+    window.addEventListener('store-reset', handleReset);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('store-reset', handleReset);
+    };
+  }, [storeHydrated]);
 
   // Handle value changes for passive/dividend/fund tabs
   const handleValueChange = (fieldId: string, event: React.ChangeEvent<HTMLInputElement>) => {

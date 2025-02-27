@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import fs from 'fs'
+import path from 'path'
 
 // Nisab is 85 grams of gold (modern standard)
 const GOLD_GRAMS_NISAB = 85;
@@ -7,7 +9,11 @@ const SILVER_GRAMS_NISAB = 595;
 
 // Add cache mechanism for API requests
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour cache
-let cachedResponses: Record<string, {data: any, timestamp: number}> = {};
+const cachedResponses: Record<string, any> = {};
+
+// Define fallback values for when metal price API fails
+const FALLBACK_GOLD_PRICE = 93.98; // USD per gram
+const FALLBACK_SILVER_PRICE = 1.02; // USD per gram
 
 // Define interface for metadata object
 interface NisabMetadata {
@@ -31,6 +37,117 @@ interface NisabMetadata {
   message?: string;
 }
 
+// Ensure data directory exists
+function ensureDataDirectory() {
+  try {
+    const dataDir = path.join(process.cwd(), 'data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+      console.log('Created data directory');
+    }
+  } catch (error) {
+    console.error('Error creating data directory:', error);
+  }
+}
+
+// Create fallback file if it doesn't exist
+function ensureFallbackFile() {
+  ensureDataDirectory();
+  const fallbackFilePath = path.join(process.cwd(), 'data', 'nisab-fallback.json');
+  try {
+    if (!fs.existsSync(fallbackFilePath)) {
+      const goldNisabThreshold = FALLBACK_GOLD_PRICE * GOLD_GRAMS_NISAB;
+      const silverNisabThreshold = FALLBACK_SILVER_PRICE * SILVER_GRAMS_NISAB;
+      const nisabThreshold = Math.min(goldNisabThreshold, silverNisabThreshold);
+      const usedMetalType = goldNisabThreshold <= silverNisabThreshold ? 'gold' : 'silver';
+      
+      const fallbackData = {
+        nisabThreshold,
+        thresholds: {
+          gold: goldNisabThreshold,
+          silver: silverNisabThreshold
+        },
+        currency: 'USD',
+        timestamp: new Date().toISOString(),
+        metadata: {
+          calculatedThresholds: {
+            gold: {
+              price: FALLBACK_GOLD_PRICE,
+              weight: GOLD_GRAMS_NISAB,
+              threshold: goldNisabThreshold,
+              unit: 'gram'
+            },
+            silver: {
+              price: FALLBACK_SILVER_PRICE,
+              weight: SILVER_GRAMS_NISAB,
+              threshold: silverNisabThreshold,
+              unit: 'gram'
+            }
+          },
+          usedMetalType,
+          conversionFailed: false,
+          source: 'fallback'
+        }
+      };
+      
+      fs.writeFileSync(fallbackFilePath, JSON.stringify(fallbackData), 'utf8');
+      console.log('Created fallback nisab file');
+    }
+  } catch (error) {
+    console.error('Error creating fallback file:', error);
+  }
+}
+
+// Try to ensure fallback file exists
+ensureFallbackFile();
+
+// Function to load fallback nisab data
+function loadFallbackNisab() {
+  const fallbackFilePath = path.join(process.cwd(), 'data', 'nisab-fallback.json');
+  try {
+    if (fs.existsSync(fallbackFilePath)) {
+      return JSON.parse(fs.readFileSync(fallbackFilePath, 'utf8'));
+    }
+  } catch (error) {
+    console.error('Error loading fallback nisab:', error);
+  }
+  
+  // If file doesn't exist or error occurs, calculate fallback values
+  const goldNisabThreshold = FALLBACK_GOLD_PRICE * GOLD_GRAMS_NISAB;
+  const silverNisabThreshold = FALLBACK_SILVER_PRICE * SILVER_GRAMS_NISAB;
+  const nisabThreshold = Math.min(goldNisabThreshold, silverNisabThreshold);
+  const usedMetalType = goldNisabThreshold <= silverNisabThreshold ? 'gold' : 'silver';
+  
+  return {
+    nisabThreshold,
+    thresholds: {
+      gold: goldNisabThreshold,
+      silver: silverNisabThreshold
+    },
+    currency: 'USD',
+    timestamp: new Date().toISOString(),
+    metadata: {
+      calculatedThresholds: {
+        gold: {
+          price: FALLBACK_GOLD_PRICE,
+          weight: GOLD_GRAMS_NISAB,
+          threshold: goldNisabThreshold,
+          unit: 'gram'
+        },
+        silver: {
+          price: FALLBACK_SILVER_PRICE,
+          weight: SILVER_GRAMS_NISAB,
+          threshold: silverNisabThreshold,
+          unit: 'gram'
+        }
+      },
+      usedMetalType,
+      conversionFailed: false,
+      source: 'inline-fallback'
+    }
+  };
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const currency = url.searchParams.get('currency') || 'USD';
@@ -46,10 +163,14 @@ export async function GET(request: Request) {
     }, { status: 400 });
   }
   
-  // Check cache first for matching currency
+  // CRITICAL FIX: Add check for refresh parameter
+  const shouldRefresh = url.searchParams.get('refresh') === 'true';
+  console.log(`Nisab API: Request with currency=${currency}, metal=${metalType}, refresh=${shouldRefresh}`);
+  
+  // Check cache first for matching currency (but skip cache if refresh is requested)
   const cacheKey = `${currency}_${metalType}`;
   const now = Date.now();
-  if (cachedResponses[cacheKey] && now - cachedResponses[cacheKey].timestamp < CACHE_TTL_MS) {
+  if (!shouldRefresh && cachedResponses[cacheKey] && now - cachedResponses[cacheKey].timestamp < CACHE_TTL_MS) {
     console.log(`Nisab API: Serving cached response for ${currency} (Cache age: ${Math.round((now - cachedResponses[cacheKey].timestamp)/1000)}s)`);
     return Response.json(cachedResponses[cacheKey].data);
   }
@@ -60,36 +181,82 @@ export async function GET(request: Request) {
     // Construct the metals API URL based on the request URL
     const requestUrl = new URL(request.url);
     const baseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
-    const metalApiUrl = `${baseUrl}/api/prices/metals?currency=${currency}`;
+    
+    // CRITICAL FIX: Pass the refresh parameter to the metals API call
+    let metalApiUrl = `${baseUrl}/api/prices/metals?currency=${currency}`;
+    if (shouldRefresh) {
+      metalApiUrl += '&refresh=true';
+      console.log('Nisab API: Forcing refresh of metal prices');
+    }
     
     console.log('Nisab API: Fetching metal prices from:', metalApiUrl);
     
-    const metalsResponse = await fetch(metalApiUrl);
+    let metalsResponse;
+    try {
+      metalsResponse = await fetch(metalApiUrl, {
+        cache: shouldRefresh ? 'no-store' : 'default', // Skip cache if refresh requested
+        // Set timeout to prevent hanging
+        signal: AbortSignal.timeout(8000)
+      });
+    } catch (fetchError) {
+      console.error(`Nisab API: Fetch error when calling metals API: ${fetchError}`);
+      // Use fallback data instead of failing
+      const fallbackData = loadFallbackNisab();
+      return Response.json({
+        ...fallbackData,
+        source: 'nisab-api-fetch-fallback',
+        errorReason: 'fetch_failed'
+      });
+    }
     
     if (!metalsResponse.ok) {
       console.error(`Nisab API: Failed to fetch metal prices - status ${metalsResponse.status}`);
-      return Response.json({ error: 'Failed to fetch metal prices' }, { status: 500 });
+      // Use fallback data instead of failing
+      const fallbackData = loadFallbackNisab();
+      return Response.json({
+        ...fallbackData,
+        source: 'nisab-api-status-fallback',
+        errorReason: 'status_not_ok'
+      });
     }
     
-    const data = await metalsResponse.json();
-    console.log('Nisab API: Metals API response:', data);
+    let data;
+    try {
+      data = await metalsResponse.json();
+      console.log('Nisab API: Metals API response:', data);
+    } catch (jsonError) {
+      console.error(`Nisab API: JSON parsing error: ${jsonError}`);
+      // Use fallback data instead of failing
+      const fallbackData = loadFallbackNisab();
+      return Response.json({
+        ...fallbackData,
+        source: 'nisab-api-json-fallback',
+        errorReason: 'json_parse_error'
+      });
+    }
     
     // Check if we have valid gold price
     if (typeof data.gold !== 'number' || data.gold <= 0) {
       console.error('Nisab API: Invalid gold price data:', data);
-      return Response.json({ 
-        error: 'Invalid or missing gold price data',
-        receivedData: data
-      }, { status: 500 });
+      // Use fallback data instead of failing
+      const fallbackData = loadFallbackNisab();
+      return Response.json({
+        ...fallbackData,
+        source: 'nisab-api-invalid-gold-fallback',
+        errorReason: 'invalid_gold_price'
+      });
     }
     
     // Check if we have valid silver price
     if (typeof data.silver !== 'number' || data.silver <= 0) {
       console.error('Nisab API: Invalid silver price data:', data);
-      return Response.json({ 
-        error: 'Invalid or missing silver price data',
-        receivedData: data
-      }, { status: 500 });
+      // Use fallback data instead of failing
+      const fallbackData = loadFallbackNisab();
+      return Response.json({
+        ...fallbackData,
+        source: 'nisab-api-invalid-silver-fallback',
+        errorReason: 'invalid_silver_price'
+      });
     }
     
     // Get the actual currency from the response, which might be different from requested if conversion failed
@@ -174,6 +341,12 @@ export async function GET(request: Request) {
     
   } catch (error) {
     console.error('Nisab API: Error calculating nisab:', error);
-    return Response.json({ error: 'Failed to calculate nisab value' }, { status: 500 });
+    // Use fallback data instead of failing
+    const fallbackData = loadFallbackNisab();
+    return Response.json({
+      ...fallbackData,
+      source: 'nisab-api-error-fallback',
+      errorReason: 'general_error'
+    });
   }
 } 

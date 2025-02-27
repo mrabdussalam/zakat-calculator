@@ -55,8 +55,8 @@ export async function POST(req: Request) {
     // Calculate cash totals
     const cashAndBank = calculateCashAndBank(values)
     
-    // Calculate total zakatable amount
-    const zakatableAmount = preciousMetals.zakatable + cashAndBank.zakatable
+    // Calculate total zakatable amount for the response
+    const totalZakatableAmount = preciousMetals.zakatable + cashAndBank.zakatable
     
     // Calculate total assets
     const totalAssets = preciousMetals.total + cashAndBank.total

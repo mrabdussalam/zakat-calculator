@@ -34,6 +34,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useCurrencyContext } from '@/lib/context/CurrencyContext'
 import { useCurrencyStore } from '@/lib/services/currency'
 import { roundCurrency } from '@/lib/utils/currency'
+import { MetalPrices } from '@/store/modules/metals.types'
 
 interface PersonalJewelryFormProps {
   currency: string
@@ -111,7 +112,8 @@ export function PersonalJewelryForm({
       gold: 65.52,  // Default gold price per gram
       silver: 0.85, // Default silver price per gram
       lastUpdated: new Date(),
-      isCache: true
+      isCache: true,
+      currency: currency  // Add currency property
     },
     setMetalPrices,
     metalsPreferences = {
@@ -202,7 +204,40 @@ export function PersonalJewelryForm({
     if (hasChanges) {
       setInputValues(newValues)
     }
-  }, [metalsValues, selectedUnit, activeInputId, inputValues])
+  }, [metalsValues, inputValues, selectedUnit, activeInputId])
+
+  // Add this useEffect to listen for store resets
+  useEffect(() => {
+    // Check if all store values are zero - indicates a reset occurred
+    const isStoreReset = METAL_CATEGORIES.every(category => {
+      const value = metalsValues[category.id as keyof typeof metalsValues]
+      return value === 0 || value === undefined
+    })
+    
+    if (isStoreReset) {
+      console.log('Store reset detected in PreciousMetals - clearing input fields')
+      
+      // Clear all input values
+      setInputValues(METAL_CATEGORIES.reduce((acc, category) => {
+        return {
+          ...acc,
+          [category.id]: ''
+        }
+      }, {}))
+      
+      // Also reset the showInvestment state if it's true
+      if (showInvestment) {
+        setShowInvestment(false)
+      }
+      
+      // Clear any active input tracking
+      setActiveInputId(null)
+      if (inputTimeoutRef.current) {
+        clearTimeout(inputTimeoutRef.current)
+        inputTimeoutRef.current = null
+      }
+    }
+  }, [metalsValues])
 
   // Add a ref to track previous currency to prevent redundant fetches
   const prevCurrencyRef = useRef<string>(currency);
@@ -213,15 +248,140 @@ export function PersonalJewelryForm({
   const [isComponentMounted, setIsComponentMounted] = useState(false)
   // Add a flag to prevent additional fetches during the current render cycle
   const isFetchingRef = useRef<boolean>(false);
+  // Add a new state to track if the store has been hydrated
+  const [storeHydrated, setStoreHydrated] = useState(false)
 
-  // Update the useEffect for component mount tracking
+  // Update the useEffect for component mount tracking and add hydration listener
   useEffect(() => {
     setIsComponentMounted(true)
-    return () => setIsComponentMounted(false)
+    
+    // Add listener for store hydration completion
+    const handleHydrationComplete = () => {
+      console.log('PersonalJewelryForm: Store hydration complete event received')
+      setStoreHydrated(true)
+      
+      // After hydration, safely initialize form values from store
+      setTimeout(() => {
+        const newInputValues = METAL_CATEGORIES.reduce((acc, category) => {
+          const valueInGrams = metalsValues[category.id as keyof typeof metalsValues]
+          const convertedValue = fromGrams(valueInGrams, selectedUnit)
+          return {
+            ...acc,
+            [category.id]: valueInGrams > 0 ? convertedValue.toString() : ''
+          }
+        }, {} as Record<string, string>)
+        
+        setInputValues(newInputValues)
+        
+        // Check if there are investment values to show investment section
+        const hasInvestmentValues = METAL_CATEGORIES
+          .filter(cat => cat.id.includes('investment'))
+          .some(cat => (metalsValues[cat.id as keyof typeof metalsValues] || 0) > 0)
+        
+        if (hasInvestmentValues) {
+          setShowInvestment(true)
+        }
+        
+        console.log('PersonalJewelryForm: Initialized form values after hydration', newInputValues)
+      }, 50) // Small delay to ensure store is fully ready
+    }
+    
+    // Listen for the custom hydration event
+    window.addEventListener('store-hydration-complete', handleHydrationComplete)
+    
+    // Check if hydration already happened
+    if (typeof window !== 'undefined' && 'hasDispatchedHydrationEvent' in window) {
+      // @ts-ignore - This is set by StoreHydration component
+      if (window.hasDispatchedHydrationEvent) {
+        handleHydrationComplete()
+      }
+    }
+    
+    return () => {
+      setIsComponentMounted(false)
+      window.removeEventListener('store-hydration-complete', handleHydrationComplete)
+    }
   }, [])
 
+  // Add listener for global store reset events
+  useEffect(() => {
+    // Function to handle store reset events
+    const handleStoreReset = (event?: Event) => {
+      console.log('PersonalJewelryForm: Detected store reset, clearing local input state', event);
+      
+      // Clear any active input tracking
+      setActiveInputId(null);
+      if (inputTimeoutRef.current) {
+        clearTimeout(inputTimeoutRef.current);
+        inputTimeoutRef.current = null;
+      }
+      
+      // Reset all input fields
+      const emptyInputs = METAL_CATEGORIES.reduce((acc, category) => {
+        return {
+          ...acc,
+          [category.id]: ''
+        };
+      }, {} as Record<string, string>);
+      setInputValues(emptyInputs);
+      
+      // Reset investment section
+      setShowInvestment(false);
+      
+      // Reset cache and last updated timestamp
+      setLastUpdated(null);
+    };
+    
+    // Only check for store resets after hydration is complete
+    // This prevents false resets during page refresh
+    if (storeHydrated) {
+      // Check if all values in the store are zero (indicates reset already happened)
+      const isStoreReset = METAL_CATEGORIES.every(category => 
+        metalsValues[category.id as keyof typeof metalsValues] === 0 || 
+        metalsValues[category.id as keyof typeof metalsValues] === undefined
+      );
+      
+      if (isStoreReset) {
+        console.log('PersonalJewelryForm: Detected reset state in store on mount/update');
+        handleStoreReset();
+      }
+      
+      // Add event listener for custom reset event
+      const resetListener = () => handleStoreReset();
+      window.addEventListener('zakat-store-reset', resetListener);
+      
+      // Also listen for storage events to catch resets that may occur in other tabs
+      const storageListener = (e: StorageEvent) => {
+        if (e.key === 'zakat-store' && e.newValue) {
+          try {
+            const newState = JSON.parse(e.newValue);
+            // Check if this looks like a reset state
+            if (newState && newState.state) {
+              const state = newState.state;
+              // Check metals values as a sample
+              if (state.metalsValues && Object.values(state.metalsValues).every((v: any) => v === 0)) {
+                console.log('PersonalJewelryForm: Detected reset from storage event');
+                handleStoreReset();
+              }
+            }
+          } catch (err) {
+            console.error('Error processing storage event:', err);
+          }
+        }
+      };
+      window.addEventListener('storage', storageListener);
+      
+      return () => {
+        window.removeEventListener('zakat-store-reset', resetListener);
+        window.removeEventListener('storage', storageListener);
+      };
+    }
+    
+    return undefined;
+  }, [metalsValues, storeHydrated]);
+
   // Create a centralized, robust price update function to ensure consistent currency handling
-  const updateMetalPrices = useCallback((prices: any, sourceCurrency: string, targetCurrency: string) => {
+  const updateMetalPrices = useCallback((prices: MetalPrices | { gold: number; silver: number; lastUpdated: Date; isCache: boolean; currency?: string }, sourceCurrency: string, targetCurrency: string) => {
     console.log('Updating metal prices with consistent approach:', {
       prices,
       sourceCurrency,
@@ -320,10 +480,11 @@ export function PersonalJewelryForm({
       if (!response.ok) {
         console.warn(`Using fallback prices. API returned: ${response.status}`);
         updateMetalPrices({
-          gold: 65.52,
-          silver: 0.85,
+          gold: 93.98,
+          silver: 1.02,
           lastUpdated: new Date(),
-          isCache: true
+          isCache: true,
+          currency: 'USD'
         }, 'USD', currency);
         return;
       }
@@ -344,16 +505,43 @@ export function PersonalJewelryForm({
       
       setLastUpdated(new Date());
       
+      // Force a refresh of nisab calculations by explicitly calling the nisab update function
+      // This ensures the nisab thresholds update immediately without waiting for a tab switch
+      try {
+        const zakatStore = useZakatStore.getState();
+        if (zakatStore.updateNisabWithPrices) {
+          console.log('Triggering immediate nisab update with new prices');
+          
+          // Ensure we have a valid lastUpdated from the API response
+          const lastUpdated = data.lastUpdated instanceof Date ? 
+            data.lastUpdated : 
+            (typeof data.lastUpdated === 'string' ? 
+              new Date(data.lastUpdated) : 
+              new Date());
+          
+          zakatStore.updateNisabWithPrices({
+            gold: data.gold,
+            silver: data.silver,
+            currency: data.currency || currency,
+            lastUpdated: lastUpdated,
+            isCache: data.isCache || false
+          });
+        }
+      } catch (error) {
+        console.error('Failed to update nisab calculations:', error);
+      }
+      
       // Update the currency ref after successful fetch
       prevCurrencyRef.current = currency;
     } catch (error) {
       console.error('Error fetching metal prices:', error);
       // Even on error, make sure we update with correct currency
       updateMetalPrices({
-        gold: 65.52,
-        silver: 0.85,
+        gold: 93.98,
+        silver: 1.02,
         lastUpdated: new Date(),
-        isCache: true
+        isCache: true,
+        currency: 'USD'
       }, 'USD', currency);
     } finally {
       if (shouldShowLoading) {
@@ -723,43 +911,88 @@ export function PersonalJewelryForm({
       
       // STEP 5: Reset cache and last updated timestamp
       setLastUpdated(null);
-      
-      // STEP 6: Force an immediate fetch with the new currency
-      const fetchNewPrices = async () => {
-        console.log(`Forcing immediate fetch for new currency after reset: ${currency}`);
-        setIsPricesLoading(true);
-        
-        try {
-          const response = await fetch(`/api/prices/metals?currency=${currency}`);
-          
-          if (response.ok) {
-            const data = await response.json();
-            console.log(`Post-reset currency update - received prices:`, data);
-            
-            // Use the centralized function for consistent handling
-            updateMetalPrices(data, data.currency || 'USD', currency);
-          }
-        } catch (error) {
-          console.error('Error in post-reset price fetch:', error);
-          // Even on error, make sure we update the currency
-          updateMetalPrices({
-            gold: 65.52,
-            silver: 0.85,
-            lastUpdated: new Date(),
-            isCache: true
-          }, 'USD', currency);
-        } finally {
-          setIsPricesLoading(false);
-        }
-      };
-      
-      // Only fetch if we're not in the middle of a global conversion
-      if (!isConverting) {
-        fetchNewPrices();
-      }
     }
-  }, [currency, isConverting, updateMetalPrices, showInvestment, setMetalsValue]);
-
+    
+    // Update reference for next comparison
+    prevCurrencyRef.current = currency;
+  }, [currency, showInvestment, setMetalsValue]);
+  
+  // Add listener for global store reset events
+  useEffect(() => {
+    // Function to handle store reset events
+    const handleStoreReset = (event?: Event) => {
+      console.log('PersonalJewelryForm: Detected store reset, clearing local input state', event);
+      
+      // Clear any active input tracking
+      setActiveInputId(null);
+      if (inputTimeoutRef.current) {
+        clearTimeout(inputTimeoutRef.current);
+        inputTimeoutRef.current = null;
+      }
+      
+      // Reset all input fields
+      const emptyInputs = METAL_CATEGORIES.reduce((acc, category) => {
+        return {
+          ...acc,
+          [category.id]: ''
+        };
+      }, {} as Record<string, string>);
+      setInputValues(emptyInputs);
+      
+      // Reset investment section
+      setShowInvestment(false);
+      
+      // Reset cache and last updated timestamp
+      setLastUpdated(null);
+    };
+    
+    // Check if all values in the store are zero (indicates reset already happened)
+    const isStoreReset = METAL_CATEGORIES.every(category => 
+      metalsValues[category.id as keyof typeof metalsValues] === 0 || 
+      metalsValues[category.id as keyof typeof metalsValues] === undefined
+    );
+    
+    if (isStoreReset) {
+      console.log('PersonalJewelryForm: Detected reset state in store on mount/update');
+      handleStoreReset();
+    }
+    
+    // Listen for custom reset events from the store
+    if (typeof window !== 'undefined') {
+      window.addEventListener('zakat-store-reset', handleStoreReset);
+      
+      // Also listen for storage events (in case reset happens in another tab)
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'zakat-store') {
+          console.log('Storage event detected, checking for reset');
+          // Check if the new value has all zeros
+          try {
+            const newState = JSON.parse(e.newValue || '{}');
+            if (newState?.state?.metalsValues) {
+              const metals = newState.state.metalsValues;
+              const allZeros = METAL_CATEGORIES.every(cat => 
+                !metals[cat.id as keyof typeof metals] || 
+                metals[cat.id as keyof typeof metals] === 0
+              );
+              
+              if (allZeros) {
+                console.log('Reset detected via storage event');
+                handleStoreReset();
+              }
+            }
+          } catch (error) {
+            console.error('Error checking storage event:', error);
+          }
+        }
+      });
+      
+      return () => {
+        window.removeEventListener('zakat-store-reset', handleStoreReset);
+        // No need to remove storage listener as it's added only once
+      };
+    }
+  }, [metalsValues]);
+  
   // Replace the value calculation in each category with a correct function that always uses the current currency
   const calculateMetalValue = useCallback((categoryId: string) => {
     const weight = metalsValues[categoryId as keyof typeof metalsValues] || 0;
@@ -978,7 +1211,7 @@ export function PersonalJewelryForm({
                                 {(() => {
                                   // Use the display price function for correct unit conversion
                                   const value = getDisplayPriceForCategory(category.id);
-                                  return formatCurrency(value);
+                                  return `≈ ${formatCurrency(value)}`;
                                 })()}
                               </span>
                             </div>
@@ -1086,7 +1319,7 @@ export function PersonalJewelryForm({
                                   {(() => {
                                     // Use the display price function for correct unit conversion
                                     const value = getDisplayPriceForCategory(category.id);
-                                    return formatCurrency(value);
+                                    return `≈ ${formatCurrency(value)}`;
                                   })()}
                                 </span>
                               </div>

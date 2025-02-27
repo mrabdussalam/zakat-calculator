@@ -19,10 +19,12 @@ interface NisabThreshold {
   gold: {
     grams: number
     value: number
+    isDirectPrice?: boolean
   }
   silver: {
     grams: number
     value: number
+    isDirectPrice?: boolean
   }
   lastUpdated: string
 }
@@ -75,12 +77,14 @@ export function NisabFetcher({
           gold: {
             grams: data.metadata?.metalType === 'gold' ? data.metadata.metalWeight : NISAB.GOLD.GRAMS,
             value: data.metadata?.metalType === 'gold' ? data.nisabThreshold : 
-              NISAB.GOLD.GRAMS * (data.metadata?.metalType === 'silver' ? data.metadata.metalPrice * 90 : 94)  // Approximate gold value if silver based
+              NISAB.GOLD.GRAMS * (data.metadata?.metalType === 'silver' ? data.metadata.metalPrice * 90 : 94),  // Approximate gold value if silver based
+            isDirectPrice: data.metadata?.metalType === 'gold' ? data.metadata.isDirectPrice : undefined
           },
           silver: {
             grams: data.metadata?.metalType === 'silver' ? data.metadata.metalWeight : NISAB.SILVER.GRAMS,
             value: data.metadata?.metalType === 'silver' ? data.nisabThreshold : 
-              NISAB.SILVER.GRAMS * (data.metadata?.metalType === 'gold' ? data.metadata.metalPrice / 90 : 1)  // Approximate silver value if gold based
+              NISAB.SILVER.GRAMS * (data.metadata?.metalType === 'gold' ? data.metadata.metalPrice / 90 : 1),  // Approximate silver value if gold based
+            isDirectPrice: data.metadata?.metalType === 'silver' ? data.metadata.isDirectPrice : undefined
           },
           lastUpdated: data.timestamp
         };
@@ -170,6 +174,12 @@ export function NisabFetcher({
                 ? `${nisab.gold.value.toLocaleString()} ${currency}`
                 : `${nisab.silver.value.toLocaleString()} ${currency}`
               }
+              {selectedMethod === 'gold' && nisab.gold.isDirectPrice === false && (
+                <span className="ml-2 text-amber-500 text-xs px-1 py-0.5 rounded bg-amber-100/60">converted</span>
+              )}
+              {selectedMethod === 'silver' && nisab.silver.isDirectPrice === false && (
+                <span className="ml-2 text-amber-500 text-xs px-1 py-0.5 rounded bg-amber-100/60">converted</span>
+              )}
             </div>
             <div className="mt-2 text-xs text-gray-500">
               Last updated: {new Date(nisab.lastUpdated).toLocaleString()}

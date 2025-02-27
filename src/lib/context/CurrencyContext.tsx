@@ -181,8 +181,14 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
         }
       }
       
-      // First, clear calculator values from localStorage
-      clearCalculatorValuesFromStorage();
+      // IMPORTANT: Don't reset on initial page load
+      // Check if this is a triggered change vs. initial page load
+      const isInitialLoad = !event.detail?.from || event.detail.isInitialLoad;
+      
+      if (isInitialLoad) {
+        console.log('Skipping reset during initial page load');
+        return;
+      }
       
       // Set converting flag to prevent multiple fetches
       setIsConverting(true);
@@ -202,32 +208,6 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
           const now = new Date();
           setLastCurrencyReset(now);
           console.log(`Currency reset completed at ${now.toISOString()}`);
-          
-          // Clear the current store state from localStorage to ensure fresh load
-          const storeKey = 'zakat-store';
-          const currentStore = localStorage.getItem(storeKey);
-          
-          if (currentStore) {
-            try {
-              const parsed = JSON.parse(currentStore);
-              // Save the version and other metadata but reset the state
-              localStorage.setItem(storeKey, JSON.stringify({
-                ...parsed,
-                state: {
-                  // Preserve hawl status only
-                  cashHawlMet: parsed.state?.cashHawlMet,
-                  metalsHawlMet: parsed.state?.metalsHawlMet,
-                  stockHawlMet: parsed.state?.stockHawlMet,
-                  retirementHawlMet: parsed.state?.retirementHawlMet,
-                  realEstateHawlMet: parsed.state?.realEstateHawlMet,
-                  cryptoHawlMet: parsed.state?.cryptoHawlMet
-                }
-              }));
-              console.log('Successfully reset store state in localStorage');
-            } catch (parseError) {
-              console.error('Error parsing or updating store in localStorage:', parseError);
-            }
-          }
         } else {
           console.error('resetAllCalculators function not found in zakatStore');
         }

@@ -125,19 +125,26 @@ export function CryptoCalculator({
   const zakatableValue = getTotalZakatableCrypto()
 
   // Type guard for breakdown items
-  interface BreakdownItem {
+  interface CryptoBreakdownItem {
     value: number
     isZakatable: boolean
     isExempt: boolean
-    label?: string
-    tooltip?: string
+    zakatable: number
+    zakatDue: number
+    label: string
+    tooltip: string
+    percentage?: number
   }
 
-  const isBreakdownItem = (item: unknown): item is BreakdownItem => {
+  const isBreakdownItem = (item: unknown): item is CryptoBreakdownItem => {
     return typeof item === 'object' && item !== null &&
       'value' in item && typeof item.value === 'number' &&
       'isZakatable' in item && typeof item.isZakatable === 'boolean' &&
-      'isExempt' in item && typeof item.isExempt === 'boolean'
+      'isExempt' in item && typeof item.isExempt === 'boolean' &&
+      'zakatable' in item && typeof item.zakatable === 'number' &&
+      'zakatDue' in item && typeof item.zakatDue === 'number' &&
+      'label' in item && typeof item.label === 'string' &&
+      'tooltip' in item && typeof item.tooltip === 'string'
   }
 
   // Prepare summary sections
@@ -160,14 +167,10 @@ export function CryptoCalculator({
         title: "Holdings Breakdown",
         showBorder: true,
         items: Object.entries(breakdown.items)
-          .filter((entry): entry is [string, BreakdownItem] => {
-            const [_, item] = entry
-            return isBreakdownItem(item)
-          })
           .map(([key, item]) => ({
             label: item.label || key,
             value: formatCurrency(item.value),
-            tooltip: item.tooltip,
+            tooltip: item.tooltip || `${key}: ${formatCurrency(item.value)}`,
             isZakatable: item.isZakatable,
             isExempt: item.isExempt || false
           }))
@@ -289,6 +292,7 @@ export function CryptoCalculator({
                 currentPrice: number
                 marketValue: number
                 zakatDue: number
+                currency?: string
               }, index: number) => (
                 <motion.div
                   key={`${coin.symbol}-${index}`}
@@ -307,7 +311,12 @@ export function CryptoCalculator({
                       <p className="font-mono text-xs font-medium text-white">{coin.symbol}</p>
                     </div>
                     <p className="text-xs text-gray-500">
-                      {coin.quantity.toLocaleString()} × {currency} {coin.currentPrice.toFixed(2)}
+                      {coin.quantity.toLocaleString()} × {new Intl.NumberFormat(undefined, {
+                        style: 'currency',
+                        currency: coin.currency || currency,
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      }).format(coin.currentPrice)}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">

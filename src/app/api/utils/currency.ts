@@ -22,11 +22,88 @@ async function fetchExchangeRate(from: string, to: string): Promise<number> {
     )
 
     if (!response.ok) {
-      throw new Error('Failed to fetch exchange rate')
+      console.error(`Exchange rate API returned status: ${response.status}, ${response.statusText}`)
+      
+      // Check if there's a fallback cache even if expired
+      if (cached) {
+        console.warn(`Using expired cached rate for ${from} to ${to} due to API error`)
+        return cached.rate;
+      }
+      
+      throw new Error(`Failed to fetch exchange rate: ${response.status} ${response.statusText}`)
     }
 
-    const data = await response.json()
+    // Check content type to ensure we're receiving JSON
+    const contentType = response.headers.get('content-type')
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error(`Expected JSON but received ${contentType}`)
+      
+      // Check if there's a fallback cache even if expired
+      if (cached) {
+        console.warn(`Using expired cached rate for ${from} to ${to} due to content type mismatch`)
+        return cached.rate;
+      }
+      
+      throw new Error(`Invalid content type: ${contentType}`)
+    }
+
+    // Parse the JSON response with proper error handling
+    let data
+    try {
+      const responseText = await response.text()
+      
+      // Check if the response starts with HTML tags or doctype (indicating an error page)
+      if (responseText.trim().startsWith('<') || responseText.toLowerCase().includes('<!doctype html>')) {
+        console.error('Received HTML instead of JSON:', responseText.substring(0, 200))
+        
+        // Check if there's a fallback cache even if expired
+        if (cached) {
+          console.warn(`Using expired cached rate for ${from} to ${to} due to HTML response`)
+          return cached.rate;
+        }
+        
+        throw new Error('Server returned HTML instead of JSON')
+      }
+      
+      data = JSON.parse(responseText)
+    } catch (parseError) {
+      console.error('Failed to parse exchange rate response:', parseError)
+      
+      // Check if there's a fallback cache even if expired
+      if (cached) {
+        console.warn(`Using expired cached rate for ${from} to ${to} due to parse error`)
+        return cached.rate;
+      }
+      
+      throw new Error(`JSON parse error: ${parseError}`)
+    }
+
+    // Validate that we have the expected structure
+    if (!data || typeof data !== 'object' || !data.rates) {
+      console.error(`Invalid exchange rate data structure:`, data)
+      
+      // Check if there's a fallback cache even if expired
+      if (cached) {
+        console.warn(`Using expired cached rate for ${from} to ${to} due to invalid data structure`)
+        return cached.rate;
+      }
+      
+      throw new Error(`Invalid exchange rate data structure`)
+    }
+
     const rate = data.rates[to]
+    
+    if (typeof rate !== 'number') {
+      console.error(`Invalid exchange rate for ${from} to ${to}:`, rate)
+      
+      // Check if there's a fallback cache even if expired
+      if (cached) {
+        console.warn(`Using expired cached rate for ${from} to ${to} due to invalid rate`)
+        return cached.rate;
+      }
+      
+      throw new Error(`Invalid exchange rate value: ${rate}`)
+    }
 
     // Cache the new rate
     exchangeRateCache.set(cacheKey, {
@@ -37,6 +114,11 @@ async function fetchExchangeRate(from: string, to: string): Promise<number> {
     return rate
   } catch (error) {
     console.error('Error fetching exchange rate:', error)
+    
+    // If the target currency is the same as the source, return 1 (no conversion needed)
+    if (from === to) return 1
+    
+    // For other errors, throw to the caller
     throw error
   }
 }

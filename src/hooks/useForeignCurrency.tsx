@@ -13,6 +13,12 @@ type UseForeignCurrencyProps = {
 
 // Function to determine the best default foreign currency based on user's global currency
 const getDefaultForeignCurrency = (baseCurrency: string): string => {
+  // Ensure baseCurrency is a valid string
+  if (!baseCurrency || typeof baseCurrency !== 'string') {
+    console.warn('Invalid baseCurrency provided to getDefaultForeignCurrency:', baseCurrency);
+    return 'USD'; // Default to USD for invalid input
+  }
+  
   // Map of region-appropriate default currencies
   const currencyDefaults: Record<string, string> = {
     // South Asian defaults
@@ -58,6 +64,11 @@ const getDefaultForeignCurrency = (baseCurrency: string): string => {
     return currencyDefaults[baseCurrency];
   }
   
+  // Add null check before accessing toUpperCase to prevent TypeError
+  if (!baseCurrency) {
+    return 'USD'; // Default to USD if baseCurrency is undefined or null
+  }
+  
   // If user's currency is USD, default to EUR, otherwise default to USD
   return baseCurrency.toUpperCase() === 'USD' ? 'EUR' : 'USD';
 };
@@ -69,8 +80,11 @@ export function useForeignCurrency({
   convertAmount,
   updateStore
 }: UseForeignCurrencyProps) {
+  // Validate the currency parameter
+  const validCurrency = currency || 'USD'; // Default to USD if currency is undefined
+  
   // Get the appropriate default foreign currency
-  const defaultForeignCurrency = getDefaultForeignCurrency(currency);
+  const defaultForeignCurrency = getDefaultForeignCurrency(validCurrency);
   
   // Local state for currency entries - initialize with a better default
   const [foreignCurrencies, setForeignCurrencies] = useState<ForeignCurrencyEntry[]>(() => {
@@ -107,51 +121,51 @@ export function useForeignCurrency({
     const conversionErrors: string[] = [];
     
     const total = entries.reduce((total, entry) => {
-      if (entry.currency === currency) {
+      if (entry.currency === validCurrency) {
         // If the entry is already in the base currency, no conversion needed
         return total + (entry.amount || 0);
       }
       
       try {
         // Try to convert using real-time rates first
-        const converted = convertAmount(entry.amount || 0, entry.currency, currency);
+        const converted = convertAmount(entry.amount || 0, entry.currency, validCurrency);
         if (!isNaN(converted) && isFinite(converted)) {
           // Store successful conversion rate for fallback
           const rate = converted / (entry.amount || 1); // Avoid division by zero
           setFallbackRates(prev => ({
             ...prev,
-            [`${entry.currency}_${currency}`]: rate
+            [`${entry.currency}_${validCurrency}`]: rate
           }));
           return total + converted;
         }
         
         // Fallback to static rates if real-time conversion failed
-        const fallbackRateKey = `${entry.currency}_${currency}`;
+        const fallbackRateKey = `${entry.currency}_${validCurrency}`;
         if (fallbackRates[fallbackRateKey]) {
           const convertedAmount = entry.amount * fallbackRates[fallbackRateKey];
           hasWarning = true;
-          console.warn(`Using cached fallback rate for ${entry.currency} to ${currency}: ${fallbackRates[fallbackRateKey]}`);
+          console.warn(`Using cached fallback rate for ${entry.currency} to ${validCurrency}: ${fallbackRates[fallbackRateKey]}`);
           return total + convertedAmount;
         }
         
         // Try inverse rate
-        const inverseRateKey = `${currency}_${entry.currency}`;
+        const inverseRateKey = `${validCurrency}_${entry.currency}`;
         if (fallbackRates[inverseRateKey]) {
           const convertedAmount = entry.amount / fallbackRates[inverseRateKey];
           hasWarning = true;
-          console.warn(`Using inverse fallback rate for ${entry.currency} to ${currency}: ${1/fallbackRates[inverseRateKey]}`);
+          console.warn(`Using inverse fallback rate for ${entry.currency} to ${validCurrency}: ${1/fallbackRates[inverseRateKey]}`);
           return total + convertedAmount;
         }
         
         // Last resort fallback - use the unconverted amount
         hasWarning = true;
-        conversionErrors.push(`${entry.currency} to ${currency}`);
-        console.warn(`No conversion available for ${entry.amount} ${entry.currency} to ${currency} - using original amount`);
+        conversionErrors.push(`${entry.currency} to ${validCurrency}`);
+        console.warn(`No conversion available for ${entry.amount} ${entry.currency} to ${validCurrency} - using original amount`);
         return total + (entry.amount || 0);
       } catch (error) {
-        console.error(`Error converting ${entry.currency} to ${currency}:`, error);
+        console.error(`Error converting ${entry.currency} to ${validCurrency}:`, error);
         hasWarning = true;
-        conversionErrors.push(`${entry.currency} to ${currency}`);
+        conversionErrors.push(`${entry.currency} to ${validCurrency}`);
         return total + (entry.amount || 0);
       }
     }, 0);
@@ -172,7 +186,7 @@ export function useForeignCurrency({
     }
     
     return total;
-  }, [convertAmount, currency, fallbackRates]);
+  }, [convertAmount, validCurrency, fallbackRates]);
 
   // Enhanced initialization effect to ensure we properly handle store entries when component mounts
   // or when storeEntries change
@@ -243,7 +257,7 @@ export function useForeignCurrency({
         isSyncingRef.current = false;
       }, 50);
     }
-  }, [storeEntries, storeTotal, currency, defaultForeignCurrency]);
+  }, [storeEntries, storeTotal, validCurrency, defaultForeignCurrency]);
   
   // Effect to update store when local currencies change
   useEffect(() => {

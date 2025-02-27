@@ -6,13 +6,11 @@ import { RetirementSlice } from './modules/retirement'
 import { RealEstateSlice } from './modules/realEstate'
 import { AssetBreakdown as LibAssetBreakdown, CompanyFinancials } from '@/lib/assets/types'
 import { StateCreator } from 'zustand'
-import { CryptoSlice } from './modules/crypto'
-import { StockValues as LibStockValues, StockPrices as LibStockPrices, StockHolding } from '@/lib/assets/stocks'
+import { CryptoSlice, CryptoValues } from './modules/crypto.types'
+import { StockHolding } from '@/lib/assets/stocks'
 import { WeightUnit } from '@/lib/utils/units'
 
 // Re-export types with new names to avoid conflicts
-export type StockValues = LibStockValues
-export type StockPrices = LibStockPrices
 export type AssetBreakdown = LibAssetBreakdown
 
 export interface HawlStatus {
@@ -20,7 +18,8 @@ export interface HawlStatus {
   metals: boolean
   stocks: boolean
   retirement: boolean
-  realEstate: boolean
+  real_estate: boolean
+  crypto: boolean
 }
 
 // Metal Types
@@ -29,6 +28,8 @@ export interface MetalPrices {
   silver: number
   lastUpdated: Date
   isCache: boolean
+  source?: string
+  currency: string
 }
 
 export interface MetalsValues {
@@ -143,19 +144,6 @@ export interface CashValues {
   foreign_currency_entries: ForeignCurrencyEntry[]
 }
 
-// Crypto Types
-export interface CryptoValues {
-  coins: Array<{
-    symbol: string;
-    quantity: number;
-    currentPrice: number;
-    marketValue: number;
-    zakatDue: number;
-  }>;
-  total_value: number;
-  zakatable_value: number;
-}
-
 export interface ZakatBreakdown {
   total: number
   zakatable: number
@@ -172,27 +160,35 @@ export interface ZakatBreakdown {
   }>
 }
 
-export type ZakatState = CashSlice &
-  MetalsSlice &
-  StocksSlice &
-  NisabSlice &
-  RetirementSlice &
-  RealEstateSlice &
-  CryptoSlice & {
-    reset: () => void
-    getBreakdown: () => ZakatBreakdown
-    getNisabStatus: () => {
-      meetsNisab: boolean
+export interface ZakatState extends CashSlice, MetalsSlice, StocksSlice, RetirementSlice, RealEstateSlice, CryptoSlice, NisabSlice {
+  // Core properties
+  currency: string
+  
+  // Reset functions
+  reset: () => void
+  resetAllCalculators: () => void  
+  resetWithCurrencyChange: (newCurrency: string) => boolean
+  
+  // Currency functions
+  setCurrency: (newCurrency: string) => void
+  updateMetalPricesForNewCurrency: (newCurrency: string) => void
+
+  // Breakdown
+  getBreakdown: () => {
+    cash: ReturnType<CashSlice['getCashBreakdown']>
+    metals: ReturnType<MetalsSlice['getMetalsBreakdown']>
+    stocks: ReturnType<StocksSlice['getStocksBreakdown']>
+    retirement: ReturnType<RetirementSlice['getRetirementBreakdown']>
+    realEstate: ReturnType<RealEstateSlice['getRealEstateBreakdown']>
+    crypto: ReturnType<CryptoSlice['getCryptoBreakdown']>
+    combined: {
       totalValue: number
-      nisabValue: number
-      thresholds: {
-        gold: number
-        silver: number
-      }
+      zakatableValue: number
+      zakatDue: number
+      meetsNisab: boolean
     }
-    isLoading?: boolean
-    lastError?: string | null
   }
+}
 
 export type ZakatSlice = StateCreator<ZakatState, [["zustand/persist", unknown]], []>
 

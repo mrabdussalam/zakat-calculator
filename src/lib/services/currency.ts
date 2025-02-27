@@ -160,18 +160,46 @@ export const useCurrencyStore = create<CurrencyState>((set, get) => ({
     const fromCurrency = from.toLowerCase();
     const toCurrency = to.toLowerCase();
     
-    if (!rates || !rates[fromCurrency] || !rates[toCurrency]) {
-      return amount; // Return original amount if conversion not possible
+    if (fromCurrency === toCurrency) {
+      return amount; // No conversion needed if currencies are the same
+    }
+    
+    // Check if we have the necessary rates
+    if (!rates || Object.keys(rates).length === 0) {
+      console.warn('Cannot convert currency: No exchange rates available');
+      return amount;
+    }
+    
+    if (!rates[fromCurrency]) {
+      console.warn(`Cannot convert from ${fromCurrency}: Rate not available`);
+      return amount;
+    }
+    
+    if (!rates[toCurrency]) {
+      console.warn(`Cannot convert to ${toCurrency}: Rate not available`);
+      return amount;
+    }
+    
+    // For conversions, we need to:
+    // 1. Calculate equivalent value in base currency (USD)
+    // 2. Then convert from base currency to target currency
+    
+    // If source currency is the base, we already have its base value
+    let inBaseCurrency;
+    if (fromCurrency === baseCurrency.toLowerCase()) {
+      inBaseCurrency = amount;
+    } else {
+      // Convert from source to base currency using the rate
+      // The rate is how many units of currency X equals 1 unit of base currency
+      inBaseCurrency = amount / rates[fromCurrency];
     }
 
-    // Convert from source currency to base currency first (if needed)
-    const inBaseCurrency = fromCurrency === baseCurrency.toLowerCase()
-      ? amount 
-      : amount / rates[fromCurrency];
-
-    // Then convert from base currency to target currency
-    return toCurrency === baseCurrency.toLowerCase()
-      ? inBaseCurrency 
-      : inBaseCurrency * rates[toCurrency];
+    // Now convert from base currency to target currency
+    if (toCurrency === baseCurrency.toLowerCase()) {
+      return inBaseCurrency;
+    } else {
+      // Convert from base to target using the rate
+      return inBaseCurrency * rates[toCurrency];
+    }
   }
 })); 

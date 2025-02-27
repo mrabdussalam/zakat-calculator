@@ -28,6 +28,7 @@ export interface CryptoSlice {
   resetCryptoValues: () => void
   setCryptoHawl: (value: boolean) => void
   updatePrices: (currency?: string) => Promise<void>
+  updateCryptoPrices: (targetCurrency: string, fromCurrency?: string) => void
 
   // Getters
   getTotalCrypto: () => number

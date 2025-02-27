@@ -14,7 +14,7 @@ interface MemoryCacheEntry {
 }
 
 // Initialize global memory cache with fallback values for USD
-let globalMemoryCache: Record<string, MemoryCacheEntry> = {
+const globalMemoryCache: Record<string, MemoryCacheEntry> = {
   'USD': {
     prices: null, // Reset to null to force refresh on first request
     timestamp: 0  // Set timestamp to 0 to force refresh
@@ -32,7 +32,8 @@ interface MetalPrice {
 }
 
 // Define proper response type
-interface MetalPricesResponse {
+// Used for internal typing
+interface MetalPrices {
   gold: MetalPrice;
   silver: MetalPrice;
   isCache: boolean;
@@ -163,6 +164,40 @@ const FALLBACK_PRICES = {
   currency: 'USD'  // Add explicit currency
 }
 
+// Create fallback file if it doesn't exist
+function ensureFallbackFile() {
+  const fallbackFilePath = path.join(process.cwd(), 'data', 'metal-prices-fallback.json');
+  try {
+    if (!fs.existsSync(fallbackFilePath)) {
+      fs.writeFileSync(fallbackFilePath, JSON.stringify(FALLBACK_PRICES), 'utf8');
+      console.log('Created fallback metal prices file');
+    }
+  } catch (error) {
+    console.error('Error creating fallback file:', error);
+  }
+}
+
+// Try to ensure fallback file exists
+ensureFallbackFile();
+
+// Function to load fallback prices from file
+function loadFallbackPrices() {
+  const fallbackFilePath = path.join(process.cwd(), 'data', 'metal-prices-fallback.json');
+  try {
+    if (fs.existsSync(fallbackFilePath)) {
+      const data = JSON.parse(fs.readFileSync(fallbackFilePath, 'utf8'));
+      return {
+        ...data,
+        isCache: true,
+        source: 'file-fallback'
+      };
+    }
+  } catch (error) {
+    console.error('Error loading fallback file:', error);
+  }
+  return FALLBACK_PRICES;
+}
+
 // Cache duration in milliseconds (5 minutes)
 const CACHE_DURATION = 5 * 60 * 1000
 
@@ -172,7 +207,7 @@ let priceCache = {
   lastUpdated: null as Date | null
 }
 
-function validatePrices(prices: any) {
+function validatePrices(prices: { gold: number; silver: number }) {
   if (!prices || typeof prices !== 'object') return false;
   if (typeof prices.gold !== 'number' || typeof prices.silver !== 'number') return false;
   if (prices.gold <= 0 || prices.silver <= 0) return false;
@@ -248,13 +283,13 @@ async function fetchMetalPrices() {
     }
   }
 
-  // If no cache available, use emergency fallback values
+  // If no cache available, use emergency fallback values from file
   console.error('All price sources failed and no cache available, using fallback values')
-  return FALLBACK_PRICES
+  return loadFallbackPrices();
 }
 
-// Add proper type for response data
-interface GoldPriceResponse {
+// Base response format used for internal typing
+interface MetalPricesData {
   gold: {
     price: number;
     currency: string;
@@ -407,10 +442,24 @@ export async function GET(request: Request): Promise<Response> {
       
       console.log(`Applied exchange rate: 1 USD = ${exchangeRate} ${currency}`);
       
-      // Convert prices to requested currency
+      // Convert prices to requested currency - multiply by exchange rate
+      // We need to ensure we're actually multiplying, not just setting the same value with a different currency
+      // This is crucial for currencies like PKR where 1 USD = ~290 PKR
+      const goldPriceInRequestedCurrency = prices.gold * exchangeRate;
+      const silverPriceInRequestedCurrency = prices.silver * exchangeRate;
+      
+      // Log the conversion details for debugging
+      console.log(`Conversion details for ${currency}:`, {
+        originalGoldPrice: prices.gold,
+        originalSilverPrice: prices.silver,
+        exchangeRate,
+        convertedGoldPrice: goldPriceInRequestedCurrency,
+        convertedSilverPrice: silverPriceInRequestedCurrency
+      });
+      
       const convertedPrices = {
-        gold: Number((prices.gold * exchangeRate).toFixed(2)),
-        silver: Number((prices.silver * exchangeRate).toFixed(2)),
+        gold: Number(goldPriceInRequestedCurrency.toFixed(2)),
+        silver: Number(silverPriceInRequestedCurrency.toFixed(2)),
         lastUpdated: prices.lastUpdated,
         isCache: prices.isCache,
         source: prices.source,
@@ -457,7 +506,7 @@ export async function GET(request: Request): Promise<Response> {
     console.error('Error in GET handler:', error);
     
     // Last resort - use memory cache for USD if nothing else works
-    if (globalMemoryCache['USD']) {
+    if (globalMemoryCache['USD'] && globalMemoryCache['USD'].prices) {
       return NextResponse.json({
         ...globalMemoryCache['USD'].prices,
         isCache: true,
@@ -465,13 +514,10 @@ export async function GET(request: Request): Promise<Response> {
       });
     }
     
+    // Load from fallback file as absolute last resort
+    const fallbackPrices = loadFallbackPrices();
     return NextResponse.json({
-      gold: Number(FALLBACK_PRICES.gold.toFixed(2)),
-      silver: Number(FALLBACK_PRICES.silver.toFixed(2)),
-      lastUpdated: FALLBACK_PRICES.lastUpdated,
-      isCache: FALLBACK_PRICES.isCache,
-      source: FALLBACK_PRICES.source,
-      currency: 'USD',
+      ...fallbackPrices,
       error: 'Failed to fetch prices and no cache available'
     });
   }

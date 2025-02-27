@@ -110,6 +110,30 @@ export function Summary({ currency }: { currency: string }) {
     })
   }, [nisabStatus.meetsNisab, nisabStatus.totalValue, currency])
 
+  // Track currency changes and force a refresh when currency changes
+  useEffect(() => {
+    console.log(`Summary: Currency is ${currency}, nisab currency is ${nisabStatus.currency}`);
+    
+    // If currencies don't match, we need to ensure a correct nisab status
+    if (nisabStatus.currency && nisabStatus.currency !== currency) {
+      console.log(`Summary: Currency mismatch detected - display: ${currency}, nisab: ${nisabStatus.currency}`);
+      
+      // Dispatch a custom event to force components to refresh with new currency
+      const event = new CustomEvent('currency-changed', {
+        detail: {
+          from: nisabStatus.currency,
+          to: currency
+        }
+      });
+      
+      // Small delay to ensure components are mounted
+      setTimeout(() => {
+        console.log('Summary: Dispatching currency-changed event');
+        window.dispatchEvent(event);
+      }, 100);
+    }
+  }, [currency, nisabStatus.currency]);
+
   // Get all the values we need
   const totalMetals = getTotalMetals()
   const totalCash = getTotalCash()
@@ -177,6 +201,7 @@ export function Summary({ currency }: { currency: string }) {
         <NisabStatus 
           nisabStatus={nisabStatus} 
           currency={currency}
+          key={`nisab-status-${currency}`}
         />
 
         <AssetDistribution

@@ -39,10 +39,11 @@ export const initialMetalsValues: MetalsValues = {
 }
 
 export const initialMetalPrices: MetalPrices = {
-  gold: 65.52,
-  silver: 0.85,
+  gold: 93.98,
+  silver: 1.02,
   lastUpdated: new Date(),
-  isCache: true
+  isCache: true,
+  currency: 'USD'
 }
 
 export const initialStockValues: StockValues = {

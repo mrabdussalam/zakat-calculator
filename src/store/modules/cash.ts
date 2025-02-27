@@ -29,6 +29,7 @@ export interface CashSlice {
   resetCashValues: () => void
   getTotalCash: () => number
   getTotalZakatableCash: () => number
+  updateCashValues: (values: Partial<CashValues>) => void
   getCashBreakdown: () => {
     total: number
     zakatable: number
@@ -92,6 +93,15 @@ export const createCashSlice: StateCreator<
       cashValues: {
         ...state.cashValues,
         [key]: roundCurrency(value as number)
+      }
+    }));
+  },
+
+  updateCashValues: (values) => {
+    set((state: ZakatState) => ({
+      cashValues: {
+        ...state.cashValues,
+        ...values
       }
     }));
   },

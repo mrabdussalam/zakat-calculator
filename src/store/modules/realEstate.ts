@@ -38,6 +38,7 @@ export interface RealEstateSlice {
   setRealEstateHawlMet: (value: boolean) => void
   resetRealEstateValues: () => void
   validateRealEstateValues: () => boolean
+  updateRealEstateValues: (values: Partial<RealEstateValues>) => void
 
   // Getters
   getRealEstateTotal: () => number
@@ -90,7 +91,12 @@ const initialRealEstateValues: RealEstateValues = {
 }
 
 // Store slice creator
-export const createRealEstateSlice: StateCreator<ZakatState> = (set, get) => ({
+export const createRealEstateSlice: StateCreator<
+  ZakatState,
+  [["zustand/persist", unknown]],
+  [],
+  RealEstateSlice
+> = (set, get) => ({
   // State
   realEstateValues: initialRealEstateValues,
   realEstateErrors: {},
@@ -113,6 +119,32 @@ export const createRealEstateSlice: StateCreator<ZakatState> = (set, get) => ({
 
       const isValid = !Object.values(newErrors).some(error => error !== undefined)
 
+      return {
+        realEstateValues: newValues,
+        realEstateErrors: newErrors,
+        isValid
+      }
+    })
+  },
+
+  updateRealEstateValues: (values: Partial<RealEstateValues>) => {
+    set((state: ZakatState) => {
+      const newValues = {
+        ...state.realEstateValues,
+        ...values
+      }
+      
+      // Validate the new values
+      const newErrors: RealEstateErrors = { ...state.realEstateErrors }
+      Object.entries(values).forEach(([field, value]) => {
+        if (typeof value === 'number' || typeof value === 'boolean') {
+          const error = validateRealEstateField(field as keyof RealEstateValues, value)
+          newErrors[field] = error
+        }
+      })
+      
+      const isValid = !Object.values(newErrors).some(error => error !== undefined)
+      
       return {
         realEstateValues: newValues,
         realEstateErrors: newErrors,

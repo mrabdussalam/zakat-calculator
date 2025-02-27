@@ -85,15 +85,52 @@ export const createMetalsSlice: StateCreator<ZakatState> = (set, get) => ({
 
   resetMetalsValues: () => set({ metalsValues: initialMetalsValues }),
 
-  setMetalPrices: (prices: MetalPrices) => set((state: ZakatState) => {
-    // Ensure currency is always set, default to USD if not provided
-    const updatedPrices = {
-      ...prices,
-      currency: prices.currency || 'USD'
-    };
+  setMetalPrices: (prices: MetalPrices) => {
+    // Ensure currency information is preserved
+    const state = get();
+    const currency = prices.currency || state.metalPrices?.currency || 'USD';
     
-    return { metalPrices: updatedPrices };
-  }),
+    console.log('Setting metal prices:', {
+      ...prices,
+      currency
+    });
+    
+    // Always ensure we set the currency
+    set({
+      metalPrices: {
+        ...prices,
+        currency
+      }
+    });
+    
+    // Trigger nisab update with the new prices
+    // This ensures nisab values are always in sync with metal prices
+    setTimeout(() => {
+      try {
+        const currentState = get();
+        if (currentState.updateNisabWithPrices) {
+          console.log('Synchronizing nisab calculations with updated metal prices');
+          
+          // Ensure we have a valid lastUpdated value
+          let lastUpdated = prices.lastUpdated;
+          // If it's neither a Date nor a string, create a new Date
+          if (!(lastUpdated instanceof Date) && typeof lastUpdated !== 'string') {
+            lastUpdated = new Date();
+          }
+          
+          currentState.updateNisabWithPrices({
+            gold: prices.gold,
+            silver: prices.silver,
+            currency: currency,
+            lastUpdated: lastUpdated,
+            isCache: prices.isCache || false
+          });
+        }
+      } catch (error) {
+        console.error('Failed to synchronize nisab with updated metal prices:', error);
+      }
+    }, 0);
+  },
 
   setMetalsHawl: (value: boolean) => set({ metalsHawlMet: value }),
 

@@ -1,8 +1,9 @@
 /**
  * Rounds a number to 2 decimal places for currency display
  */
-export const roundCurrency = (value: number): number => {
-  return Math.round((value + Number.EPSILON) * 100) / 100
+export function roundCurrency(value: number, precision = 2): number {
+  const multiplier = Math.pow(10, precision)
+  return Math.round(value * multiplier) / multiplier
 }
 
 /**
@@ -27,20 +28,52 @@ export const getCurrencyLocale = (currency: string): string => {
 }
 
 /**
- * Formats a number as currency with the specified currency code
+ * Formats a currency value for display
  */
-export const formatCurrency = (
+export function formatCurrency(
   value: number,
-  currency: string = 'USD'
-): string => {
-  const locale = getCurrencyLocale(currency)
+  currency = 'USD',
+  locale = 'en-US'
+): string {
+  if (value === undefined || value === null) return ''
   
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(roundCurrency(value))
+  }).format(value)
+}
+
+/**
+ * Formats a percentage for display
+ */
+export function formatPercentage(
+  value: number,
+  locale = 'en-US',
+  minimumFractionDigits = 2,
+  maximumFractionDigits = 2
+): string {
+  if (value === undefined || value === null) return ''
+  
+  return new Intl.NumberFormat(locale, {
+    style: 'percent',
+    minimumFractionDigits,
+    maximumFractionDigits
+  }).format(value / 100)
+}
+
+/**
+ * Converts a currency string to a number
+ */
+export function parseCurrency(value: string): number {
+  if (!value) return 0
+  
+  // Remove currency symbols and delimiters
+  const cleanValue = value.replace(/[^\d.-]/g, '')
+  
+  // Convert to number
+  return parseFloat(cleanValue) || 0
 }
 
 /**

@@ -9,6 +9,7 @@ import { motion } from 'framer-motion'
 import { Label } from "@/components/ui/form/label"
 import { cn } from "@/lib/utils"
 import { CurrencySelector } from "@/components/ui/CurrencySelector"
+import { useZakatStore } from "@/store/zakatStore"
 
 const notoNaskhArabic = Noto_Naskh_Arabic({
   weight: ['400', '500', '600', '700'],
@@ -46,13 +47,25 @@ export default function HomePage() {
   const handleStartCalculation = (e: React.MouseEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    // Small delay to show loading state
-    setTimeout(() => {
-      // Store the currency selection in localStorage for the dashboard to use
+    
+    // Get the zakatStore instance
+    const zakatStore = useZakatStore.getState()
+    
+    // Perform a hard reset with the new currency
+    if (zakatStore && typeof zakatStore.resetWithCurrencyChange === 'function') {
+      console.log('Performing hard reset with currency change to:', selectedCurrency)
+      zakatStore.resetWithCurrencyChange(selectedCurrency)
+    } else {
+      console.warn('resetWithCurrencyChange function not available, using fallback')
+      // Fallback: Store the currency selection in localStorage for the dashboard to use
       localStorage.setItem('zakatState', JSON.stringify({
         currency: selectedCurrency,
         setupCompleted: true
       }))
+    }
+    
+    // Small delay to show loading state
+    setTimeout(() => {
       window.location.href = '/dashboard?t=' + Date.now()
     }, 800)
   }

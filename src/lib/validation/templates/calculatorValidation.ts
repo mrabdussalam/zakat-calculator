@@ -1,106 +1,127 @@
-import { CashValues, ForeignCurrencyEntry } from '@/store/types'
+// Define ValidationResult type directly in this file
+// import { ValidationResult } from '../types'
+import { roundCurrency } from '@/lib/utils/currency'
 
-export interface CalculatorValidation<T> {
-  validateValues: (values: T) => boolean
-  validateCalculations: (total: number, breakdown: any) => boolean
-  validateZakatableAmount: (values: T, hawlMet: boolean) => boolean
-  validateNumericalFields: (values: T) => boolean
-  validateRequiredFields: (values: T) => boolean
-  validateBooleanFields?: (values: T) => boolean
-  validateCustom?: (values: T) => boolean
+// Define the ValidationResult interface
+export interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
 }
 
-export function createCalculatorValidation<T extends Record<string, any>>(config: {
-  name: string
-  requiredFields?: Array<keyof T>
-  numericalFields?: Array<keyof T>
-  booleanFields?: Array<keyof T>
-  customValidation?: (values: T) => boolean
-}): CalculatorValidation<T> {
-  const validateRequiredFields = (values: T): boolean => {
-    if (!config.requiredFields?.length) return true
-    return config.requiredFields.every(field => {
-      const value = values[field]
-      if (field === 'foreign_currency_entries') {
-        return Array.isArray(value)
-      }
-      return value !== undefined && value !== null
-    })
-  }
+export type CalculatorValidationFn<T> = (values: T, hawlMet: boolean) => ValidationResult
 
-  const validateNumericalFields = (values: T): boolean => {
-    if (!config.numericalFields?.length) return true
-    return config.numericalFields.every(field => {
-      const value = values[field]
-      if (field === 'foreign_currency_entries') {
-        if (!Array.isArray(value)) return false
-        return (value as ForeignCurrencyEntry[]).every(entry => 
-          typeof entry.amount === 'number' && 
-          !isNaN(entry.amount) && 
-          isFinite(entry.amount) && 
-          entry.amount >= 0
-        )
-      }
-      return (
-        typeof value === 'number' && 
-        !isNaN(value) && 
-        isFinite(value) && 
-        value >= 0
-      )
-    })
-  }
+export interface CalculatorValidationTemplate<T> {
+  requiredFields?: string[]
+  numericFields?: string[]
+  booleanFields?: string[]
+  customValidations?: CalculatorValidationFn<T>[]
+  validateZakatableAmount?: CalculatorValidationFn<T>
+}
 
-  const validateBooleanFields = config.booleanFields?.length
-    ? (values: T): boolean => {
-        return config.booleanFields?.every(
-          field => typeof values[field] === 'boolean'
-        ) ?? true
-      }
-    : undefined
-
-  return {
-    validateValues: (values: T): boolean => {
-      // Run all validations
-      const validations = [
-        () => validateRequiredFields(values),
-        () => validateNumericalFields(values),
-        config.booleanFields?.length ? () => validateBooleanFields?.(values) : null,
-        config.customValidation ? () => config.customValidation?.(values) : null
-      ].filter(Boolean)
-
-      return validations.every(validation => validation?.() ?? true)
-    },
-
-    validateRequiredFields,
-    validateNumericalFields,
-    validateBooleanFields,
-    validateCustom: config.customValidation,
-
-    validateCalculations: (total: number, breakdown: any): boolean => {
-      try {
-        // Verify total matches sum of items
-        const itemsTotal = Object.values(breakdown.items)
-          .reduce((sum: number, item: any) => {
-            if (typeof item !== 'object' || typeof item.value !== 'number') return sum
-            return sum + item.value
-          }, 0)
-
-        return Math.abs(total - itemsTotal) <= 0.01
-      } catch (error) {
-        console.error(`Calculation validation error in ${config.name}:`, error)
-        return false
-      }
-    },
-
-    validateZakatableAmount: (values: T, hawlMet: boolean): boolean => {
-      try {
-        // This should be implemented specifically for each calculator
-        // as zakatable amount rules vary by asset type
-        return true
-      } catch (error) {
-        console.error(`Zakatable amount validation error in ${config.name}:`, error)
-        return false
+/**
+ * Creates a validator function for calculator values based on a template
+ */
+export function createCalculatorValidator<T extends Record<string, unknown>>(template: CalculatorValidationTemplate<T>): CalculatorValidationFn<T> {
+  return (values: T, hawlMet: boolean): ValidationResult => {
+    const result: ValidationResult = { isValid: true, errors: [], warnings: [] }
+    
+    // Run template validations
+    const validations = [
+      template.requiredFields ? validateRequiredFields(template.requiredFields) : null,
+      template.numericFields ? validateNumericFields(template.numericFields) : null,
+      template.booleanFields ? validateBooleanFields(template.booleanFields) : null,
+      ...(template.customValidations || []),
+    ].filter(Boolean) as CalculatorValidationFn<T>[]
+    
+    // Run each validation
+    for (const validation of validations) {
+      const validationResult = validation(values, hawlMet)
+      if (!validationResult.isValid) {
+        result.isValid = false
+        result.errors.push(...validationResult.errors)
+        result.warnings.push(...validationResult.warnings)
       }
     }
+    
+    // Run zakatable amount validation if provided and hawlMet
+    if (hawlMet && template.validateZakatableAmount) {
+      const zakatableValidation = template.validateZakatableAmount(values, hawlMet)
+      if (!zakatableValidation.isValid) {
+        result.isValid = false
+        result.errors.push(...zakatableValidation.errors)
+        result.warnings.push(...zakatableValidation.warnings)
+      }
+    }
+    
+    return result
   }
+}
+
+/**
+ * Validates that required fields are present
+ */
+function validateRequiredFields<T extends Record<string, unknown>>(requiredFields: string[]): CalculatorValidationFn<T> {
+  return (values: T): ValidationResult => {
+    const result: ValidationResult = { isValid: true, errors: [], warnings: [] }
+    
+    for (const field of requiredFields) {
+      if (values[field] === undefined || values[field] === null || values[field] === '') {
+        result.isValid = false
+        result.errors.push(`Field '${field}' is required`)
+      }
+    }
+    
+    return result
+  }
+}
+
+/**
+ * Validates that numeric fields contain valid numbers
+ */
+function validateNumericFields<T extends Record<string, unknown>>(numericFields: string[]): CalculatorValidationFn<T> {
+  return (values: T): ValidationResult => {
+    const result: ValidationResult = { isValid: true, errors: [], warnings: [] }
+    
+    for (const field of numericFields) {
+      if (values[field] !== undefined && values[field] !== null) {
+        const value = values[field]
+        
+        if (typeof value !== 'number' || isNaN(value)) {
+          result.isValid = false
+          result.errors.push(`Field '${field}' must be a valid number`)
+        } else if (value < 0) {
+          result.isValid = false
+          result.errors.push(`Field '${field}' cannot be negative`)
+        }
+      }
+    }
+    
+    return result
+  }
+}
+
+/**
+ * Validates that boolean fields contain valid boolean values
+ */
+function validateBooleanFields<T extends Record<string, unknown>>(booleanFields: string[]): CalculatorValidationFn<T> {
+  return (values: T): ValidationResult => {
+    const result: ValidationResult = { isValid: true, errors: [], warnings: [] }
+    
+    for (const field of booleanFields) {
+      if (values[field] !== undefined && values[field] !== null) {
+        if (typeof values[field] !== 'boolean') {
+          result.isValid = false
+          result.errors.push(`Field '${field}' must be a boolean value`)
+        }
+      }
+    }
+    
+    return result
+  }
+}
+
+// Removing unused parameters
+export function validateNullCalculator(): ValidationResult {
+  return { isValid: true, errors: [], warnings: [] }
 } 
