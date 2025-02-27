@@ -2,6 +2,16 @@ import { AssetType, AssetBreakdown, AssetBreakdownItem, ZAKAT_RATE, safeCalculat
 
 const PASSIVE_FUND_RATE = 0.3 // 30% rule for passive funds
 
+/**
+ * Stocks Calculator - Calculates Zakat on various investment assets
+ * - Active trading stocks: 100% of market value is zakatable if hawl is met
+ * - Passive investments: Zakatable amount varies based on selected calculation method
+ * - Dividends: 100% of earnings are zakatable if hawl is met
+ * - Investment funds: 100% of value for active funds, partial for passive funds
+ * - Different calculation methods for passive investments: market value, 25% rule, or purification method
+ * - Applies standard 2.5% Zakat rate on zakatable amounts
+ */
+
 // Stock-specific interfaces
 export interface StockHolding {
   symbol: string
@@ -15,7 +25,7 @@ export interface StockHolding {
 export interface StockValues {
   // Active Trading
   activeStocks: StockHolding[]
-  
+
   // Passive Investments
   passiveInvestments?: {
     version: string
@@ -63,9 +73,9 @@ export const stocks: AssetType = {
     if (!values) return 0
 
     // Active Trading Stocks - Use marketValue which is already calculated
-    const activeValue = Array.isArray(values.activeStocks) 
-      ? values.activeStocks.reduce((sum, stock) => 
-          sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0), 0)
+    const activeValue = Array.isArray(values.activeStocks)
+      ? values.activeStocks.reduce((sum, stock) =>
+        sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0), 0)
       : 0
 
     // Passive Investments - Use stored marketValue
@@ -89,8 +99,8 @@ export const stocks: AssetType = {
 
     // Active Trading Stocks - Full amount is zakatable
     const activeValue = Array.isArray(values.activeStocks)
-      ? values.activeStocks.reduce((sum, stock) => 
-          sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0), 0)
+      ? values.activeStocks.reduce((sum, stock) =>
+        sum + (Number.isFinite(stock.marketValue) ? stock.marketValue : 0), 0)
       : 0
     const activeZakatable = hawlMet ? activeValue : 0
 
@@ -105,7 +115,7 @@ export const stocks: AssetType = {
 
     // Investment Funds - Apply 30% rule for passive funds
     const fundValue = safeCalculate(values.fund_value)
-    const fundZakatable = hawlMet 
+    const fundZakatable = hawlMet
       ? (values.is_passive_fund ? fundValue * PASSIVE_FUND_RATE : fundValue)
       : 0
 
@@ -125,7 +135,7 @@ export const stocks: AssetType = {
     }
 
     // Active Trading Stocks - Calculate from activeStocks array
-    const activeValue = (values.activeStocks || []).reduce((sum, stock) => 
+    const activeValue = (values.activeStocks || []).reduce((sum, stock) =>
       sum + stock.marketValue, 0)
     const activeZakatable = hawlMet ? activeValue : 0
     const activeZakatDue = activeZakatable * ZAKAT_RATE
@@ -143,7 +153,7 @@ export const stocks: AssetType = {
 
     // Investment Funds
     const fundValue = safeCalculate(values.fund_value)
-    const fundZakatable = hawlMet 
+    const fundZakatable = hawlMet
       ? (values.is_passive_fund ? fundValue * PASSIVE_FUND_RATE : fundValue)
       : 0
     const fundZakatDue = fundZakatable * ZAKAT_RATE
@@ -169,7 +179,7 @@ export const stocks: AssetType = {
         zakatable: passiveZakatable,
         zakatDue: passiveZakatDue,
         label: `Passive Investments (${passiveMethod === 'quick' ? '30% Rule' : 'CRI Method'})`,
-        tooltip: passiveMethod === 'quick' 
+        tooltip: passiveMethod === 'quick'
           ? '30% of market value is zakatable'
           : 'Based on company financials'
       },
@@ -187,7 +197,7 @@ export const stocks: AssetType = {
         zakatable: fundZakatable,
         zakatDue: fundZakatDue,
         label: values.is_passive_fund ? 'Passive Investment Funds (30% Rule)' : 'Active Investment Funds',
-        tooltip: values.is_passive_fund 
+        tooltip: values.is_passive_fund
           ? '30% of fund value is zakatable'
           : 'Full fund value is zakatable'
       }

@@ -1,18 +1,26 @@
+/**
+ * Real Estate Calculator - Calculates Zakat on property assets based on intent
+ * - Primary residence is exempt from Zakat
+ * - Rental property: Only net rental income is zakatable (income minus expenses) 
+ * - Property for sale: Full value is zakatable if actively listed for sale and hawl is met
+ * - Vacant land: Sale price is zakatable if sold and hawl is met
+ * - Applies standard 2.5% Zakat rate on zakatable amounts
+ */
 import { AssetType, AssetBreakdown, AssetBreakdownItem, ZAKAT_RATE, safeCalculate } from './types'
 import { formatCurrency } from '@/lib/utils/currency'
 
 interface RealEstateValues {
   // Primary Residence (exempt)
   primary_residence_value?: number
-  
+
   // Rental Property
   rental_income?: number
   rental_expenses?: number
-  
+
   // Property for Sale
   property_for_sale_value?: number
   property_for_sale_active?: number // 1 for active, 0 for inactive
-  
+
   // Vacant Land
   vacant_land_value?: number
   vacant_land_sold?: number // 1 for sold, 0 for not sold
@@ -121,7 +129,7 @@ export const realEstate: AssetType = {
         zakatable: propertyForSaleZakatable,
         zakatDue: propertyForSaleZakatDue,
         label: 'Property for Sale',
-        tooltip: isPropertyForSaleActive 
+        tooltip: isPropertyForSaleActive
           ? 'Property is actively listed for sale'
           : 'Property is not actively listed for sale'
       },

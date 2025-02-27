@@ -4,7 +4,7 @@ import { useCallback, useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/form/input'
 import { Label } from '@/components/ui/label'
-import { 
+import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -22,7 +22,7 @@ import { ForeignCurrencyEntry } from '@/store/types'
 import { CalculatorNav } from '@/components/ui/calculator-nav'
 import { useForeignCurrency } from '@/hooks/useForeignCurrency'
 import { CashValues as StoreCashValues } from '@/store/types'
-import { 
+import {
   CashCalculatorProps,
   ForeignCurrencyInputProps,
   CashInputFieldProps,
@@ -73,30 +73,30 @@ const CASH_CATEGORIES: CashCategory[] = [
 ]
 
 const EXPENSES: CashExpense[] = [
-  { 
-    id: 'credit_card', 
+  {
+    id: 'credit_card',
     name: 'Credit Card Bills',
     description: 'Outstanding credit card balances'
   },
-  { 
-    id: 'utility_bills', 
+  {
+    id: 'utility_bills',
     name: 'Utility Bills',
     description: 'Pending utility payments'
   },
-  { 
-    id: 'short_term_loans', 
+  {
+    id: 'short_term_loans',
     name: 'Short Term Loans',
     description: 'Loans due within the year'
   },
-  { 
-    id: 'unpaid_zakat', 
+  {
+    id: 'unpaid_zakat',
     name: 'Unpaid Zakat',
     description: 'Previous unpaid Zakat obligations'
   }
 ]
 
 // Add a ConversionStatus component for better user feedback
-const ConversionStatus = ({ 
+const ConversionStatus = ({
   isLoading,
   error,
   warning,
@@ -114,10 +114,10 @@ const ConversionStatus = ({
         <div>
           <span className="font-medium">Error:</span> {error}
         </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={onRetry} 
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onRetry}
           className="ml-2 text-xs h-7"
         >
           Retry
@@ -125,7 +125,7 @@ const ConversionStatus = ({
       </div>
     );
   }
-  
+
   // Don't show loading or general warning states to keep UI clean
   return null;
 };
@@ -157,9 +157,9 @@ const createFormatHelpers = (currency: string): FormatHelpers => {
 
   const formatTruncatedCurrency = (value: number): React.ReactNode => {
     if (value === 0) return '-'
-    
+
     const formattedValue = formatCurrency(value)
-    
+
     return (
       <span className="text-sm text-gray-500 whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px] inline-block">
         ≈ {formattedValue}
@@ -186,41 +186,41 @@ const createEventHandlers = (props: EventHandlerProps) => {
     retryFetchRates,
     currency
   } = props;
-  
+
   const handleCurrencyChange = () => {
     console.log('CashCalculator: Currency changed or refresh requested');
-    
+
     // Retry fetching rates in case they're stale
     retryFetchRates(0);
-    
+
     // Force recalculation of totals
     setTimeout(() => {
       const totalCash = storeState.getTotalCash();
       const totalZakatable = storeState.getTotalZakatableCash();
-      
+
       // Notify parent component of the update
       onUpdateValues({
         total: totalCash,
         zakatable: totalZakatable
       });
-      
+
       console.log('CashCalculator: Values refreshed after currency change', {
         totalCash,
         totalZakatable
       });
     }, 100);
   };
-  
+
   const handleDisplayOnlyRefresh = (event: Event) => {
     // Type check and cast the event
     if (!(event instanceof CustomEvent)) return;
-    
+
     const detail = event.detail || {};
     const isPageRefresh = detail.isPageRefresh === true;
-    
+
     if (isPageRefresh) {
       console.log('CashCalculator: Received display-only refresh, preserving values');
-      
+
       // Force a re-render and recalculation without changing values
       setTimeout(() => {
         // Use existing input values from component state
@@ -230,11 +230,11 @@ const createEventHandlers = (props: EventHandlerProps) => {
           }
           return acc;
         }, {} as Record<string, number>);
-        
+
         // Calculate the total from the parsed values
         const totalCash = storeState.getTotalCash();
         const totalZakatable = cashHawlMet ? totalCash : 0;
-        
+
         // Update display without resetting values
         onUpdateValues({
           total: totalCash,
@@ -252,9 +252,9 @@ const createEventHandlers = (props: EventHandlerProps) => {
 
 // Extract input validation logic to a separate function
 const validateAndProcessInput = (
-  inputValue: string, 
-  categoryId: string, 
-  setCashValue: (key: keyof StoreCashValues, value: number) => void, 
+  inputValue: string,
+  categoryId: string,
+  setCashValue: (key: keyof StoreCashValues, value: number) => void,
   setInputValues: React.Dispatch<React.SetStateAction<InputValues>>,
   setRawInputValues: React.Dispatch<React.SetStateAction<RawInputValues>>
 ) => {
@@ -279,10 +279,10 @@ const validateAndProcessInput = (
     if (!/[+\-*/.]$/.test(inputValue)) {
       // Remove any commas from the input before evaluating
       const cleanInput = inputValue.replace(/,/g, '');
-      
+
       // Convert to numeric value (handles calculations)
       const numericValue = evaluateExpression(cleanInput);
-      
+
       // Only update store if we have a valid number
       if (!isNaN(numericValue)) {
         setCashValue(categoryId as keyof StoreCashValues, numericValue);
@@ -314,21 +314,21 @@ const ForeignCurrencyInput: React.FC<ForeignCurrencyInputProps> = ({
   // Memoize the formatter
   const formatTruncatedCurrency = useCallback((value: number): React.ReactNode => {
     if (value === 0) return '-'
-    
+
     const formattedValue = new Intl.NumberFormat(undefined, {
       style: 'currency',
       currency: currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(value)
-    
+
     return (
       <span className="text-sm text-gray-500 whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px] inline-block">
         ≈ {formattedValue}
       </span>
     )
   }, [currency])
-  
+
   return (
     <div className="space-y-3 w-full">
       {/* Show error status only when needed */}
@@ -340,7 +340,7 @@ const ForeignCurrencyInput: React.FC<ForeignCurrencyInputProps> = ({
           onRetry={onRetry}
         />
       )}
-      
+
       {entries.map((entry: ForeignCurrencyEntry, index: number) => (
         <div key={index} className="w-full">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full">
@@ -394,12 +394,12 @@ const ForeignCurrencyInput: React.FC<ForeignCurrencyInputProps> = ({
 }
 
 // Create a separate component for regular cash input fields
-const CashInputField: React.FC<CashInputFieldProps> = ({ 
-  id, 
-  name, 
-  currency, 
-  value, 
-  onChange 
+const CashInputField: React.FC<CashInputFieldProps> = ({
+  id,
+  name,
+  currency,
+  value,
+  onChange
 }) => {
   return (
     <div className="space-y-2 w-full">
@@ -425,14 +425,14 @@ const CashInputField: React.FC<CashInputFieldProps> = ({
   )
 }
 
-export function CashCalculator({ 
-  currency, 
+export function CashCalculator({
+  currency,
   onCalculatorChange,
   onUpdateValues,
   onHawlUpdate,
   onOpenSummary,
   initialValues = {},
-  initialHawlMet = true 
+  initialHawlMet = true
 }: CashCalculatorProps) {
   const {
     cashValues,
@@ -445,41 +445,41 @@ export function CashCalculator({
 
   // Track both display values and raw input values
   const [rawInputValues, setRawInputValues] = useState<RawInputValues>({})
-  const [inputValues, setInputValues] = useState<InputValues>(() => 
+  const [inputValues, setInputValues] = useState<InputValues>(() =>
     Object.keys(cashValues).reduce((acc, key) => {
       if (key === 'foreign_currency_entries') return acc
       return {
         ...acc,
-        [key]: typeof cashValues[key as keyof StoreCashValues] === 'number' && 
-               (cashValues[key as keyof StoreCashValues] as number) > 0 
+        [key]: typeof cashValues[key as keyof StoreCashValues] === 'number' &&
+          (cashValues[key as keyof StoreCashValues] as number) > 0
           ? (cashValues[key as keyof StoreCashValues] as number).toString()
           : ''
       }
     }, {} as InputValues)
   )
-  
+
   // Add a state to track if store has been hydrated
   const [storeHydrated, setStoreHydrated] = useState(false)
-  
+
   const { rates, fetchRates, convertAmount, isLoading, error } = useCurrencyStore()
-  
+
   // Memoize the store state to avoid unnecessary re-renders
   const storeState = useMemo(() => ({
     getTotalCash,
     getTotalZakatableCash
   }), [getTotalCash, getTotalZakatableCash])
-  
+
   // Memoize formatter helpers
   const formatters = useMemo(() => createFormatHelpers(currency), [currency])
   const { formatNumber, formatDisplayValue, formatCurrency, formatTruncatedCurrency } = formatters
-  
+
   // Add the retry mechanism for fetching rates - MOVED BEFORE THE USEEFFECT THAT REFERENCES IT
   const retryFetchRates = useCallback((retryCount = 0, maxRetries = 3) => {
     if (retryCount >= maxRetries) {
       console.warn(`Failed to fetch exchange rates after ${maxRetries} attempts`);
       return;
     }
-    
+
     fetchRates(currency)
       .catch(() => {
         // Exponential backoff for retries
@@ -488,7 +488,7 @@ export function CashCalculator({
         setTimeout(() => retryFetchRates(retryCount + 1, maxRetries), delay);
       });
   }, [currency, fetchRates]);
-  
+
   // Memoize event handlers to prevent recreation on each render
   const eventHandlers = useMemo(() => createEventHandlers({
     onUpdateValues,
@@ -499,23 +499,23 @@ export function CashCalculator({
     retryFetchRates,
     currency
   }), [onUpdateValues, setInputValues, cashHawlMet, cashValues, storeState, retryFetchRates, currency])
-  
+
   const { handleCurrencyChange, handleDisplayOnlyRefresh } = eventHandlers
-  
+
   // Add a listener for the store hydration event
   useEffect(() => {
     const handleHydrationComplete = (event?: Event) => {
       console.log('CashCalculator: Store hydration complete event received', event);
-      
+
       // Mark the store as hydrated
       setStoreHydrated(true);
-      
+
       // Check if this is part of initial page load
       const customEvent = event as CustomEvent;
       const isInitialLoad = customEvent?.detail?.isInitialPageLoad;
-      
+
       console.log('CashCalculator: Hydration during initial page load:', isInitialLoad);
-      
+
       // Only update the UI with values during initial hydration
       // This prevents inadvertent resets during page load
       if (isInitialLoad) {
@@ -523,18 +523,18 @@ export function CashCalculator({
         // 1. Initialize form values from the store
         // 2. Do not trigger any validation or updates yet
         console.log('CashCalculator: initializing form values from store during initial hydration');
-        
+
         // Handle foreign currency entries sync during initial load
-        if (cashValues.foreign_currency_entries && 
-            cashValues.foreign_currency_entries.length > 0) {
+        if (cashValues.foreign_currency_entries &&
+          cashValues.foreign_currency_entries.length > 0) {
           // Directly set foreign currency entries from store
           setCashValue('foreign_currency_entries', cashValues.foreign_currency_entries);
         }
-        
+
         // Set input values from store
         setInputValues((prev) => {
           const updatedInputs: InputValues = { ...prev };
-          
+
           // Update each form field with store value
           Object.keys(cashValues).forEach((key) => {
             if (key !== 'foreign_currency_entries') {
@@ -544,15 +544,15 @@ export function CashCalculator({
               }
             }
           });
-          
+
           return updatedInputs;
         });
       }
     }
-    
+
     // Listen for the custom hydration event
     window.addEventListener('store-hydration-complete', handleHydrationComplete)
-    
+
     // Check if hydration already happened
     if (typeof window !== 'undefined') {
       // Safe way to check for custom property without TypeScript errors
@@ -561,24 +561,24 @@ export function CashCalculator({
         handleHydrationComplete()
       }
     }
-    
+
     return () => {
       window.removeEventListener('store-hydration-complete', handleHydrationComplete)
     }
   }, [cashValues, setCashValue, onUpdateValues, retryFetchRates])
-  
+
   // Optimize currency change event listeners
   useEffect(() => {
     // Create a stable reference to the event handlers
     const currencyChangeHandler = handleCurrencyChange;
     const displayRefreshHandler = handleDisplayOnlyRefresh;
-    
+
     // Listen for events
     window.addEventListener('currency-changed', currencyChangeHandler);
     window.addEventListener('zakat-calculators-refresh', currencyChangeHandler);
     window.addEventListener('calculator-values-refresh', currencyChangeHandler);
     window.addEventListener('currency-display-refresh', displayRefreshHandler);
-    
+
     return () => {
       window.removeEventListener('currency-changed', currencyChangeHandler);
       window.removeEventListener('zakat-calculators-refresh', currencyChangeHandler);
@@ -586,24 +586,24 @@ export function CashCalculator({
       window.removeEventListener('currency-display-refresh', displayRefreshHandler);
     };
   }, [handleCurrencyChange, handleDisplayOnlyRefresh]);
-  
+
   // Fetch rates when currency changes with retry mechanism
   useEffect(() => {
     retryFetchRates();
   }, [currency, retryFetchRates]);
-  
+
   // Log whenever foreign currency entries change in the store
   useEffect(() => {
     console.log('CashCalculator: Foreign currency entries in store:', cashValues.foreign_currency_entries);
   }, [cashValues.foreign_currency_entries]);
-  
+
   // Use the custom hook to manage foreign currency with improved options
   const updateForeignCurrencyStore = useCallback((entries: ForeignCurrencyEntry[], total: number) => {
     console.log('CashCalculator: Updating foreign currency in store:', entries, total);
     setCashValue('foreign_currency_entries', entries);
     setCashValue('foreign_currency', total);
   }, [setCashValue]);
-  
+
   const {
     foreignCurrencies,
     conversionWarning,
@@ -617,7 +617,7 @@ export function CashCalculator({
     convertAmount,
     updateStore: updateForeignCurrencyStore
   });
-  
+
   // Set initial hawl status only once on mount
   useEffect(() => {
     if (!cashHawlMet) {
@@ -629,20 +629,20 @@ export function CashCalculator({
   useEffect(() => {
     // Only run this effect after hydration to prevent wiping out values during initialization
     if (!storeHydrated) return
-    
+
     const newInputValues = CASH_KEYS.reduce((acc, key) => ({
       ...acc,
-      [key]: typeof cashValues[key] === 'number' && 
-             (cashValues[key] as number) > 0 
+      [key]: typeof cashValues[key] === 'number' &&
+        (cashValues[key] as number) > 0
         ? (cashValues[key] as number).toString()
         : ''
     }), {} as InputValues)
-    
+
     // Only update if values are different
     const hasChanges = CASH_KEYS.some(
       key => newInputValues[key] !== inputValues[key]
     )
-    
+
     if (hasChanges) {
       setInputValues(newInputValues)
     }
@@ -652,10 +652,10 @@ export function CashCalculator({
   useEffect(() => {
     // Only process resets after hydration is complete to prevent false resets
     if (!storeHydrated) return;
-    
+
     const handleReset = (event?: Event) => {
       console.log('CashCalculator: Store reset event detected');
-      
+
       // Check if this is still during initial page load
       if (typeof window !== 'undefined') {
         // Safe way to check for custom property without TypeScript errors
@@ -665,40 +665,56 @@ export function CashCalculator({
           return;
         }
       }
-      
+
       // This is a user-initiated reset, so clear all local state
       console.log('CashCalculator: Clearing local state due to user-initiated reset');
-      
-      // Clear inputs
-      setInputValues({} as InputValues);
+
+      // Clear inputs - use empty strings for all fields to ensure they're blank in the UI
+      const emptyInputs = CASH_KEYS.reduce((acc, key) => ({
+        ...acc,
+        [key]: ''
+      }), {} as InputValues);
+
+      setInputValues(emptyInputs);
       setRawInputValues({} as RawInputValues);
-      
-      // Clear foreign currency entries
+
+      // Clear foreign currency entries in both the store and local state
       setCashValue('foreign_currency_entries', []);
+      setCashValue('foreign_currency', 0);
+
+      // Ensure the total is updated after reset
+      setTimeout(() => {
+        onUpdateValues({
+          total: 0,
+          zakatable: 0
+        });
+      }, 100);
     };
-    
-    // Listen for the store-reset event
+
+    // Listen for both possible reset event names
     window.addEventListener('store-reset', handleReset);
-    
+    window.addEventListener('zakat-store-reset', handleReset);
+
     // Cleanup
     return () => {
       window.removeEventListener('store-reset', handleReset);
+      window.removeEventListener('zakat-store-reset', handleReset);
     };
-  }, [storeHydrated, setInputValues, setRawInputValues, setCashValue]);
+  }, [storeHydrated, setCashValue, onUpdateValues, setInputValues, setRawInputValues]);
 
   // Optimize the value change handler with useCallback
   const handleValueChange = useCallback((categoryId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = event.target.value;
-    
+
     // Allow numbers, decimal points, basic math operators, and spaces
     if (!/^[\d+\-*/.() ]*$/.test(inputValue) && inputValue !== '') {
       return; // Ignore invalid characters
     }
-    
+
     validateAndProcessInput(
-      inputValue, 
-      categoryId, 
-      setCashValue, 
+      inputValue,
+      categoryId,
+      setCashValue,
       setInputValues,
       setRawInputValues
     );
@@ -731,7 +747,7 @@ export function CashCalculator({
                       </Label>
                     </div>
                   ) : null}
-                  
+
                   {category.id === 'foreign_currency' ? (
                     <ForeignCurrencyInput
                       entries={foreignCurrencies}
@@ -750,7 +766,7 @@ export function CashCalculator({
                       id={category.id}
                       name={category.name}
                       currency={currency}
-                      value={rawInputValues[category.id] || inputValues[category.id] || ''}
+                      value={(rawInputValues[category.id] as string) || (inputValues[category.id] as string) || ''}
                       onChange={handleValueChange}
                     />
                   )}
@@ -761,8 +777,8 @@ export function CashCalculator({
         </div>
 
         {/* Navigation */}
-        <CalculatorNav 
-          currentCalculator="cash" 
+        <CalculatorNav
+          currentCalculator="cash"
           onCalculatorChange={onCalculatorChange}
           onOpenSummary={onOpenSummary}
         />

@@ -10,7 +10,12 @@ interface UseMetalsPricesProps {
 }
 
 /**
- * Hook to manage metal prices fetching and currency conversion
+ * Metals Prices Hook - Manages metal price data and conversions
+ * - Fetches current market prices for gold and silver
+ * - Handles currency conversions for international prices
+ * - Provides cached price data with refresh mechanism
+ * - Calculates Nisab thresholds based on current prices
+ * - Offers fallback mechanisms for API failures
  */
 export function useMetalsPrices({ currency }: UseMetalsPricesProps) {
     const {

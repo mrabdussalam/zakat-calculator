@@ -1,3 +1,11 @@
+/**
+ * Precious Metals Form Hook - Manages form state and calculations for precious metals
+ * - Handles unit conversions between grams, tolas, ounces
+ * - Tracks quantities for each metal category (regular, occasional, investment)
+ * - Calculates total and zakatable amounts based on current market prices
+ * - Validates input values and processes unit changes
+ * - Syncs with global state for consistent calculations
+ */
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useZakatStore } from '@/store/zakatStore'
 import { toGrams, fromGrams, WeightUnit } from '@/lib/utils/units'

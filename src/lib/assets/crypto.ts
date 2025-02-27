@@ -1,3 +1,11 @@
+/**
+ * Crypto Calculator - Calculates Zakat on cryptocurrency holdings
+ * - Trading crypto: 100% of market value is zakatable if hawl is met
+ * - Staked/Locked crypto: Only accessible amount is zakatable
+ * - Mining rewards: 100% of earned rewards are zakatable
+ * - Converts all crypto values to local currency for calculation
+ * - Applies standard 2.5% Zakat rate on zakatable amounts
+ */
 import { AssetType, AssetBreakdown, ZAKAT_RATE } from './types'
 import { CryptoValues } from '@/store/types'
 
@@ -5,12 +13,12 @@ export const crypto: AssetType = {
   id: 'crypto',
   name: 'Cryptocurrency',
   color: '#F7931A', // Bitcoin orange
-  
+
   calculateTotal: (values: CryptoValues): number => {
     if (!values || !Array.isArray(values.coins)) return 0
     return values.coins.reduce((sum, coin) => sum + (coin.marketValue || 0), 0)
   },
-  
+
   calculateZakatable: (values: CryptoValues, _prices: unknown, hawlMet: boolean): number => {
     if (!hawlMet || !values || !Array.isArray(values.coins)) return 0
     return values.coins.reduce((sum, coin) => sum + (coin.marketValue || 0), 0)
@@ -81,7 +89,7 @@ export const crypto: AssetType = {
       Object.entries(aggregatedCoins).forEach(([symbol, data]) => {
         const itemZakatable = hawlMet ? data.marketValue : 0
         const itemZakatDue = itemZakatable * ZAKAT_RATE
-        
+
         items[symbol.toLowerCase()] = {
           value: data.marketValue,
           isZakatable: hawlMet,

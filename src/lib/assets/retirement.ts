@@ -1,3 +1,12 @@
+/**
+ * Retirement Calculator - Calculates Zakat on retirement accounts
+ * - 401(k) accounts: Only withdrawable amount is zakatable (after tax and penalties)
+ * - IRAs: If accessible (over 59½), full amount is zakatable; otherwise net after penalties
+ * - Roth accounts: Full amount of contributions is zakatable
+ * - Employer match: Only vested portions are considered for Zakat
+ * - Accounts are zakatable if hawl requirement is met
+ * - Applies standard 2.5% Zakat rate on zakatable amounts
+ */
 import { AssetType, AssetBreakdown, AssetBreakdownItem, ZAKAT_RATE, safeCalculate } from './types'
 import { formatCurrency } from '@/lib/utils/currency'
 import { RetirementValues } from '@/store/types'
@@ -114,7 +123,7 @@ export const retirement: AssetType = {
       zakatable: netAmount,
       zakatDue: netAmount * ZAKAT_RATE,
       label: 'Accessible Funds',
-      tooltip: traditionalTotal > 0 
+      tooltip: traditionalTotal > 0
         ? 'Gross amount before taxes and penalties. Zakat is due on net amount after deductions.'
         : 'No accessible funds added yet',
       isExempt: false
@@ -127,7 +136,7 @@ export const retirement: AssetType = {
       zakatable: 0,
       zakatDue: 0,
       label: 'Locked Funds',
-      tooltip: pension > 0 
+      tooltip: pension > 0
         ? 'Funds are locked until retirement - Zakat is deferred'
         : 'No locked funds added yet',
       isExempt: true

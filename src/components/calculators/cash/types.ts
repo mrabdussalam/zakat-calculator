@@ -76,8 +76,8 @@ export interface EventHandlerProps {
 
 // Input validation utilities props
 export interface InputValidationProps {
-  inputValue: string 
-  categoryId: string 
+  inputValue: string
+  categoryId: string
   setCashValue: (key: any, value: number) => void
   setInputValues: React.Dispatch<React.SetStateAction<InputValues>>
   setRawInputValues: React.Dispatch<React.SetStateAction<RawInputValues>>

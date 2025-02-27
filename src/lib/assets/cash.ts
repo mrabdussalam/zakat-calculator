@@ -1,3 +1,10 @@
+/**
+ * Cash Calculator - Calculates Zakat on all liquid cash assets
+ * - Aggregates all cash values (cash on hand, checking, savings, digital wallets, foreign currency)
+ * - All cash is considered zakatable at full value if hawl is met
+ * - Applies standard 2.5% Zakat rate on total cash holdings
+ * - Provides detailed breakdown of each cash category
+ */
 import { AssetType, AssetBreakdown, AssetBreakdownItem, ZAKAT_RATE, safeCalculate } from './types'
 import { formatCurrency } from '@/lib/utils/currency'
 
@@ -27,11 +34,11 @@ export const cash: AssetType = {
   getBreakdown: (values: CashValues, _prices: undefined, hawlMet: boolean, currency: string = 'USD'): AssetBreakdown => {
     const items = Object.entries(values).reduce((acc, [key, value]) => {
       if (key === 'foreign_currency_entries') return acc
-      
+
       const safeValue = safeCalculate(value)
       const zakatable = hawlMet ? safeValue : 0
       const zakatDue = hawlMet ? safeValue * ZAKAT_RATE : 0
-      
+
       return {
         ...acc,
         [key]: {
@@ -39,10 +46,10 @@ export const cash: AssetType = {
           isZakatable: hawlMet,
           zakatable,
           zakatDue,
-          label: key.split('_').map(word => 
+          label: key.split('_').map(word =>
             word.charAt(0).toUpperCase() + word.slice(1)
           ).join(' '),
-          tooltip: hawlMet 
+          tooltip: hawlMet
             ? `Full amount is zakatable: ${formatCurrency(safeValue, currency)}`
             : 'Hawl period not met yet'
         }
