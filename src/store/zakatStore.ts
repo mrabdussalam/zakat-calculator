@@ -78,45 +78,101 @@ const initialState: Partial<ZakatState> = {
   cryptoHawlMet: DEFAULT_HAWL_STATUS.crypto
 }
 
-// ENHANCEMENT: Create a proper hydration function that ensures data from localStorage is loaded correctly
-const hydratePersistedData = (persistedState: any, initialState: Partial<ZakatState>) => {
-  if (!persistedState) return initialState;
+// Enhanced hydration function with better error handling and validation
+export const hydratePersistedData = (persistedState: any, initialState: any): any => {
+  // Safety check for null or undefined persisted state
+  if (!persistedState) {
+    console.log('No persisted state found, using initial state');
+    return initialState;
+  }
 
-  // Log the hydration process
-  console.log('Hydrating store with persisted data');
+  try {
+    // Create a deep copy of the initial state to avoid mutations
+    const baseState = JSON.parse(JSON.stringify(initialState));
 
-  // Deep merge the persisted state with initial state to ensure all fields exist
-  return {
-    ...initialState,
-    ...persistedState,
-    // Ensure these objects are properly hydrated with all their properties
-    metalsValues: {
-      ...initialState.metalsValues,
-      ...persistedState.metalsValues
-    },
-    cashValues: {
-      ...initialState.cashValues,
-      ...persistedState.cashValues
-    },
-    stockValues: {
-      ...initialState.stockValues,
-      ...persistedState.stockValues
-    },
-    retirement: {
-      ...initialState.retirement,
-      ...persistedState.retirement
-    },
-    realEstateValues: {
-      ...initialState.realEstateValues,
-      ...persistedState.realEstateValues
-    },
-    cryptoValues: {
-      ...initialState.cryptoValues,
-      ...persistedState.cryptoValues
-    },
-    nisabData: persistedState.nisabData,
-    metalPrices: persistedState.metalPrices
-  };
+    // Log hydration for debugging
+    console.log('Hydrating persisted state', {
+      hasPersistedState: !!persistedState,
+      persistedStateKeys: persistedState ? Object.keys(persistedState) : []
+    });
+
+    // Validate persisted state structure before merging
+    if (typeof persistedState !== 'object' || persistedState === null) {
+      console.error('Invalid persisted state format, using initial state');
+      return baseState;
+    }
+
+    // Create the merged state with type safety
+    const mergedState: any = { ...baseState };
+
+    // Process each top-level key in the initial state
+    Object.keys(baseState).forEach(key => {
+      // Skip special keys that shouldn't be hydrated from persistence
+      if (['version', 'lastUpdated'].includes(key)) {
+        return;
+      }
+
+      // If the key exists in persisted state, merge it
+      if (persistedState[key] !== undefined) {
+        // Handle different data types appropriately
+        if (typeof baseState[key] === 'object' && baseState[key] !== null &&
+          typeof persistedState[key] === 'object' && persistedState[key] !== null) {
+
+          // For objects, do a shallow merge to preserve structure
+          mergedState[key] = {
+            ...baseState[key],
+            ...persistedState[key]
+          };
+
+          // Special handling for nested objects that need validation
+          if (key === 'metals' || key === 'cash' || key === 'stocks' || key === 'realEstate') {
+            // Ensure all required properties exist
+            Object.keys(baseState[key]).forEach(subKey => {
+              if (mergedState[key][subKey] === undefined) {
+                console.warn(`Missing required property ${subKey} in ${key}, restoring from initial state`);
+                mergedState[key][subKey] = baseState[key][subKey];
+              }
+            });
+          }
+        } else if (Array.isArray(baseState[key]) && Array.isArray(persistedState[key])) {
+          // For arrays, use the persisted array but validate items
+          mergedState[key] = persistedState[key].map((item: any) => {
+            // If array contains objects, ensure they have required properties
+            if (typeof item === 'object' && item !== null) {
+              const templateItem = baseState[key][0] || {};
+              return { ...templateItem, ...item };
+            }
+            return item;
+          });
+        } else {
+          // For primitive values, use persisted value with type checking
+          const expectedType = typeof baseState[key];
+          if (typeof persistedState[key] === expectedType) {
+            mergedState[key] = persistedState[key];
+          } else {
+            console.warn(`Type mismatch for ${key}, expected ${expectedType} but got ${typeof persistedState[key]}`);
+            mergedState[key] = baseState[key];
+          }
+        }
+      }
+    });
+
+    // Add any new keys from the initial state that don't exist in persisted state
+    Object.keys(baseState).forEach(key => {
+      if (mergedState[key] === undefined) {
+        mergedState[key] = baseState[key];
+      }
+    });
+
+    // Ensure version is always the latest
+    mergedState.version = baseState.version;
+    mergedState.lastUpdated = new Date().toISOString();
+
+    return mergedState;
+  } catch (error) {
+    console.error('Error hydrating persisted state:', error);
+    return initialState;
+  }
 };
 
 // Create the store
@@ -150,13 +206,11 @@ export const useZakatStore = create<ZakatState>()(
           const currentState = get();
 
           // Extract values we want to preserve (if any)
-          const { metalPrices, currency } = currentState;
+          const { currency } = currentState;
 
           // Set the state to initial values
           set({
             ...initialState,
-            // Preserve metal prices (if any) to avoid currency issues
-            metalPrices: metalPrices,
             // Preserve currency if available
             currency: currency || initialState.currency
           });
@@ -195,8 +249,8 @@ export const useZakatStore = create<ZakatState>()(
                 retirementHawlMet: initialState.retirementHawlMet,
                 realEstateHawlMet: initialState.realEstateHawlMet,
                 ...('cryptoHawlMet' in initialState ? { cryptoHawlMet: initialState.cryptoHawlMet } : {}),
-                // Preserve metal prices for currency consistency
-                metalPrices: metalPrices
+                // Do not preserve nisab data or metal prices
+                nisabData: undefined
               };
 
               // Preserve store structure but reset state
@@ -208,7 +262,7 @@ export const useZakatStore = create<ZakatState>()(
               console.log('Successfully reset localStorage state with structure preserved')
             }
           } catch (error) {
-            console.error('Error updating localStorage during reset:', error)
+            console.error('Error updating localStorage during reset:', error instanceof Error ? error.message : String(error))
           }
 
           // Always dispatch the custom event, even if localStorage update fails
@@ -220,7 +274,7 @@ export const useZakatStore = create<ZakatState>()(
               window.dispatchEvent(resetEvent);
               console.log('Dispatched zakat-store-reset event');
             } catch (eventError) {
-              console.error('Failed to dispatch reset event:', eventError);
+              console.error('Failed to dispatch reset event:', eventError instanceof Error ? eventError.message : String(eventError));
             }
           }
         },
@@ -290,7 +344,7 @@ export const useZakatStore = create<ZakatState>()(
                       set({ currency: originalCurrency });
                     }, 0);
                   })
-                  .catch(err => console.error('Error during immediate nisab refresh:', err));
+                  .catch(err => console.error('Error during immediate nisab refresh:', err instanceof Error ? err.message : String(err)));
               }, 0);
             }
 
@@ -314,7 +368,7 @@ export const useZakatStore = create<ZakatState>()(
               }));
             }
           } catch (error) {
-            console.error('Error handling currency change:', error);
+            console.error('Error handling currency change:', error instanceof Error ? error.message : String(error));
           }
         },
 
@@ -347,6 +401,41 @@ export const useZakatStore = create<ZakatState>()(
               lastUpdated: new Date(),
               isCache: true // Mark as cache so we know to refresh
             });
+
+            // IMPORTANT: Immediately update nisab data with the new metal prices
+            // This ensures nisab threshold updates instantly with the metal prices
+            const updatedPrices = {
+              gold: currentPrices.gold,
+              silver: currentPrices.silver,
+              currency: newCurrency,
+              lastUpdated: new Date(),
+              isCache: true
+            };
+
+            // First try to use the direct update method for immediate updates
+            if (typeof get().updateNisabWithPrices === 'function') {
+              console.log('Immediately updating nisab with new metal prices (direct method)');
+              const success = get().updateNisabWithPrices(updatedPrices);
+              console.log('Direct nisab update result:', success ? 'success' : 'failed');
+
+              // If direct update failed, fall back to the refresh method
+              if (!success && typeof get().forceRefreshNisabForCurrency === 'function') {
+                console.log('Falling back to refresh method for nisab update');
+                get().forceRefreshNisabForCurrency(newCurrency)
+                  .catch(error => console.error('Error in fallback nisab refresh:', error));
+              }
+            }
+            // If direct update not available, use the refresh method
+            else if (typeof get().forceRefreshNisabForCurrency === 'function') {
+              console.log('Immediately updating nisab data with new currency (refresh method):', newCurrency);
+              get().forceRefreshNisabForCurrency(newCurrency)
+                .then(success => {
+                  console.log('Immediate nisab update result:', success ? 'success' : 'failed');
+                })
+                .catch(error => {
+                  console.error('Error during immediate nisab update:', error);
+                });
+            }
 
             // Dispatch metals-updated event after the immediate update
             const immediateEvent = new CustomEvent('metals-updated', {
@@ -389,15 +478,15 @@ export const useZakatStore = create<ZakatState>()(
                   console.log('Updated metal prices with fresh data:', data);
                 })
                 .catch(error => {
-                  console.error('Failed to fetch fresh metal prices:', error);
+                  console.error('Failed to fetch fresh metal prices:', error instanceof Error ? error.message : String(error));
                   // We already updated with the converted values, so the UI is still correct
                 });
             } catch (fetchError) {
-              console.error('Failed to initiate fetch for fresh metal prices:', fetchError);
+              console.error('Failed to initiate fetch for fresh metal prices:', fetchError instanceof Error ? fetchError.message : String(fetchError));
               // We already updated with the converted values, so the UI is still correct
             }
           } catch (error) {
-            console.error('Error updating metal prices for currency change:', error);
+            console.error('Error updating metal prices for currency change:', error instanceof Error ? error.message : String(error));
           }
         },
 
@@ -416,30 +505,20 @@ export const useZakatStore = create<ZakatState>()(
                 get().updateMetalPricesForNewCurrency(newCurrency);
                 return true;
               } catch (error) {
-                console.error('Error updating metal prices for currency change:', error);
+                console.error('Error updating metal prices for currency change:', error instanceof Error ? error.message : String(error));
                 return false;
               }
             };
 
             // Now we need to handle resetting the state
-            // We want to keep the metalPrices and reset everything else
-
-            // First, gather what we want to keep
-            const metalPrices = prevState.metalPrices;
-
-            // Also keep any nisab data if possible
-            const nisabData = prevState.nisabData;
+            // We want to reset everything and just set the new currency
 
             // Now reset
             set((state) => ({
               ...initialState,
               currency: newCurrency,
-              metalPrices: {
-                ...metalPrices,
-                currency: newCurrency
-              },
-              // Don't clear the nisab data if currency matches
-              nisabData: nisabData?.currency === newCurrency ? nisabData : undefined
+              // Always clear nisab data on currency change
+              nisabData: undefined
             }));
 
             // Make sure the Hawl status is reset too
@@ -464,7 +543,7 @@ export const useZakatStore = create<ZakatState>()(
             try {
               localStorage.setItem('zakat-currency', newCurrency);
             } catch (error) {
-              console.error('Failed to store currency in localStorage:', error);
+              console.error('Failed to store currency in localStorage:', error instanceof Error ? error.message : String(error));
             }
 
             // Update metal prices immediately and in the background
@@ -478,7 +557,7 @@ export const useZakatStore = create<ZakatState>()(
 
             return true;
           } catch (error) {
-            console.error('Failed to reset with currency change:', error);
+            console.error('Failed to reset with currency change:', error instanceof Error ? error.message : String(error));
             return false;
           }
         },
@@ -598,7 +677,7 @@ export const useZakatStore = create<ZakatState>()(
           const state = get()
           const totalValue =
             state.getTotalCash() +
-            state.getTotalMetals().total +
+            state.getMetalsTotal() +
             state.getTotalStocks() +
             state.getRetirementTotal() +
             state.getRealEstateTotal() +
@@ -606,7 +685,7 @@ export const useZakatStore = create<ZakatState>()(
 
           const zakatableValue =
             state.getTotalZakatableCash() +
-            state.getTotalZakatableMetals().total +
+            state.getMetalsZakatable() +
             state.getTotalZakatableStocks() +
             state.getRetirementZakatable() +
             state.getRealEstateZakatable() +
@@ -660,7 +739,7 @@ export const useZakatStore = create<ZakatState>()(
                 realEstateHawlMet: state.realEstateHawlMet,
                 cryptoHawlMet: state.cryptoHawlMet,
                 metalPrices: state.metalPrices,
-                nisabData: state.nisabData,
+                // Exclude nisab data from manual persistence
                 currency: state.currency
               };
 
@@ -692,7 +771,7 @@ export const useZakatStore = create<ZakatState>()(
               */
             }
           } catch (error) {
-            console.error('Error in manual persist:', error);
+            console.error('Error in manual persist:', error instanceof Error ? error.message : String(error));
           }
         }
       }
@@ -714,7 +793,7 @@ export const useZakatStore = create<ZakatState>()(
               console.log(`Retrieved store "${name}" from localStorage (${data.length} bytes)`);
               return data;
             } catch (error) {
-              console.error(`Error getting item "${name}" from localStorage:`, error);
+              console.error(`Error getting item "${name}" from localStorage:`, error instanceof Error ? error.message : String(error));
               return null;
             }
           },
@@ -728,149 +807,25 @@ export const useZakatStore = create<ZakatState>()(
               });
 
               localStorage.setItem(name, value);
-              console.log(`Saved store "${name}" to localStorage (${value.length} bytes)`);
-
-              // Verify the save was successful by reading it back
-              const savedData = localStorage.getItem(name);
-              if (savedData) {
-                console.log(`Verified save: ${name} is in localStorage (${savedData.length} bytes)`);
-              } else {
-                console.warn(`Failed to verify save: ${name} not found in localStorage after saving`);
-              }
+              console.log(`Successfully saved "${name}" to localStorage (${value.length} bytes)`);
             } catch (error) {
-              console.error(`Error setting item "${name}" in localStorage:`, error);
-              // If we hit a quota error, try to clear some space
-              if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-                try {
-                  // Try to remove old backup data that might be taking up space
-                  localStorage.removeItem('zakat-emergency-backup-timestamp');
-                  localStorage.removeItem('zakat-last-hidden');
-                  localStorage.removeItem('last-refresh-time');
-
-                  // Try again after clearing space
-                  localStorage.setItem(name, value);
-                  console.log(`Successfully saved store "${name}" after clearing space`);
-                } catch (retryError) {
-                  console.error(`Still failed to save store after clearing space:`, retryError);
-                }
-              }
+              console.error(`Error setting item "${name}" in localStorage:`, error instanceof Error ? error.message : String(error));
             }
           },
           removeItem: (name) => {
             try {
               localStorage.removeItem(name);
-              console.log(`Removed store "${name}" from localStorage`);
+              console.log(`Successfully removed "${name}" from localStorage`);
             } catch (error) {
-              console.error(`Error removing item "${name}" from localStorage:`, error);
+              console.error(`Error removing item "${name}" from localStorage:`, error instanceof Error ? error.message : String(error));
             }
           }
         }))
-        : {
-          getItem: () => Promise.resolve(null),
-          setItem: () => Promise.resolve(),
-          removeItem: () => Promise.resolve()
-        },
+        : undefined,
+      // Exclude nisab data from persistence
       partialize: (state) => {
-        // Only persist these values to localStorage
-        const {
-          metalsValues,
-          cashValues,
-          stockValues,
-          retirement,
-          realEstateValues,
-          cryptoValues,
-          cashHawlMet,
-          metalsHawlMet,
-          stockHawlMet,
-          retirementHawlMet,
-          realEstateHawlMet,
-          cryptoHawlMet,
-          metalPrices,
-          nisabData,
-          currency
-        } = state as ZakatState;
-
-        // Log what's being persisted for debugging
-        console.log('Partializing state for persistence', {
-          hasCashValues: !!cashValues,
-          hasMetalsValues: !!metalsValues,
-          hasStockValues: !!stockValues,
-          hasRetirement: !!retirement,
-          hasRealEstateValues: !!realEstateValues,
-          hasCryptoValues: !!cryptoValues,
-          currency,
-          cashOnHand: cashValues?.cash_on_hand
-        });
-
-        // Create a deep copy to ensure we're not storing references
-        const persistedState = {
-          metalsValues: metalsValues ? { ...metalsValues } : metalsValues,
-          cashValues: cashValues ? { ...cashValues } : cashValues,
-          stockValues: stockValues ? { ...stockValues } : stockValues,
-          retirement: retirement ? { ...retirement } : retirement,
-          realEstateValues: realEstateValues ? { ...realEstateValues } : realEstateValues,
-          cryptoValues: cryptoValues ? { ...cryptoValues } : cryptoValues,
-          cashHawlMet,
-          metalsHawlMet,
-          stockHawlMet,
-          retirementHawlMet,
-          realEstateHawlMet,
-          cryptoHawlMet,
-          metalPrices: metalPrices ? { ...metalPrices } : metalPrices,
-          nisabData: nisabData ? { ...nisabData } : nisabData,
-          currency
-        };
-
-        // Log the actual state being persisted
-        console.log('Persisting state with cash_on_hand =', persistedState.cashValues?.cash_on_hand);
-
-        return persistedState;
-      },
-      // Improved onRehydrateStorage to handle hydration more reliably
-      onRehydrateStorage: () => {
-        console.log('Starting store rehydration process');
-
-        return (state, error) => {
-          if (error) {
-            console.error('Failed to rehydrate store:', error);
-            // Dispatch an error event
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('store-hydration-error', {
-                detail: { error, timestamp: Date.now() }
-              }));
-            }
-          } else if (state) {
-            console.log('Successfully rehydrated store with state keys:', Object.keys(state || {}));
-
-            // Log the hydrated values for debugging
-            console.log('HYDRATED STATE VALUES:', {
-              metalsValues: state.metalsValues ? 'Present' : 'Missing',
-              cashValues: state.cashValues ? 'Present' : 'Missing',
-              stockValues: state.stockValues ? 'Present' : 'Missing',
-              retirement: state.retirement ? 'Present' : 'Missing',
-              realEstateValues: state.realEstateValues ? 'Present' : 'Missing',
-              cryptoValues: state.cryptoValues ? 'Present' : 'Missing',
-              nisabData: state.nisabData ? 'Present' : 'Missing',
-              metalPrices: state.metalPrices ? 'Present' : 'Missing',
-              currency: state.currency || 'Not Set'
-            });
-
-            // Dispatch success events for both event names
-            if (typeof window !== 'undefined') {
-              // Set global flags
-              (window as any).zakatStoreHydrationComplete = true;
-              (window as any).hasDispatchedHydrationEvent = true;
-
-              // Dispatch both events for compatibility
-              window.dispatchEvent(new Event('zakatStoreHydrated'));
-              window.dispatchEvent(new Event('store-hydration-complete'));
-
-              console.log('Dispatched hydration success events from onRehydrateStorage');
-            }
-          } else {
-            console.warn('Zustand store: Rehydration completed but no state was recovered');
-          }
-        };
+        const { nisabData, ...rest } = state;
+        return rest;
       }
     }
   )

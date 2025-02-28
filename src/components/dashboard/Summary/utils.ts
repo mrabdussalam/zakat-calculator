@@ -39,9 +39,9 @@ export function adaptMetalsBreakdown(
       const convertedWeight = fromGrams(item.weight, weightUnit)
       const formattedWeight = convertedWeight.toFixed(2)
       const unitSymbol = WEIGHT_UNITS[weightUnit].symbol
-      
+
       const label = `${key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} (${formattedWeight}${unitSymbol})`
-      
+
       acc[key] = {
         value: item.value,
         isZakatable: item.isZakatable,
@@ -74,7 +74,7 @@ export function adaptRealEstateBreakdown(breakdown: {
     const isZakatable = item.isZakatable ?? !item.isExempt ?? true
     const zakatable = item.zakatable ?? (isZakatable ? item.value : 0)
     const zakatDue = zakatable * 0.025 // 2.5% Zakat rate
-    
+
     acc[key] = {
       value: item.value,
       isZakatable,

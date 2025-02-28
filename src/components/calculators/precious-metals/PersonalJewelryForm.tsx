@@ -89,9 +89,11 @@ export function PersonalJewelryForm({
   const {
     metalsValues,
     metalsHawlMet,
+    setMetalsValue,
     setMetalsHawl,
-    getTotalMetals,
-    getTotalZakatableMetals
+    getMetalsTotal,
+    getMetalsZakatable,
+    getMetalsBreakdown
   } = useZakatStore();
 
   // Get currency conversion state
@@ -436,7 +438,7 @@ export function PersonalJewelryForm({
             </div>
 
             {/* Temporarily hidden calculator summary
-            {getTotalMetals().total > 0 && (
+            {getMetalsTotal() > 0 && (
               <CalculatorSummary
                 title="Precious Metals Summary"
                 sections={[
@@ -466,7 +468,7 @@ export function PersonalJewelryForm({
                       {
                         label: `Nisab Threshold (${getNisabInUnit()} ${WEIGHT_UNITS[selectedUnit].label.toLowerCase()} silver)`,
                         value: formatCurrency(NISAB.SILVER.GRAMS * metalPrices.silver),
-                        tooltip: getTotalZakatableMetals().total >= (NISAB.SILVER.GRAMS * metalPrices.silver) ? 
+                        tooltip: getMetalsZakatable() >= (NISAB.SILVER.GRAMS * metalPrices.silver) ? 
                           "Your holdings meet or exceed the Nisab threshold" : 
                           "Your holdings are below the Nisab threshold",
                         isExempt: false,
@@ -474,7 +476,7 @@ export function PersonalJewelryForm({
                       },
                       {
                         label: "Total Eligible Metals Value",
-                        value: formatCurrency(getTotalZakatableMetals().total),
+                        value: formatCurrency(getMetalsZakatable()),
                         tooltip: "This is the total value of your metals that are eligible for Zakat",
                         isExempt: false,
                         isZakatable: true
@@ -483,7 +485,7 @@ export function PersonalJewelryForm({
                   }
                 ]}
                 hawlMet={metalsHawlMet}
-                zakatAmount={getTotalZakatableMetals().total * 0.025}
+                zakatAmount={getMetalsZakatable() * 0.025}
                 footnote={{
                   text: "Note: According to many scholars, jewelry that is worn regularly for personal use may be exempt from Zakat.",
                   tooltip: "Regular use means the jewelry is worn frequently for legitimate purposes, not just for storage of wealth."

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useZakatStore } from '@/store/zakatStore';
+import { useCurrencyStore } from '@/lib/services/currency';
 
 // Helper function to clear calculator values from localStorage
 function clearCalculatorValuesFromStorage() {
@@ -137,6 +138,40 @@ export function CurrencyProvider({ children }: CurrencyProviderProps) {
   const [isConverting, setIsConverting] = useState(false);
   // Track the last time we reset due to currency change
   const [lastCurrencyReset, setLastCurrencyReset] = useState<Date | null>(null);
+
+  // Initialize currency rates on startup
+  useEffect(() => {
+    const initializeCurrencyRates = async () => {
+      try {
+        // Get the current currency from the store
+        const zakatStore = useZakatStore.getState();
+        const currencyStore = useCurrencyStore.getState();
+        const currentCurrency = zakatStore.currency || 'USD';
+
+        console.log('CurrencyProvider: Initializing currency rates for', currentCurrency);
+
+        // Check if we already have rates
+        const hasRates = Object.keys(currencyStore.rates || {}).length > 0;
+
+        if (!hasRates) {
+          // Fetch exchange rates for the current currency
+          await currencyStore.fetchRates(currentCurrency);
+          console.log('CurrencyProvider: Successfully fetched exchange rates');
+        } else {
+          console.log('CurrencyProvider: Exchange rates already available');
+        }
+      } catch (error) {
+        console.error('CurrencyProvider: Failed to initialize currency rates:', error);
+      }
+    };
+
+    // Initialize rates after a short delay to ensure store is hydrated
+    const timer = setTimeout(() => {
+      initializeCurrencyRates();
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // Check on startup if there might be inconsistent state
   useEffect(() => {

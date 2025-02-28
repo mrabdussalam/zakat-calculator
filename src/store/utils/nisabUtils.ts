@@ -38,9 +38,33 @@ let consecutiveFailures = 0;
 
 // Core calculation function for nisab threshold
 export function calculateNisabThreshold(goldPrice: number, silverPrice: number): number {
-  const goldNisabThreshold = goldPrice * NISAB.GOLD.GRAMS;
-  const silverNisabThreshold = silverPrice * NISAB.SILVER.GRAMS;
-  return Math.min(goldNisabThreshold, silverNisabThreshold);
+  // Validate inputs to prevent NaN or negative values
+  const validGoldPrice = Number.isFinite(goldPrice) && goldPrice > 0 ? goldPrice : OFFLINE_FALLBACK_PRICES.gold;
+  const validSilverPrice = Number.isFinite(silverPrice) && silverPrice > 0 ? silverPrice : OFFLINE_FALLBACK_PRICES.silver;
+
+  // Log validation issues for debugging
+  if (validGoldPrice !== goldPrice) {
+    console.warn(`Invalid gold price (${goldPrice}) provided to calculateNisabThreshold, using fallback: ${validGoldPrice}`);
+  }
+  if (validSilverPrice !== silverPrice) {
+    console.warn(`Invalid silver price (${silverPrice}) provided to calculateNisabThreshold, using fallback: ${validSilverPrice}`);
+  }
+
+  // Calculate thresholds with validated prices
+  const goldNisabThreshold = validGoldPrice * NISAB.GOLD.GRAMS;
+  const silverNisabThreshold = validSilverPrice * NISAB.SILVER.GRAMS;
+
+  // Ensure the result is a valid number
+  const result = Math.min(goldNisabThreshold, silverNisabThreshold);
+
+  // Final safety check to prevent returning NaN or Infinity
+  if (!Number.isFinite(result) || result <= 0) {
+    console.error('Nisab calculation resulted in invalid value, using fallback calculation');
+    // Use fallback calculation as last resort
+    return OFFLINE_FALLBACK_PRICES.silver * NISAB.SILVER.GRAMS;
+  }
+
+  return result;
 }
 
 // Create a local cache of successful nisab fetches to use when API fails

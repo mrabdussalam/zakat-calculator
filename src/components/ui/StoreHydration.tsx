@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useZakatStore } from '@/store/zakatStore'
 import { logStoreState, logHydrationStatus } from '@/lib/utils/debug'
+import { useCurrencyStore } from '@/lib/services/currency'
 
 /**
  * Component responsible for hydrating the Zustand store from localStorage
@@ -18,7 +19,7 @@ export function StoreHydration() {
     logStoreState(useZakatStore, 'StoreHydration - Initial')
 
     // Function to handle successful hydration
-    const handleHydrationSuccess = () => {
+    const handleHydrationSuccess = async () => {
       console.log('StoreHydration: Hydration successful')
 
         // Set global flag to indicate hydration is complete
@@ -37,6 +38,21 @@ export function StoreHydration() {
       console.log('StoreHydration: Dispatched store-hydration-complete event for backward compatibility')
 
       logStoreState(useZakatStore, 'StoreHydration - After Hydration')
+
+      // CRITICAL ADDITION: Initialize currency rates after hydration
+      try {
+        const zakatStore = useZakatStore.getState();
+        const currencyStore = useCurrencyStore.getState();
+        const currentCurrency = zakatStore.currency || 'USD';
+
+        console.log('StoreHydration: Initializing currency rates for', currentCurrency);
+
+        // Fetch exchange rates for the current currency
+        await currencyStore.fetchRates(currentCurrency);
+        console.log('StoreHydration: Successfully fetched exchange rates');
+      } catch (error) {
+        console.error('StoreHydration: Failed to initialize currency rates:', error);
+      }
     }
 
     // Subscribe to the onRehydrateStorage callback

@@ -1,10 +1,11 @@
 import { StateCreator } from 'zustand'
 import { MetalsValues, MetalPrices, MetalsPreferences } from './metals.types'
 import { DEFAULT_HAWL_STATUS } from '../constants'
-import { computeMetalsResults } from '../utils'
+import { computeMetalsResults, clearMetalsCalculationCache } from '../utils'
 import { ZakatState } from '../types'
 import { ZAKAT_RATE } from '@/lib/constants'
 import { WeightUnit } from '@/lib/utils/units'
+import debug from '@/lib/utils/debug'
 
 // Initial values
 const initialMetalsValues: MetalsValues = {
@@ -38,25 +39,14 @@ export interface MetalsSlice {
   // Actions
   setMetalsValue: (key: keyof MetalsValues, value: number) => void
   resetMetalsValues: () => void
-  setMetalPrices: (prices: MetalPrices) => void
+  setMetalsValues: (values: Partial<MetalsValues>) => void
+  setMetalPrices: (prices: Partial<MetalPrices>) => void
   setMetalsHawl: (value: boolean) => void
   setMetalsWeightUnit: (unit: WeightUnit) => void
 
   // Getters
-  getTotalMetals: () => {
-    goldGrams: number
-    silverGrams: number
-    goldValue: number
-    silverValue: number
-    total: number
-  }
-  getTotalZakatableMetals: () => {
-    goldGrams: number
-    silverGrams: number
-    goldValue: number
-    silverValue: number
-    total: number
-  }
+  getMetalsTotal: () => number
+  getMetalsZakatable: () => number
   getMetalsBreakdown: () => {
     total: number
     zakatable: number
@@ -90,51 +80,86 @@ export const createMetalsSlice: StateCreator<
 
   resetMetalsValues: () => set({ metalsValues: initialMetalsValues }),
 
-  setMetalPrices: (prices: MetalPrices) => {
-    // Ensure currency information is preserved
-    const state = get();
-    const currency = prices.currency || state.metalPrices?.currency || 'USD';
+  setMetalsValues: (values: Partial<MetalsValues>) => {
+    debug.info('Setting metals values', values, 'metals');
+    set((state) => ({
+      metalsValues: {
+        ...state.metalsValues,
+        ...values
+      }
+    }));
 
-    console.log('Setting metal prices:', {
+    // Clear calculation cache when values change
+    clearMetalsCalculationCache();
+  },
+
+  setMetalPrices: (prices: Partial<MetalPrices>) => {
+    const currentPrices = get().metalPrices;
+    const updatedPrices = {
+      ...currentPrices,
       ...prices,
-      currency
-    });
+      // Ensure lastUpdated is a Date object
+      lastUpdated: prices.lastUpdated || new Date()
+    };
 
-    // Always ensure we set the currency
-    set({
-      metalPrices: {
-        ...prices,
-        currency
+    // Log the price update
+    console.log('Updating metal prices:', {
+      from: {
+        gold: currentPrices.gold,
+        silver: currentPrices.silver,
+        currency: currentPrices.currency
+      },
+      to: {
+        gold: updatedPrices.gold,
+        silver: updatedPrices.silver,
+        currency: updatedPrices.currency
       }
     });
 
-    // Trigger nisab update with the new prices
-    // This ensures nisab values are always in sync with metal prices
-    setTimeout(() => {
-      try {
-        const currentState = get();
-        if (currentState.updateNisabWithPrices) {
-          console.log('Synchronizing nisab calculations with updated metal prices');
+    // Update the prices in the store
+    set({ metalPrices: updatedPrices });
 
-          // Ensure we have a valid lastUpdated value
-          let lastUpdated = prices.lastUpdated;
-          // If it's neither a Date nor a string, create a new Date
-          if (!(lastUpdated instanceof Date) && typeof lastUpdated !== 'string') {
-            lastUpdated = new Date();
-          }
+    // Clear the calculation cache when prices change
+    clearMetalsCalculationCache();
 
-          currentState.updateNisabWithPrices({
-            gold: prices.gold,
-            silver: prices.silver,
-            currency: currency,
-            lastUpdated: lastUpdated,
-            isCache: prices.isCache || false
-          });
+    // IMPORTANT: Immediately update nisab data with the new metal prices
+    // This ensures nisab threshold updates instantly with the metal prices
+    const state = get();
+
+    // First try to use the direct update method for immediate updates
+    if (typeof state.updateNisabWithPrices === 'function') {
+      console.log('Immediately updating nisab with new metal prices (direct method)');
+      const success = state.updateNisabWithPrices(updatedPrices);
+      console.log('Direct nisab update result:', success ? 'success' : 'failed');
+
+      // If direct update failed, fall back to the refresh method
+      if (!success && typeof state.forceRefreshNisabForCurrency === 'function' && updatedPrices.currency) {
+        console.log('Falling back to refresh method for nisab update');
+        state.forceRefreshNisabForCurrency(updatedPrices.currency)
+          .catch(error => console.error('Error in fallback nisab refresh:', error));
+      }
+    }
+    // If direct update not available, use the refresh method
+    else if (typeof state.forceRefreshNisabForCurrency === 'function' && updatedPrices.currency) {
+      console.log('Refreshing nisab data with new currency (refresh method):', updatedPrices.currency);
+      state.forceRefreshNisabForCurrency(updatedPrices.currency)
+        .then(success => {
+          console.log('Nisab refresh result:', success ? 'success' : 'failed');
+        })
+        .catch(error => {
+          console.error('Error refreshing nisab data:', error);
+        });
+    }
+
+    // Dispatch an event to notify components about the price update
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('metal-prices-updated', {
+        detail: {
+          prices: updatedPrices,
+          timestamp: new Date().toISOString()
         }
-      } catch (error) {
-        console.error('Failed to synchronize nisab with updated metal prices:', error);
-      }
-    }, 0);
+      }));
+    }
   },
 
   setMetalsHawl: (value: boolean) => set({ metalsHawlMet: value }),
@@ -148,93 +173,97 @@ export const createMetalsSlice: StateCreator<
     })),
 
   // Getters
-  getTotalMetals: () => {
-    const { metalsValues, metalPrices } = get()
-    const results = computeMetalsResults(metalsValues, metalPrices, true)
+  getMetalsTotal: () => {
+    const state = get();
+    const { metalsValues, metalPrices, metalsHawlMet } = state;
 
-    return {
-      goldGrams: results.breakdown.gold.total.weight,
-      silverGrams: results.breakdown.silver.total.weight,
-      goldValue: results.breakdown.gold.total.value,
-      silverValue: results.breakdown.silver.total.value,
-      total: results.total
-    }
+    // Use the memoized computation function
+    const result = computeMetalsResults(metalsValues, metalPrices, metalsHawlMet);
+
+    // Only log at trace level to minimize console noise
+    debug.trace('Computed metals total', {
+      total: result.total,
+      zakatable: result.zakatable,
+      currency: metalPrices.currency
+    }, 'calculation');
+
+    return result.total;
   },
 
-  getTotalZakatableMetals: () => {
-    const { metalsValues, metalPrices, metalsHawlMet } = get()
-    const results = computeMetalsResults(metalsValues, metalPrices, metalsHawlMet)
+  getMetalsZakatable: () => {
+    const state = get();
+    const { metalsValues, metalPrices, metalsHawlMet } = state;
 
-    return {
-      goldGrams: results.breakdown.gold.zakatable.weight,
-      silverGrams: results.breakdown.silver.zakatable.weight,
-      goldValue: results.breakdown.gold.zakatable.value,
-      silverValue: results.breakdown.silver.zakatable.value,
-      total: results.zakatable
-    }
+    // Use the memoized computation function
+    const result = computeMetalsResults(metalsValues, metalPrices, metalsHawlMet);
+
+    return result.zakatable;
   },
 
   getMetalsBreakdown: () => {
-    const { metalsValues, metalPrices, metalsHawlMet } = get()
-    const results = computeMetalsResults(metalsValues, metalPrices, metalsHawlMet)
+    const state = get();
+    const { metalsValues, metalPrices, metalsHawlMet } = state;
+
+    // Use the memoized computation function
+    const result = computeMetalsResults(metalsValues, metalPrices, metalsHawlMet);
 
     const items: Record<string, { value: number; weight: number; isZakatable: boolean; isExempt: boolean; zakatable: number; zakatDue: number }> = {
       gold_regular: {
-        value: results.breakdown.gold.regular.value,
-        weight: results.breakdown.gold.regular.weight,
-        isZakatable: results.breakdown.gold.regular.isZakatable,
-        isExempt: results.breakdown.gold.regular.isExempt,
-        zakatable: metalsHawlMet ? (results.breakdown.gold.regular.isZakatable ? results.breakdown.gold.regular.value : 0) : 0,
-        zakatDue: metalsHawlMet ? (results.breakdown.gold.regular.isZakatable ? results.breakdown.gold.regular.value * ZAKAT_RATE : 0) : 0
+        value: result.breakdown.gold.regular.value,
+        weight: result.breakdown.gold.regular.weight,
+        isZakatable: result.breakdown.gold.regular.isZakatable,
+        isExempt: result.breakdown.gold.regular.isExempt,
+        zakatable: metalsHawlMet ? (result.breakdown.gold.regular.isZakatable ? result.breakdown.gold.regular.value : 0) : 0,
+        zakatDue: metalsHawlMet ? (result.breakdown.gold.regular.isZakatable ? result.breakdown.gold.regular.value * ZAKAT_RATE : 0) : 0
       },
       gold_occasional: {
-        value: results.breakdown.gold.occasional.value,
-        weight: results.breakdown.gold.occasional.weight,
-        isZakatable: results.breakdown.gold.occasional.isZakatable,
-        isExempt: results.breakdown.gold.occasional.isExempt,
-        zakatable: metalsHawlMet ? results.breakdown.gold.occasional.value : 0,
-        zakatDue: metalsHawlMet ? results.breakdown.gold.occasional.value * ZAKAT_RATE : 0
+        value: result.breakdown.gold.occasional.value,
+        weight: result.breakdown.gold.occasional.weight,
+        isZakatable: result.breakdown.gold.occasional.isZakatable,
+        isExempt: result.breakdown.gold.occasional.isExempt,
+        zakatable: metalsHawlMet ? result.breakdown.gold.occasional.value : 0,
+        zakatDue: metalsHawlMet ? result.breakdown.gold.occasional.value * ZAKAT_RATE : 0
       },
       gold_investment: {
-        value: results.breakdown.gold.investment.value,
-        weight: results.breakdown.gold.investment.weight,
-        isZakatable: results.breakdown.gold.investment.isZakatable,
-        isExempt: results.breakdown.gold.investment.isExempt,
-        zakatable: metalsHawlMet ? results.breakdown.gold.investment.value : 0,
-        zakatDue: metalsHawlMet ? results.breakdown.gold.investment.value * ZAKAT_RATE : 0
+        value: result.breakdown.gold.investment.value,
+        weight: result.breakdown.gold.investment.weight,
+        isZakatable: result.breakdown.gold.investment.isZakatable,
+        isExempt: result.breakdown.gold.investment.isExempt,
+        zakatable: metalsHawlMet ? result.breakdown.gold.investment.value : 0,
+        zakatDue: metalsHawlMet ? result.breakdown.gold.investment.value * ZAKAT_RATE : 0
       },
       silver_regular: {
-        value: results.breakdown.silver.regular.value,
-        weight: results.breakdown.silver.regular.weight,
-        isZakatable: results.breakdown.silver.regular.isZakatable,
-        isExempt: results.breakdown.silver.regular.isExempt,
-        zakatable: metalsHawlMet ? (results.breakdown.silver.regular.isZakatable ? results.breakdown.silver.regular.value : 0) : 0,
-        zakatDue: metalsHawlMet ? (results.breakdown.silver.regular.isZakatable ? results.breakdown.silver.regular.value * ZAKAT_RATE : 0) : 0
+        value: result.breakdown.silver.regular.value,
+        weight: result.breakdown.silver.regular.weight,
+        isZakatable: result.breakdown.silver.regular.isZakatable,
+        isExempt: result.breakdown.silver.regular.isExempt,
+        zakatable: metalsHawlMet ? (result.breakdown.silver.regular.isZakatable ? result.breakdown.silver.regular.value : 0) : 0,
+        zakatDue: metalsHawlMet ? (result.breakdown.silver.regular.isZakatable ? result.breakdown.silver.regular.value * ZAKAT_RATE : 0) : 0
       },
       silver_occasional: {
-        value: results.breakdown.silver.occasional.value,
-        weight: results.breakdown.silver.occasional.weight,
-        isZakatable: results.breakdown.silver.occasional.isZakatable,
-        isExempt: results.breakdown.silver.occasional.isExempt,
-        zakatable: metalsHawlMet ? results.breakdown.silver.occasional.value : 0,
-        zakatDue: metalsHawlMet ? results.breakdown.silver.occasional.value * ZAKAT_RATE : 0
+        value: result.breakdown.silver.occasional.value,
+        weight: result.breakdown.silver.occasional.weight,
+        isZakatable: result.breakdown.silver.occasional.isZakatable,
+        isExempt: result.breakdown.silver.occasional.isExempt,
+        zakatable: metalsHawlMet ? result.breakdown.silver.occasional.value : 0,
+        zakatDue: metalsHawlMet ? result.breakdown.silver.occasional.value * ZAKAT_RATE : 0
       },
       silver_investment: {
-        value: results.breakdown.silver.investment.value,
-        weight: results.breakdown.silver.investment.weight,
-        isZakatable: results.breakdown.silver.investment.isZakatable,
-        isExempt: results.breakdown.silver.investment.isExempt,
-        zakatable: metalsHawlMet ? results.breakdown.silver.investment.value : 0,
-        zakatDue: metalsHawlMet ? results.breakdown.silver.investment.value * ZAKAT_RATE : 0
+        value: result.breakdown.silver.investment.value,
+        weight: result.breakdown.silver.investment.weight,
+        isZakatable: result.breakdown.silver.investment.isZakatable,
+        isExempt: result.breakdown.silver.investment.isExempt,
+        zakatable: metalsHawlMet ? result.breakdown.silver.investment.value : 0,
+        zakatDue: metalsHawlMet ? result.breakdown.silver.investment.value * ZAKAT_RATE : 0
       }
     }
 
     return {
-      total: results.total,
-      zakatable: results.zakatable,
-      zakatDue: results.zakatDue,
-      goldGrams: results.breakdown.gold.total.weight,
-      silverGrams: results.breakdown.silver.total.weight,
+      total: result.total,
+      zakatable: result.zakatable,
+      zakatDue: result.zakatDue,
+      goldGrams: result.breakdown.gold.total.weight,
+      silverGrams: result.breakdown.silver.total.weight,
       items
     }
   }

@@ -127,7 +127,7 @@ export const validateCalculations = (state: Partial<ZakatState>): boolean => {
         name: 'cash'
       },
       {
-        total: state.getTotalMetals,
+        total: state.getMetalsTotal,
         breakdown: state.getMetalsBreakdown,
         name: 'metals'
       },
@@ -143,8 +143,8 @@ export const validateCalculations = (state: Partial<ZakatState>): boolean => {
         const totalValue = total()
         const breakdownValue = breakdown()
 
-        if (typeof totalValue === 'number' && typeof breakdownValue.total === 'number' && 
-            Math.abs(totalValue - breakdownValue.total) > 0.01) {
+        if (typeof totalValue === 'number' && typeof breakdownValue.total === 'number' &&
+          Math.abs(totalValue - breakdownValue.total) > 0.01) {
           console.error(`${name} calculations mismatch`, {
             total: totalValue,
             breakdownTotal: breakdownValue.total,
@@ -166,7 +166,7 @@ export const validateValuePropagation = (state: Partial<ZakatState>): boolean =>
   try {
     // Verify breakdown structure for each asset type
     const breakdownValidations = [
-      { 
+      {
         getter: state.getStocksBreakdown,
         hawlMet: state.stockHawlMet,
         name: 'stocks'
@@ -196,14 +196,14 @@ export const validateValuePropagation = (state: Partial<ZakatState>): boolean =>
     for (const { getter, hawlMet, name } of breakdownValidations) {
       if (getter) {
         const breakdown = getter()
-        
+
         // Verify total matches sum of items
         const itemsTotal = Object.values(breakdown.items)
           .reduce((sum, item) => {
             if (typeof item !== 'object' || typeof item.value !== 'number') return sum
             return sum + item.value
           }, 0)
-        
+
         if (typeof breakdown.total === 'number' && Math.abs(breakdown.total - itemsTotal) > 0.01) {
           console.error(`${name} breakdown total mismatch`, {
             total: breakdown.total,
@@ -220,7 +220,7 @@ export const validateValuePropagation = (state: Partial<ZakatState>): boolean =>
               if (typeof item !== 'object' || typeof item.value !== 'number') return sum
               return sum + (item.isZakatable ? item.value : 0)
             }, 0)
-          
+
           if (typeof breakdown.zakatable === 'number' && Math.abs(breakdown.zakatable - zakatableTotal) > 0.01) {
             console.error(`${name} zakatable amount mismatch`)
             return false

@@ -1,6 +1,7 @@
 import { StateCreator } from 'zustand'
 import { ZakatState } from '../types'
 import { NISAB } from '../constants'
+import { MetalPrices } from './metals.types'
 // Since we've created the utils file but TypeScript doesn't recognize it yet,
 // let's define the utility function interfaces here for now
 interface NisabUtils {
@@ -90,20 +91,12 @@ export interface NisabSlice {
     source: string
     currency: string
   }
-  isFetchingNisab?: boolean // Track fetch state
-  fetchError?: string // Track fetch errors
+  isFetchingNisab: boolean
+  fetchError?: string
 
   // Actions
   fetchNisabData: () => Promise<void>
-  updateNisabWithPrices: (prices: {
-    gold: number
-    silver: number
-    currency: string
-    lastUpdated: Date
-    isCache: boolean
-  }) => void
-
-  // New action to force refresh nisab on currency change - return boolean for success/failure
+  updateNisabWithPrices: (prices: MetalPrices) => boolean
   forceRefreshNisabForCurrency: (currency: string) => Promise<boolean>
 
   // Getters
@@ -122,7 +115,7 @@ export interface NisabSlice {
 
 export const createNisabSlice: StateCreator<
   ZakatState,
-  [["zustand/persist", unknown]],
+  [],
   [],
   NisabSlice
 > = (set, get, store) => ({
@@ -130,6 +123,62 @@ export const createNisabSlice: StateCreator<
   nisabData: undefined,
   isFetchingNisab: false,
   fetchError: undefined,
+
+  // New function to directly update nisab with metal prices
+  updateNisabWithPrices: (prices: MetalPrices) => {
+    // Validate the prices
+    if (!prices || !prices.gold || !prices.silver || !prices.currency) {
+      console.error('Invalid metal prices provided to updateNisabWithPrices', prices);
+      return false;
+    }
+
+    console.log('Directly updating nisab with metal prices:', {
+      gold: prices.gold,
+      silver: prices.silver,
+      currency: prices.currency
+    });
+
+    // Calculate the nisab threshold
+    const threshold = calculateNisabThreshold(prices.gold, prices.silver);
+
+    // Create the nisab data object
+    const calculatedData = {
+      threshold: threshold,
+      silverPrice: prices.silver,
+      lastUpdated: prices.lastUpdated instanceof Date
+        ? prices.lastUpdated.toISOString()
+        : typeof prices.lastUpdated === 'string'
+          ? prices.lastUpdated
+          : new Date().toISOString(),
+      source: 'direct-update-from-prices',
+      currency: prices.currency
+    };
+
+    // Update the store
+    set({
+      nisabData: calculatedData,
+      isFetchingNisab: false,
+      fetchError: undefined
+    });
+
+    // Notify components about the update
+    if (typeof window !== 'undefined') {
+      console.log('Emitting nisab-updated event (direct update)', {
+        threshold: threshold,
+        currency: prices.currency
+      });
+      window.dispatchEvent(new CustomEvent('nisab-updated', {
+        detail: {
+          currency: prices.currency,
+          source: 'direct-update',
+          threshold: calculatedData.threshold,
+          immediate: true
+        }
+      }));
+    }
+
+    return true;
+  },
 
   // Actions
   fetchNisabData: async () => {
@@ -209,7 +258,7 @@ export const createNisabSlice: StateCreator<
       }
 
     } catch (error: any) {
-      console.error('Failed to fetch nisab data:', error);
+      console.error('Failed to fetch nisab data:', error instanceof Error ? error.message : String(error));
 
       // Get fallback data
       const fallbackData = getOfflineFallbackNisabData(get());
@@ -233,27 +282,6 @@ export const createNisabSlice: StateCreator<
     }
   },
 
-  // Update nisab with metal prices
-  updateNisabWithPrices: (prices) => {
-    const nisabThreshold = calculateNisabThreshold(prices.gold, prices.silver);
-
-    const lastUpdatedISO = prices.lastUpdated instanceof Date
-      ? prices.lastUpdated.toISOString()
-      : typeof prices.lastUpdated === 'string'
-        ? prices.lastUpdated
-        : new Date().toISOString();
-
-    set({
-      nisabData: {
-        threshold: nisabThreshold,
-        silverPrice: prices.silver,
-        lastUpdated: lastUpdatedISO,
-        source: prices.isCache ? 'sync-cache' : 'sync-live',
-        currency: prices.currency
-      }
-    });
-  },
-
   // Force refresh nisab data for a specific currency
   forceRefreshNisabForCurrency: async (currency: string): Promise<boolean> => {
     const state = get();
@@ -271,15 +299,91 @@ export const createNisabSlice: StateCreator<
       const actualCurrency = currency || state.metalPrices?.currency || 'USD';
       console.log(`Attempting nisab refresh for currency: ${actualCurrency}`);
 
-      // If we have recent metal prices in the correct currency, use them directly
+      // Define currencies that need special handling
+      const currenciesNeedingSpecialHandling = ['AED', 'INR', 'PKR', 'SAR'];
+
+      // Special handling for currencies that have shown issues with direct conversion
+      const needsSpecialHandling = currenciesNeedingSpecialHandling.includes(actualCurrency.toUpperCase());
+      if (needsSpecialHandling) {
+        console.log(`Special handling for ${actualCurrency} currency detected in forceRefreshNisabForCurrency`);
+
+        // For these currencies, we'll try to use the refreshNisabCalculations utility if available
+        try {
+          // Use a direct import instead of window.require
+          const nisabCalculations = require('../../lib/utils/nisabCalculations');
+          if (nisabCalculations && typeof nisabCalculations.refreshNisabCalculations === 'function') {
+            console.log(`Using refreshNisabCalculations utility for ${actualCurrency}`);
+
+            // Get current metal prices
+            const currentPrices = state.metalPrices || {
+              gold: 0,
+              silver: 0,
+              currency: actualCurrency,
+              lastUpdated: new Date()
+            };
+
+            // Call the utility function
+            const result = await nisabCalculations.refreshNisabCalculations(
+              currentPrices,
+              actualCurrency
+            );
+
+            if (result) {
+              console.log(`Successfully refreshed nisab for ${actualCurrency} using utility:`, result);
+
+              // Update the store with the calculated data
+              set({
+                nisabData: {
+                  threshold: result.nisabValue,
+                  silverPrice: currentPrices.silver,
+                  lastUpdated: new Date().toISOString(),
+                  source: `${actualCurrency.toLowerCase()}-special-refresh`,
+                  currency: actualCurrency
+                },
+                fetchError: undefined,
+                isFetchingNisab: false
+              });
+
+              // Notify components about the update
+              if (typeof window !== 'undefined') {
+                console.log(`Emitting nisab-updated event (${actualCurrency} special)`);
+                window.dispatchEvent(new CustomEvent('nisab-updated', {
+                  detail: {
+                    currency: actualCurrency,
+                    source: `${actualCurrency.toLowerCase()}-special`,
+                    threshold: result.nisabValue,
+                    immediate: true
+                  }
+                }));
+              }
+
+              return true;
+            }
+          }
+        } catch (utilityError) {
+          console.warn(`Failed to use refreshNisabCalculations utility for ${actualCurrency}:`, utilityError);
+          // Continue with standard refresh approach
+        }
+      }
+
+      // IMPORTANT: Check if we have metal prices in the correct currency
+      // This is the key part that needs to be fixed for instant updates
       if (state.metalPrices &&
         state.metalPrices.currency === actualCurrency &&
         state.metalPrices.gold > 0 &&
         state.metalPrices.silver > 0) {
 
-        console.log('Using existing metal prices for nisab calculation');
+        console.log('Using existing metal prices for nisab calculation', {
+          gold: state.metalPrices.gold,
+          silver: state.metalPrices.silver,
+          currency: state.metalPrices.currency
+        });
+
+        // Calculate the nisab threshold immediately
+        const threshold = calculateNisabThreshold(state.metalPrices.gold, state.metalPrices.silver);
+
         const calculatedData = {
-          threshold: calculateNisabThreshold(state.metalPrices.gold, state.metalPrices.silver),
+          threshold: threshold,
           silverPrice: state.metalPrices.silver,
           lastUpdated: state.metalPrices.lastUpdated instanceof Date
             ? state.metalPrices.lastUpdated.toISOString()
@@ -290,16 +394,24 @@ export const createNisabSlice: StateCreator<
           currency: actualCurrency
         };
 
-        set({ nisabData: calculatedData, isFetchingNisab: false });
+        // Update the state immediately
+        set({
+          nisabData: calculatedData,
+          isFetchingNisab: false
+        });
 
         // Notify components about the calculated update
         if (typeof window !== 'undefined') {
-          console.log('Emitting nisab-updated event (calculated)');
+          console.log('Emitting nisab-updated event (calculated)', {
+            threshold: threshold,
+            currency: actualCurrency
+          });
           window.dispatchEvent(new CustomEvent('nisab-updated', {
             detail: {
               currency: actualCurrency,
               source: 'calculated',
-              threshold: calculatedData.threshold
+              threshold: calculatedData.threshold,
+              immediate: true // Flag to indicate this is an immediate update
             }
           }));
         }
@@ -375,7 +487,7 @@ export const createNisabSlice: StateCreator<
         clearTimeout(fetchTimeout);
 
         // Handle fetch error with fallback logic
-        console.error('Failed to fetch nisab data from API:', fetchError);
+        console.error('Failed to fetch nisab data from API:', fetchError instanceof Error ? fetchError.message : String(fetchError));
 
         // Try to use a fallback calculation based on existing metal prices or constants
         console.log('Using fallback calculation for nisab');
@@ -421,7 +533,7 @@ export const createNisabSlice: StateCreator<
         return true;
       }
     } catch (error: any) {
-      console.error('Critical error in nisab refresh:', error);
+      console.error('Critical error in nisab refresh:', error instanceof Error ? error.message : String(error));
 
       // Always reset fetching state
       set({
@@ -459,8 +571,8 @@ export const createNisabSlice: StateCreator<
       ? state.getTotalZakatableCash() : 0;
 
     // Some getters might return objects instead of numbers, handle both cases
-    const metalsZakatable = typeof state.getTotalZakatableMetals === 'function'
-      ? state.getTotalZakatableMetals()
+    const metalsZakatable = typeof state.getMetalsZakatable === 'function'
+      ? state.getMetalsZakatable()
       : 0;
     const totalMetals = typeof metalsZakatable === 'number'
       ? metalsZakatable

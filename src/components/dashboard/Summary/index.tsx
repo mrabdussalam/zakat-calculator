@@ -37,7 +37,7 @@ const adaptBreakdown = (
       const tooltip = item.tooltip || `${item.label}: ${item.value.toLocaleString('en-US', { style: 'currency', currency })}`
       const zakatable = item.zakatable ?? (item.isZakatable ? item.value : 0)
       const zakatDue = item.zakatDue ?? (zakatable * ZAKAT_RATE)
-      
+
       return {
         ...acc,
         [key]: {
@@ -55,11 +55,9 @@ const adaptBreakdown = (
 }
 
 export function Summary({ currency }: { currency: string }) {
-  const { 
-    getTotalMetals,
+  const {
     getTotalCash,
     getTotalStocks,
-    getTotalZakatableStocks,
     getNisabStatus,
     metalsHawlMet,
     cashHawlMet,
@@ -84,7 +82,8 @@ export function Summary({ currency }: { currency: string }) {
     getCryptoBreakdown,
     reset,
     getStocksBreakdown,
-    metalsPreferences
+    metalsPreferences,
+    getMetalsTotal
   } = useZakatStore()
 
   const breakdown = getBreakdown()
@@ -113,11 +112,11 @@ export function Summary({ currency }: { currency: string }) {
   // Track currency changes and force a refresh when currency changes
   useEffect(() => {
     console.log(`Summary: Currency is ${currency}, nisab currency is ${nisabStatus.currency}`);
-    
+
     // If currencies don't match, we need to ensure a correct nisab status
     if (nisabStatus.currency && nisabStatus.currency !== currency) {
       console.log(`Summary: Currency mismatch detected - display: ${currency}, nisab: ${nisabStatus.currency}`);
-      
+
       // Dispatch a custom event to force components to refresh with new currency
       const event = new CustomEvent('currency-changed', {
         detail: {
@@ -125,7 +124,7 @@ export function Summary({ currency }: { currency: string }) {
           to: currency
         }
       });
-      
+
       // Small delay to ensure components are mounted
       setTimeout(() => {
         console.log('Summary: Dispatching currency-changed event');
@@ -135,7 +134,7 @@ export function Summary({ currency }: { currency: string }) {
   }, [currency, nisabStatus.currency]);
 
   // Get all the values we need
-  const totalMetals = getTotalMetals()
+  const totalMetals = getMetalsTotal()
   const totalCash = getTotalCash()
   const totalStocks = getTotalStocks()
   const totalCrypto = getTotalCrypto()
@@ -147,18 +146,18 @@ export function Summary({ currency }: { currency: string }) {
   const retirementBreakdown = getRetirementBreakdown()
 
   // Calculate total assets
-  const totalAssets = totalMetals.total + totalCash + totalStocks + 
+  const totalAssets = totalMetals + totalCash + totalStocks +
     retirementBreakdown.total + realEstateBreakdown.total + totalCrypto
 
   // Prepare asset breakdowns with consistent format
   const assetBreakdowns: Record<string, AssetBreakdownWithHawl> = {
-    cash: { 
-      total: totalCash, 
+    cash: {
+      total: totalCash,
       hawlMet: cashHawlMet,
       breakdown: adaptBreakdown(cashBreakdown, currency)
     },
-    metals: { 
-      total: totalMetals.total, 
+    metals: {
+      total: totalMetals,
       hawlMet: metalsHawlMet,
       breakdown: adaptMetalsBreakdown(
         metalsBreakdown,
@@ -166,8 +165,8 @@ export function Summary({ currency }: { currency: string }) {
         currency
       )
     },
-    stocks: { 
-      total: totalStocks, 
+    stocks: {
+      total: totalStocks,
       hawlMet: stockHawlMet,
       breakdown: adaptBreakdown(stockBreakdown, currency)
     },
@@ -176,13 +175,13 @@ export function Summary({ currency }: { currency: string }) {
       hawlMet: retirementHawlMet,
       breakdown: adaptBreakdown(retirementBreakdown, currency)
     },
-    realEstate: { 
-      total: realEstateBreakdown.total, 
+    realEstate: {
+      total: realEstateBreakdown.total,
       hawlMet: realEstateHawlMet,
       breakdown: adaptRealEstateBreakdown(realEstateBreakdown, currency)
     },
-    crypto: { 
-      total: totalCrypto, 
+    crypto: {
+      total: totalCrypto,
       hawlMet: cryptoHawlMet,
       breakdown: adaptBreakdown(cryptoBreakdown, currency)
     }
@@ -191,15 +190,15 @@ export function Summary({ currency }: { currency: string }) {
   return (
     <div className="h-full flex flex-col">
       <div className="flex-none space-y-6">
-        <TotalHeader 
+        <TotalHeader
           totalAssets={totalAssets}
           breakdown={breakdown}
           nisabStatus={nisabStatus}
           currency={currency}
         />
-        
-        <NisabStatus 
-          nisabStatus={nisabStatus} 
+
+        <NisabStatus
+          nisabStatus={nisabStatus}
           currency={currency}
           key={`nisab-status-${currency}`}
         />
@@ -207,7 +206,7 @@ export function Summary({ currency }: { currency: string }) {
         <AssetDistribution
           assetValues={{
             cash: totalCash,
-            'precious-metals': totalMetals.total,
+            'precious-metals': totalMetals,
             stocks: totalStocks,
             retirement: retirementBreakdown.total,
             'real-estate': realEstateBreakdown.total,

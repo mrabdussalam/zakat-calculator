@@ -34,23 +34,23 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
     return "Nisab is the minimum amount of wealth that must be owned before Zakat becomes obligatory. It is calculated based on the value of either gold (85g) or silver (595g), whichever is lower.";
   }, [isOfflineMode, isFetching]);
   const { metalPrices, isFetchingNisab } = useZakatStore();
-  
+
   // Check if we're dealing with PKR values that might be suspicious
   const isPKR = currency === 'PKR';
   const hasSuspiciousValues = hasSuspiciouslyLowValues(
-    currency, 
-    convertedValues?.goldThreshold, 
+    currency,
+    convertedValues?.goldThreshold,
     convertedValues?.silverThreshold
   );
 
   // Animation variants for parent and child elements
   const containerVariants = {
-    hidden: { 
-      height: 0, 
-      opacity: 0 
+    hidden: {
+      height: 0,
+      opacity: 0
     },
-    visible: { 
-      height: "auto", 
+    visible: {
+      height: "auto",
       opacity: 1,
       transition: {
         duration: 0.2,
@@ -59,8 +59,8 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
         staggerChildren: 0.02
       }
     },
-    exit: { 
-      height: 0, 
+    exit: {
+      height: 0,
       opacity: 0,
       transition: {
         duration: 0.15,
@@ -73,20 +73,20 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
   };
 
   const itemVariants = {
-    hidden: { 
-      opacity: 0, 
+    hidden: {
+      opacity: 0,
       y: 5
     },
-    visible: { 
-      opacity: 1, 
+    visible: {
+      opacity: 1,
       y: 0,
       transition: {
         duration: 0.15,
         ease: "easeOut"
       }
     },
-    exit: { 
-      opacity: 0, 
+    exit: {
+      opacity: 0,
       y: -2,
       transition: {
         duration: 0.1
@@ -155,11 +155,11 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
         </div>
         <motion.div
           initial={false}
-          animate={{ 
+          animate={{
             rotate: isExpanded ? 180 : 0,
             scale: isExpanded ? 1.05 : 1
           }}
-          transition={{ 
+          transition={{
             duration: 0.2,
             ease: "easeInOut"
           }}
@@ -182,7 +182,7 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
             <div className="px-4 pb-4 space-y-4">
               {/* Error Message */}
               {errorMessage && (
-                <motion.div 
+                <motion.div
                   variants={itemVariants}
                   className="text-sm bg-amber-50 border border-amber-200 text-amber-700 p-3 rounded-lg flex items-start gap-2"
                 >
@@ -197,6 +197,8 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
                           {retryCount === 1 ? "time" : "times"} to reconnect.
                         </span>
                       )}
+                      {/* Refresh button in error message - temporarily hidden */}
+                      {/*
                       <button
                         onClick={handleRefresh}
                         className="text-amber-700 font-medium inline-flex items-center hover:underline ml-1"
@@ -204,13 +206,14 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
                         Try again
                         <RefreshIcon className="h-3 w-3 ml-1" />
                       </button>
+                      */}
                     </p>
                   </div>
                 </motion.div>
               )}
 
               {/* Explanation */}
-              <motion.div 
+              <motion.div
                 variants={itemVariants}
                 className="text-sm text-gray-600 leading-relaxed"
               >
@@ -218,11 +221,11 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
               </motion.div>
 
               {/* Nisab threshold breakdown */}
-              <motion.div 
+              <motion.div
                 variants={itemVariants}
                 className="grid grid-cols-2 gap-3"
               >
-                <motion.div 
+                <motion.div
                   className="rounded-lg p-3 bg-white/50 backdrop-blur-sm"
                 >
                   <div className="text-xs text-gray-500 mb-1 flex items-center">
@@ -235,7 +238,7 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
                     {formatCurrency(convertedValues.goldThreshold, currency)}
                   </div>
                 </motion.div>
-                <motion.div 
+                <motion.div
                   className="rounded-lg p-3 bg-white/50 backdrop-blur-sm"
                 >
                   <div className="text-xs text-gray-500 mb-1 flex items-center">
@@ -252,7 +255,7 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
 
               {/* PKR Warning - Show only when values look suspicious */}
               {hasSuspiciousValues && (
-                <motion.div 
+                <motion.div
                   variants={itemVariants}
                   className="text-sm bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg flex items-start gap-2"
                 >
@@ -269,6 +272,7 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
 
               {/* Status Message */}
               <motion.div
+                key={`nisab-status-${meetsNisab ? 'meets' : 'below'}`}
                 variants={itemVariants}
                 className={cn(
                   "text-sm font-medium rounded-lg p-3",
@@ -278,14 +282,6 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
                       ? "bg-green-500/10 text-green-700"
                       : "bg-gray-500/5 text-gray-700",
                 )}
-                animate={meetsNisab ? {
-                  backgroundColor: ["rgba(34, 197, 94, 0.1)", "rgba(34, 197, 94, 0.12)", "rgba(34, 197, 94, 0.1)"],
-                  transition: { 
-                    duration: 3,
-                    repeat: Infinity,
-                    repeatType: "reverse"
-                  }
-                } : undefined}
               >
                 <div className="flex items-center gap-1.5">
                   {getNisabStatusMessage()}
@@ -293,7 +289,7 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
               </motion.div>
 
               {/* Last Updated */}
-              <motion.div 
+              <motion.div
                 variants={itemVariants}
                 className="text-[11px] text-gray-400 flex items-center justify-between"
               >
@@ -319,7 +315,8 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
                   )}
                 </div>
 
-                {/* Refresh button */}
+                {/* Refresh button - temporarily hidden */}
+                {/* 
                 {!isFetching && !isFetchingNisab && (
                   <motion.button
                     onClick={handleRefresh}
@@ -331,11 +328,12 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
                     Refresh
                   </motion.button>
                 )}
+                */}
               </motion.div>
 
               {/* Offline Indicator */}
               {isOfflineMode && (
-                <motion.div 
+                <motion.div
                   variants={itemVariants}
                   className="flex items-center mt-2 text-amber-600 text-sm border border-amber-200 bg-amber-50 p-2 rounded-md"
                 >

@@ -1,19 +1,17 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useZakatStore } from '@/store/zakatStore';
 import { fetchMetalPrices } from '@/lib/api/metals';
 import { NISAB } from '@/store/constants';
 import { useCurrencyStore } from '@/lib/services/currency';
 import { formatCurrency } from '@/lib/utils';
-import { getNisabValue } from '@/lib/assets/nisab';
+import { calculateNisabThresholds } from '@/lib/utils/nisabCalculations';
+import { useStoreHydration } from '@/hooks/useStoreHydration';
 
 // Environment detection for Replit
 const IS_REPLIT =
   typeof window !== 'undefined' &&
   (window.location.hostname.includes('replit') ||
     window.location.hostname.endsWith('.repl.co'));
-
-// Add debounce mechanism
-const CURRENCY_CHANGE_DEBOUNCE_MS = 1000; // Reduced from 3000 to 1000ms for more responsive updates
 
 // Add a Replit-specific timeout that's longer than local to account for slower network
 const REPLIT_API_TIMEOUT = IS_REPLIT ? 15000 : 8000;
@@ -28,6 +26,7 @@ export interface NisabValues {
   silverThreshold: number;
   isDirectGoldPrice: boolean;
   isDirectSilverPrice: boolean;
+  usedFallback?: boolean;
 }
 
 export interface NisabStatusHookResult {
@@ -40,18 +39,31 @@ export interface NisabStatusHookResult {
   retryCount: number;
   meetsNisab: boolean;
   componentKey: number;
-  
+
   // Actions
   handleRefresh: () => void;
   handleManualCurrencyUpdate: (currency: string, isReplitEnv?: boolean) => Promise<void>;
   forceImmediateUpdate: (forceRefresh?: boolean) => Promise<void>;
-  updateLocalNisabValues: (prices: any) => void;
+  updateLocalNisabValues: (prices: ExtendedMetalPrices) => void;
   getNisabStatusMessage: () => string;
   getNisabMetalUsed: () => "gold" | "silver";
   calculateMoreNeeded: () => number;
   getUserFriendlyErrorMessage: () => string | null;
   setComponentKey: (key: number) => void;
   hasSuspiciouslyLowValues: (currency: string, goldThreshold?: number, silverThreshold?: number) => boolean;
+}
+
+// Define ExtendedMetalPrices interface locally since it's not exported from metals.ts
+interface ExtendedMetalPrices {
+  gold: number;
+  silver: number;
+  currency: string;
+  lastUpdated: Date;
+  isCache?: boolean;
+  source?: string;
+  goldUSD?: number;
+  silverUSD?: number;
+  exchangeRate?: number;
 }
 
 export function useNisabStatus(
@@ -67,6 +79,9 @@ export function useNisabStatus(
   },
   currency: string
 ): NisabStatusHookResult {
+  // Add hydration status check
+  const isStoreHydrated = useStoreHydration();
+
   const {
     metalPrices,
     fetchNisabData,
@@ -75,31 +90,70 @@ export function useNisabStatus(
     setMetalPrices,
     forceRefreshNisabForCurrency
   } = useZakatStore();
-  
+
   const [isFetching, setIsFetching] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [lastFetchTime, setLastFetchTime] = useState(0);
   const [retryCount, setRetryCount] = useState(0);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [componentKey, setComponentKey] = useState(Date.now());
-  
-  // Convert values if currencies don't match
+  const [hasInitialized, setHasInitialized] = useState(false);
+
+  // Initialize with values from props
   const [convertedValues, setConvertedValues] = useState<NisabValues>({
     nisabValue: nisabStatus.nisabValue,
     totalValue: nisabStatus.totalValue,
     goldThreshold: nisabStatus.thresholds.gold,
     silverThreshold: nisabStatus.thresholds.silver,
     isDirectGoldPrice: true,
-    isDirectSilverPrice: true
+    isDirectSilverPrice: true,
+    usedFallback: false
   });
 
   const hasInitializedRef = useRef(false);
-  const prevCurrencyRef = useRef<string>(currency);
-  const prevMetalPricesRef = useRef(metalPrices);
-  const prevFetchingRef = useRef<boolean>(false);
   const currencyRefreshTimeRef = useRef<number>(0);
   const lastReceivedCurrencyRef = useRef<string>(currency);
   const currencyStore = useCurrencyStore();
+
+  // Use the new utility function to calculate nisab values dynamically
+  // This is the key change that addresses the currency display issue
+  const calculateDynamicNisabValues = useCallback((prices: ExtendedMetalPrices, targetCurrency: string) => {
+    if (!prices || !prices.gold || !prices.silver) {
+      console.warn('Cannot calculate nisab values: invalid metal prices', prices);
+      return null;
+    }
+
+    console.log('🔄 useNisabStatus: Calculating dynamic nisab values', {
+      gold: prices.gold,
+      silver: prices.silver,
+      pricesCurrency: prices.currency,
+      targetCurrency,
+      timestamp: new Date().toISOString()
+    });
+
+    // Use the pure utility function to calculate nisab thresholds
+    const thresholds = calculateNisabThresholds(prices, targetCurrency);
+
+    // Log if we used fallback values
+    if (thresholds.usedFallback) {
+      console.warn('useNisabStatus: Used fallback values for nisab calculation', {
+        currency: targetCurrency,
+        goldThreshold: thresholds.goldThreshold,
+        silverThreshold: thresholds.silverThreshold,
+        nisabValue: thresholds.nisabValue
+      });
+    }
+
+    return {
+      nisabValue: thresholds.nisabValue,
+      totalValue: convertedValues.totalValue, // Keep the existing total value
+      goldThreshold: thresholds.goldThreshold,
+      silverThreshold: thresholds.silverThreshold,
+      isDirectGoldPrice: thresholds.isDirectGoldPrice,
+      isDirectSilverPrice: thresholds.isDirectSilverPrice,
+      usedFallback: thresholds.usedFallback
+    };
+  }, [convertedValues.totalValue]);
 
   // Recalculate eligibility with converted values
   const meetsNisab = convertedValues.totalValue >= convertedValues.nisabValue;
@@ -107,351 +161,91 @@ export function useNisabStatus(
   // Determine error message (use local or global error)
   const errorMessage = localError || fetchError || null;
 
-  // Modify the updateLocalNisabValues function
-  const updateLocalNisabValues = (prices: any) => {
+  // Update the updateLocalNisabValues function to use the new calculation method
+  const updateLocalNisabValues = useCallback((prices: ExtendedMetalPrices) => {
     if (!prices || !prices.gold || !prices.silver) {
       console.warn('Cannot update nisab values: invalid metal prices', prices);
       return;
     }
-    
-    // Determine the currency of the provided prices
-    const pricesCurrency = prices.currency || 'USD'; // Default to USD if not specified
-    
+
     console.log('🔄 useNisabStatus: Updating nisab values with current prices (UI UPDATE)', {
       gold: prices.gold,
       silver: prices.silver,
-      pricesCurrency,
+      pricesCurrency: prices.currency,
       currentCurrency: currency,
       timestamp: new Date().toISOString()
     });
-    
-    // Check if we have price values in the expected currency
-    console.log(`Checking if prices are in expected currency. Expected: ${currency}, Prices: ${pricesCurrency}`);
-    
-    // Initialize price maps with the correct currency keys
-    const goldPrices: Record<string, number> = {};
-    const silverPrices: Record<string, number> = {};
-    
-    // Add the prices with their original currency key
-    goldPrices[pricesCurrency] = prices.gold;
-    silverPrices[pricesCurrency] = prices.silver;
-    
-    // Add USD prices if necessary
-    if (pricesCurrency !== 'USD' && prices.goldUSD) {
-      goldPrices['USD'] = prices.goldUSD;
-      silverPrices['USD'] = prices.silverUSD;
-    }
-    
-    // If prices are not in the target currency, add converted prices
-    if (pricesCurrency !== currency && prices.exchangeRate) {
-      const exchangeRate = prices.exchangeRate;
-      console.log(`Adding converted prices using exchange rate: ${exchangeRate}`);
-      
-      // Convert to target currency
-      goldPrices[currency] = goldPrices[pricesCurrency] * exchangeRate;
-      silverPrices[currency] = silverPrices[pricesCurrency] * exchangeRate;
-    }
-    
-    console.log('Price maps prepared for calculation:', {
-      goldPrices,
-      silverPrices
-    });
-    
-    // Use the updated getNisabValue function that returns an object with value and isDirectPrice
-    const goldNisabResult = getNisabValue('gold', goldPrices, {}, currency);
-    const silverNisabResult = getNisabValue('silver', {}, silverPrices, currency);
-    
-    const goldThreshold = goldNisabResult.value;
-    const silverThreshold = silverNisabResult.value;
-    const nisabValue = Math.min(goldThreshold, silverThreshold);
-    
-    // Log the raw nisab calculation results
-    console.log('Raw nisab calculation results:', {
-      goldThreshold,
-      silverThreshold,
-      nisabValue,
-      currency,
-      isDirectGoldPrice: goldNisabResult.isDirectPrice,
-      isDirectSilverPrice: silverNisabResult.isDirectPrice
-    });
-    
-    // Check if values are suspiciously low for PKR
-    if (currency === 'PKR' && goldThreshold < 100000 && silverThreshold < 10000) {
-      console.warn('Suspiciously low PKR values detected, might be USD values incorrectly labeled');
-      
-      // Apply direct conversion based on typical exchange rate
-      const estimatedExchangeRate = 280; // Approximate PKR to USD rate
-      const correctedGoldThreshold = goldThreshold * estimatedExchangeRate;
-      const correctedSilverThreshold = silverThreshold * estimatedExchangeRate;
-      const correctedNisabValue = Math.min(correctedGoldThreshold, correctedSilverThreshold);
-      
-      console.log('Applied emergency currency correction:', {
-        originalGold: goldThreshold,
-        originalSilver: silverThreshold,
-        correctedGold: correctedGoldThreshold,
-        correctedSilver: correctedSilverThreshold,
-        appliedRate: estimatedExchangeRate
-      });
-      
-      // Update with corrected values
+
+    // Calculate nisab values dynamically using the current currency
+    const newValues = calculateDynamicNisabValues(prices, currency);
+
+    if (newValues) {
+      // Update the converted values with the new calculations
       setConvertedValues(prev => ({
         ...prev,
-        nisabValue: correctedNisabValue,
-        goldThreshold: correctedGoldThreshold,
-        silverThreshold: correctedSilverThreshold,
-        isDirectGoldPrice: false,
-        isDirectSilverPrice: false
+        nisabValue: newValues.nisabValue,
+        goldThreshold: newValues.goldThreshold,
+        silverThreshold: newValues.silverThreshold,
+        isDirectGoldPrice: newValues.isDirectGoldPrice,
+        isDirectSilverPrice: newValues.isDirectSilverPrice,
+        usedFallback: newValues.usedFallback
       }));
-      
-      return;
     }
-    
-    // Validate the calculated values to ensure they make sense
-    const validationResult = validateNisabValues(goldThreshold, silverThreshold, currency);
-    
-    if (!validationResult.isValid) {
-      console.error(`Invalid nisab values detected for ${currency}:`, validationResult.reason);
-      console.log('Attempting recovery with fallback calculation...');
-      
-      // Use the fallback calculation if we detect an issue
-      if (currency === 'PKR' && prices.gold && prices.silver) {
-        // Try to calculate using the API metal prices directly instead of using the provided thresholds
-        // Use current exchange rate from API if available or fallback to a reasonable estimate
-        const pkrRate = prices.exchangeRate || 280; // Approximate exchange rate PKR to USD
-        
-        console.log(`Recalculating nisab values for PKR using direct calculation:`, {
-          goldPricePerGram: prices.gold,
-          silverPricePerGram: prices.silver,
-          exchangeRate: pkrRate
-        });
-        
-        // Calculate nisab thresholds directly using the prices and correct math
-        const correctedGoldThreshold = prices.gold * NISAB.GOLD.GRAMS;
-        const correctedSilverThreshold = prices.silver * NISAB.SILVER.GRAMS;
-        
-        // If prices are in USD but we need PKR, apply the conversion
-        const finalGoldThreshold = pricesCurrency === 'USD' && currency === 'PKR' 
-          ? correctedGoldThreshold * pkrRate 
-          : correctedGoldThreshold;
-          
-        const finalSilverThreshold = pricesCurrency === 'USD' && currency === 'PKR' 
-          ? correctedSilverThreshold * pkrRate 
-          : correctedSilverThreshold;
-          
-        const correctedNisabValue = Math.min(finalGoldThreshold, finalSilverThreshold);
-        
-        console.log('Recalculated nisab values:', {
-          finalGoldThreshold,
-          finalSilverThreshold,
-          correctedNisabValue,
-          appliedConversion: pricesCurrency === 'USD' && currency === 'PKR'
-        });
-        
-        // Perform a sanity check on the recalculated values
-        if (currency === 'PKR') {
-          const expectedGoldNisabPKR = 85 * 26000; // ~2,210,000 PKR
-          const expectedSilverNisabPKR = 595 * 280; // ~166,600 PKR
-          
-          const goldThresholdPercentDiff = Math.abs((finalGoldThreshold - expectedGoldNisabPKR) / expectedGoldNisabPKR) * 100;
-          const silverThresholdPercentDiff = Math.abs((finalSilverThreshold - expectedSilverNisabPKR) / expectedSilverNisabPKR) * 100;
-          
-          console.log('Sanity check on recalculated values:', {
-            expectedGoldNisabPKR,
-            expectedSilverNisabPKR,
-            goldThresholdPercentDiff: `${goldThresholdPercentDiff.toFixed(2)}%`,
-            silverThresholdPercentDiff: `${silverThresholdPercentDiff.toFixed(2)}%`
-          });
-          
-          // If the recalculated values are still way off, use hardcoded values as last resort
-          if (goldThresholdPercentDiff > 30 || silverThresholdPercentDiff > 30) {
-            console.warn('Recalculated values still too far from expected, using hardcoded values as last resort');
-            
-            // Hardcoded values based on current market rates as last resort
-            const hardcodedGoldNisabPKR = 2200000; // PKR for 85g of gold
-            const hardcodedSilverNisabPKR = 167000; // PKR for 595g of silver
-            const hardcodedNisabValue = Math.min(hardcodedGoldNisabPKR, hardcodedSilverNisabPKR);
-            
-            setConvertedValues(prev => ({
-              ...prev,
-              nisabValue: hardcodedNisabValue,
-              goldThreshold: hardcodedGoldNisabPKR,
-              silverThreshold: hardcodedSilverNisabPKR,
-              isDirectGoldPrice: false,
-              isDirectSilverPrice: false
-            }));
-            
-            return;
-          }
+  }, [calculateDynamicNisabValues, currency]);
+
+  // Fix the retryWithBackoff function to match the fetchNisabData return type
+  const retryWithBackoff = async <T>(
+    fetchFn: () => Promise<T>,
+    maxRetries = 3
+  ): Promise<T> => {
+    let currentRetry = 0;
+    const localError: string | null = null;
+
+    while (currentRetry <= maxRetries) {
+      try {
+        return await fetchFn();
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+
+        // Check if this is our last retry
+        if (currentRetry === maxRetries) {
+          setLocalError(errorMessage || "Failed to fetch nisab data");
+          setRetryCount(currentRetry + 1);
+          break;
         }
-        
-        // Update values with the corrected calculations
-        setConvertedValues(prev => ({
-          ...prev,
-          nisabValue: correctedNisabValue,
-          goldThreshold: finalGoldThreshold,
-          silverThreshold: finalSilverThreshold,
-          isDirectGoldPrice: false,
-          isDirectSilverPrice: false
-        }));
-        
-        return;
+
+        // Wait before retrying - exponential backoff
+        const delay = Math.pow(2, currentRetry) * 1000;
+        console.log(`Waiting ${delay}ms before retry ${currentRetry + 1}...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        currentRetry++;
       }
     }
-    
-    console.log('useNisabStatus: Calculated nisab values:', {
-      goldThreshold,
-      silverThreshold,
-      nisabValue,
-      isDirectGoldPrice: goldNisabResult.isDirectPrice,
-      isDirectSilverPrice: silverNisabResult.isDirectPrice,
-      currency: prices.currency || currency
-    });
-    
-    // Update converted values with the direct price flags
-    setConvertedValues(prev => ({
-      ...prev,
-      nisabValue,
-      goldThreshold,
-      silverThreshold,
-      isDirectGoldPrice: goldNisabResult.isDirectPrice,
-      isDirectSilverPrice: silverNisabResult.isDirectPrice
-    }));
+
+    throw new Error(localError || "Failed after multiple retries");
   };
 
-  // Add a function to validate nisab values against expected ranges
-  const validateNisabValues = (goldThreshold: number, silverThreshold: number, currency: string): { isValid: boolean; reason?: string } => {
-    // Define expected value ranges for common currencies
-    const expectedRanges: Record<string, { gold: [number, number], silver: [number, number] }> = {
-      'USD': { 
-        gold: [7000, 10000],     // Expected range for 85g gold in USD
-        silver: [500, 800]        // Expected range for 595g silver in USD
-      },
-      'PKR': { 
-        gold: [2000000, 3000000], // Expected range for 85g gold in PKR
-        silver: [150000, 250000]  // Expected range for 595g silver in PKR
-      },
-      'EUR': { 
-        gold: [6000, 9000],      // Expected range for 85g gold in EUR
-        silver: [400, 700]        // Expected range for 595g silver in EUR
-      },
-      'GBP': { 
-        gold: [5500, 8500],      // Expected range for 85g gold in GBP
-        silver: [350, 650]        // Expected range for 595g silver in GBP
-      },
-      'INR': { 
-        gold: [550000, 850000],  // Expected range for 85g gold in INR
-        silver: [40000, 70000]   // Expected range for 595g silver in INR
-      }
-    };
-    
-    // Calculate expected ranges based on current API values for more accuracy
-    // We know that 85g of gold and 595g of silver at current prices should be:
-    if (currency === 'PKR') {
-      // Based on the API response: PKR gold = ~26,027/g, silver = ~282.6/g
-      // Gold: 85g × 26,027 = ~2,212,295 PKR
-      // Silver: 595g × 282.6 = ~168,147 PKR
-      expectedRanges['PKR'] = {
-        gold: [2000000, 2500000],
-        silver: [150000, 200000]
-      };
-    } else if (currency === 'USD') {
-      // Based on the API response: USD gold = ~93/g, silver = ~1.01/g
-      // Gold: 85g × 93 = ~7,905 USD
-      // Silver: 595g × 1.01 = ~600 USD
-      expectedRanges['USD'] = {
-        gold: [7500, 8500],
-        silver: [550, 650]
-      };
-    }
+  // Fix the handleManualRefresh function to use retryWithBackoff correctly
+  const handleManualRefresh = async (): Promise<boolean> => {
+    try {
+      setIsFetching(true);
+      setLocalError(null);
+      setRetryCount(0);
 
-    // If we don't have expected ranges for this currency, return valid
-    if (!expectedRanges[currency]) {
-      return { isValid: true };
-    }
-    
-    const goldRange = expectedRanges[currency].gold;
-    const silverRange = expectedRanges[currency].silver;
-    
-    // Add more logging to understand the current values
-    console.log(`Validating nisab values for ${currency}:`, {
-      goldThreshold,
-      silverThreshold,
-      expectedGoldRange: goldRange,
-      expectedSilverRange: silverRange
-    });
-    
-    // Calculate actual nisab value (the lower of gold and silver)
-    const actualNisabValue = Math.min(goldThreshold, silverThreshold);
-    
-    // Check if values are within expected ranges or slightly outside (allow 15% margin)
-    const goldLowerBound = goldRange[0] * 0.85;
-    const goldUpperBound = goldRange[1] * 1.15;
-    const silverLowerBound = silverRange[0] * 0.85;
-    const silverUpperBound = silverRange[1] * 1.15;
-    
-    const isGoldValid = goldThreshold >= goldLowerBound && goldThreshold <= goldUpperBound;
-    const isSilverValid = silverThreshold >= silverLowerBound && silverThreshold <= silverUpperBound;
-    
-    // If either value is outside expected range
-    if (!isGoldValid || !isSilverValid) {
-      return { 
-        isValid: false, 
-        reason: `Values outside expected range for ${currency}. ` +
-                `Gold: ${goldThreshold} (expected ${goldRange[0]}-${goldRange[1]}), ` +
-                `Silver: ${silverThreshold} (expected ${silverRange[0]}-${silverRange[1]})`
-      };
-    }
-    
-    return { isValid: true };
-  };
+      // Use the retryWithBackoff function to handle retries
+      // Call fetchNisabData without arguments since it uses the current currency from state
+      await retryWithBackoff(() => fetchNisabData());
 
-  // Handle manual refresh of nisab data
-  const handleRefresh = () => {
-    if (isFetchingNisab || isFetching) return;
-
-    setIsFetching(true);
-    setLocalError(null);
-    setRetryCount(0);
-    
-    // Function to handle fetch with automatic retries
-    const fetchWithRetries = async (maxRetries = 2) => {
-      let currentRetry = 0;
-
-      while (currentRetry <= maxRetries) {
-        try {
-          await fetchNisabData();
-          console.log("Manually refreshed nisab data successfully");
-          setLastFetchTime(Date.now());
-          setRetryCount(0);
-          return; // Success, exit the retry loop
-        } catch (err: any) {
-          console.error(
-            `Manual refresh failed (attempt ${currentRetry + 1}):`,
-            err,
-          );
-
-          // Check if this is our last retry
-          if (currentRetry === maxRetries) {
-            setLocalError(err.message || "Failed to fetch nisab data");
-            setRetryCount(currentRetry + 1);
-            break;
-          }
-
-          // Wait before retrying - exponential backoff
-          const delay = Math.pow(2, currentRetry) * 1000;
-          console.log(`Waiting ${delay}ms before retry ${currentRetry + 1}...`);
-          await new Promise((resolve) => setTimeout(resolve, delay));
-
-          currentRetry++;
-          setRetryCount(currentRetry);
-        }
-      }
-    };
-
-    // Start fetch with retries
-    fetchWithRetries().finally(() => {
+      console.log("Manually refreshed nisab data successfully");
+      setLastFetchTime(Date.now());
+      return true;
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error("Manual refresh failed after multiple retries:", errorMessage);
+      setLocalError("Failed to refresh nisab data. Please try again later.");
       setIsFetching(false);
-    });
+      return false;
+    }
   };
 
   // Modify the handleManualCurrencyUpdate function to ensure it always completes
@@ -459,42 +253,133 @@ export function useNisabStatus(
     console.log(`useNisabStatus: Manual currency update to ${newCurrency}${isReplitEnv ? ' (in Replit)' : ''}`);
     setIsFetching(true);
     setLocalError(null);
-    
+
+    // Define currencies that need special handling
+    const currenciesNeedingSpecialHandling = ['AED', 'INR', 'PKR', 'SAR'];
+
+    // Check if this currency needs special handling
+    const needsSpecialHandling = currenciesNeedingSpecialHandling.includes(newCurrency.toUpperCase());
+
+    // Add a safety timeout to prevent infinite processing
+    const safetyTimeout = setTimeout(() => {
+      console.warn(`useNisabStatus: Safety timeout triggered for ${newCurrency} update`);
+      setIsFetching(false);
+    }, 10000); // 10 second safety timeout
+
     try {
+      // For currencies that need special handling, try to use the refreshNisabCalculations utility if available
+      if (needsSpecialHandling) {
+        console.log(`useNisabStatus: Special handling for ${newCurrency} currency`);
+
+        // Try to import the utility function
+        try {
+          const { refreshNisabCalculations } = await import('@/lib/utils/nisabCalculations');
+
+          // If we have current metal prices, use them as a base
+          if (metalPrices && metalPrices.gold > 0 && metalPrices.silver > 0) {
+            console.log(`useNisabStatus: Using refreshNisabCalculations for ${newCurrency} with current prices`);
+
+            const result = await refreshNisabCalculations(
+              {
+                gold: metalPrices.gold,
+                silver: metalPrices.silver,
+                currency: metalPrices.currency
+              },
+              newCurrency
+            );
+
+            if (result && result.refreshed) {
+              console.log(`useNisabStatus: Successfully refreshed ${newCurrency} calculations`, result);
+
+              // Create an extended metal prices object with the refreshed values
+              const extendedPrices = {
+                gold: result.goldThreshold / NISAB.GOLD.GRAMS,
+                silver: result.silverThreshold / NISAB.SILVER.GRAMS,
+                currency: newCurrency,
+                lastUpdated: new Date(),
+                isCache: false,
+                source: `${newCurrency.toLowerCase()}-special-refresh`
+              };
+
+              // Update local values
+              updateLocalNisabValues(extendedPrices);
+
+              // Update store
+              if (setMetalPrices) {
+                setMetalPrices(extendedPrices);
+              }
+
+              // Force UI update
+              setComponentKey(Date.now());
+
+              // Clear timeout and reset fetching state
+              clearTimeout(safetyTimeout);
+              setIsFetching(false);
+
+              return;
+            }
+          }
+        } catch (specialHandlingError) {
+          console.warn(`useNisabStatus: Failed to use special handling for ${newCurrency}:`, specialHandlingError);
+          // Continue with standard approach
+        }
+      }
+
       // First attempt to get metal prices from the API with refresh option
-      const response = await fetchMetalPrices(newCurrency, { 
-        refresh: true, 
-        timeout: isReplitEnv ? REPLIT_API_TIMEOUT : 5000  // Use shorter timeout for currency changes
+      const response = await fetchMetalPrices(newCurrency, {
+        refresh: true,
+        timeout: isReplitEnv ? REPLIT_API_TIMEOUT : 5000,  // Use shorter timeout for currency changes
+        forceFailover: isReplitEnv // Force failover for Replit to avoid API calls
       });
-      
+
       console.log('useNisabStatus: Manual fetch complete:', response);
-      
+
       if (response && response.gold && response.silver) {
         // Force an immediate UI update
         setComponentKey(Date.now());
-        
-        // We successfully got prices, update the UI immediately
-        updateLocalNisabValues({
+
+        // Create an extended metal prices object with all the properties we need
+        const extendedPrices: ExtendedMetalPrices = {
           gold: response.gold,
           silver: response.silver,
           currency: newCurrency,
-          lastUpdated: new Date()
-        });
-        
+          lastUpdated: new Date(),
+          isCache: response.isCache || false,
+          source: response.source || 'manual-update'
+        };
+
+        // Add USD prices if available for better conversion
+        if (response.currency !== 'USD' && 'goldUSD' in response) {
+          extendedPrices.goldUSD = response.goldUSD as number;
+          if ('silverUSD' in response) {
+            extendedPrices.silverUSD = response.silverUSD as number;
+          }
+        }
+
+        // Add exchange rate if available
+        if ('exchangeRate' in response) {
+          extendedPrices.exchangeRate = response.exchangeRate as number;
+        }
+
+        // We successfully got prices, update the UI immediately using dynamic calculation
+        updateLocalNisabValues(extendedPrices);
+
         // Also update the store with these new values
         if (setMetalPrices) {
           console.log('useNisabStatus: Updating store with new metal prices');
+          // Convert ExtendedMetalPrices to the expected MetalPrices format
           setMetalPrices({
-            gold: response.gold,
-            silver: response.silver,
-            currency: newCurrency,
-            lastUpdated: new Date(),
-            isCache: true
+            gold: extendedPrices.gold,
+            silver: extendedPrices.silver,
+            currency: extendedPrices.currency,
+            lastUpdated: extendedPrices.lastUpdated,
+            isCache: extendedPrices.isCache || false,
+            source: extendedPrices.source || 'manual-update'
           });
-          
+
           // Dispatch an event to tell other components we have new prices
           const event = new CustomEvent('metals-updated', {
-            detail: { 
+            detail: {
               currency: newCurrency,
               fresh: true,
               source: 'manual-update'
@@ -502,43 +387,39 @@ export function useNisabStatus(
           });
           window.dispatchEvent(event);
         }
-        
-        // CRITICAL FIX: Directly call forceRefreshNisabForCurrency instead of fetchNisabData
-        // This ensures the nisab data is updated with the new currency immediately
-        setTimeout(() => {
-          console.log('useNisabStatus: Triggering nisab refresh after manual update');
-          
+
+        // CRITICAL FIX: Use a try/catch block and don't wait for the promise to complete
+        // This prevents blocking the UI thread and avoids potential infinite recursion
+        try {
           // Use forceRefreshNisabForCurrency if available (preferred for currency changes)
           if (forceRefreshNisabForCurrency) {
             console.log(`useNisabStatus: Using forceRefreshNisabForCurrency for ${newCurrency}`);
+            // Don't await this call to prevent blocking
             forceRefreshNisabForCurrency(newCurrency)
               .catch(err => {
-                console.error('useNisabStatus: Error in forced nisab refresh after manual update:', err);
+                console.error('useNisabStatus: Error in forced nisab refresh after manual update:', err instanceof Error ? err.message : String(err));
                 if (isReplitEnv) {
                   setIsOfflineMode(true);
                 }
               });
-          } else {
-            // Fallback to fetchNisabData if forceRefreshNisabForCurrency isn't available
-            fetchNisabData().catch(err => {
-              console.error('useNisabStatus: Error in nisab refresh after manual update:', err);
-              if (isReplitEnv) {
-                setIsOfflineMode(true);
-              }
-            });
           }
-        }, 10); // Use a very short delay for currency changes
+        } catch (refreshError) {
+          console.error('useNisabStatus: Error triggering nisab refresh:', refreshError instanceof Error ? refreshError.message : String(refreshError));
+        }
       }
     } catch (error) {
-      console.error('useNisabStatus: Error in manual currency update:', error);
+      console.error('useNisabStatus: Error in manual currency update:', error instanceof Error ? error.message : String(error));
       setLocalError('Failed to update prices for the new currency.');
-      
+
       // For Replit environment, set offline mode on error
       if (isReplitEnv) {
         console.log('useNisabStatus: Setting offline mode due to error in Replit environment');
         setIsOfflineMode(true);
       }
     } finally {
+      // Clear the safety timeout
+      clearTimeout(safetyTimeout);
+
       // Always reset fetching state after a short delay
       setTimeout(() => {
         setIsFetching(false);
@@ -549,74 +430,80 @@ export function useNisabStatus(
   // Enhance the forceImmediateUpdate function to handle currency changes better
   const forceImmediateUpdate = async (forceRefresh = false) => {
     console.log('useNisabStatus: Forcing immediate update with fallback data', { forceRefresh, currency });
-    
+
+    // Add a safety timeout to prevent infinite processing
+    const safetyTimeout = setTimeout(() => {
+      console.warn(`useNisabStatus: Safety timeout triggered for immediate update`);
+      setIsFetching(false);
+    }, 10000); // 10 second safety timeout
+
     // Mark as initialized in session storage to help with page reloads
-    if (typeof window !== 'undefined') {
-      try {
-        sessionStorage.setItem(ALREADY_INITIALIZED_KEY, 'true');
-      } catch (e) {
-        // Ignore storage errors
-      }
-    }
-    
     try {
-      // First use fallback data for immediate display in Replit
-      if (IS_REPLIT) {
-        // Import the fetchMetalPrices function dynamically
-        const response = await fetchMetalPrices(currency, { forceFailover: true });
-        
-        console.log('useNisabStatus: Using fallback data for immediate display', response);
-        
-        // ALWAYS update local component state immediately
-        updateLocalNisabValues(response);
-        
-        // Also update the store
-        if (setMetalPrices) {
-          setMetalPrices({
-            gold: response.gold,
-            silver: response.silver,
-            currency: currency,
-            lastUpdated: new Date(),
-            isCache: true
-          });
-        }
-        
-        // Dispatch event for other components
-        window.dispatchEvent(new CustomEvent('metals-updated', {
-          detail: { 
-            currency: currency,
-            fresh: true,
-            source: 'immediate-fallback'
-          }
-        }));
-        
-        // Force a UI update
-        setComponentKey(Date.now());
-        
-        // For Replit, also try to fetch fresh data after a delay if requested
-        if (forceRefresh) {
-          setTimeout(() => {
-            console.log('useNisabStatus: Attempting to fetch fresh data after initial fallback display');
-            handleManualCurrencyUpdate(currency, true);
-          }, 10); // Use a very short delay for currency changes
-        }
-      } else {
-        // For non-Replit environments, just try to fetch fresh data
-        handleManualCurrencyUpdate(currency, false);
-      }
-    } catch (error) {
-      console.error('useNisabStatus: Error in immediate update:', error);
-      
-      // Even if there's an error, ensure we have some values displayed
-      setConvertedValues({
-        nisabValue: nisabStatus.nisabValue || 1000, // Fallback value
-        totalValue: nisabStatus.totalValue || 0,
-        goldThreshold: nisabStatus.thresholds?.gold || 2000, // Fallback value
-        silverThreshold: nisabStatus.thresholds?.silver || 500, // Fallback value
-        isDirectGoldPrice: true,
-        isDirectSilverPrice: true
+      sessionStorage.setItem(ALREADY_INITIALIZED_KEY, 'true');
+    } catch {
+      // Ignore storage errors
+    }
+
+    try {
+      // Always use fallback data for immediate display to prevent API issues
+      const response = await fetchMetalPrices(currency, {
+        forceFailover: true,
+        timeout: 3000 // Short timeout for fallback data
       });
+
+      console.log('useNisabStatus: Using fallback data for immediate display', response);
+
+      // ALWAYS update local component state immediately using dynamic calculation
+      updateLocalNisabValues(response);
+
+      // Also update the store
+      if (setMetalPrices) {
+        setMetalPrices({
+          gold: response.gold,
+          silver: response.silver,
+          currency: response.currency,
+          lastUpdated: response.lastUpdated,
+          isCache: response.isCache || false,
+          source: response.source || 'immediate-fallback'
+        });
+      }
+
+      // Dispatch event for other components
+      window.dispatchEvent(new CustomEvent('metals-updated', {
+        detail: {
+          currency: currency,
+          fresh: true,
+          source: 'immediate-fallback'
+        }
+      }));
+
+      // Force a UI update
+      setComponentKey(Date.now());
+
+      // For Replit, also try to fetch fresh data after a delay if requested
+      if (forceRefresh && !IS_REPLIT) {
+        // Use setTimeout to avoid blocking the UI thread
+        setTimeout(() => {
+          console.log('useNisabStatus: Attempting to fetch fresh data after initial fallback display');
+          // Don't await this call to prevent blocking
+          handleManualCurrencyUpdate(currency, false)
+            .catch(err => {
+              console.error('useNisabStatus: Error fetching fresh data after fallback:', err instanceof Error ? err.message : String(err));
+            });
+        }, 1000); // Use a longer delay to ensure UI is responsive first
+      }
+    } catch (error: unknown) {
+      console.error('useNisabStatus: Error in immediate update:', error instanceof Error ? error.message : String(error));
+
+      // Even if there's an error, ensure we have some values displayed
+      if (IS_REPLIT) {
+        setIsOfflineMode(true);
+        setLocalError("Could not connect to the nisab calculation service");
+      }
     } finally {
+      // Clear the safety timeout
+      clearTimeout(safetyTimeout);
+
       // Always mark as fetched after a short timeout
       setTimeout(() => {
         if (isFetching) {
@@ -688,21 +575,29 @@ export function useNisabStatus(
   // This can be used in the UI component to show a warning
   const hasSuspiciouslyLowValues = (currency: string, goldThreshold?: number, silverThreshold?: number): boolean => {
     if (!goldThreshold || !silverThreshold) return false;
-    
+
     // Different currencies have different expected value ranges
     if (currency === 'PKR') {
       return goldThreshold < 100000 || silverThreshold < 10000;
     }
-    
+
+    // Add checks for INR currency
+    if (currency === 'INR') {
+      return goldThreshold < 100000 || silverThreshold < 10000;
+    }
+
     // Add checks for other currencies if needed
     return false;
   };
 
-  // Effect for initialization
+  // Effect for initialization - now depends on isStoreHydrated
   useEffect(() => {
-    // Run only once when component mounts
-    console.log('useNisabStatus: Component mounted - initializing with current prices');
-    
+    // Only run initialization when store is hydrated and we haven't initialized yet
+    if (!isStoreHydrated || hasInitialized) return;
+
+    // Run only once when component mounts and store is hydrated
+    console.log('useNisabStatus: Store hydrated - initializing with current prices');
+
     // First, make sure we're showing something immediately using the props we received
     setConvertedValues({
       nisabValue: nisabStatus.nisabValue,
@@ -710,66 +605,68 @@ export function useNisabStatus(
       goldThreshold: nisabStatus.thresholds.gold,
       silverThreshold: nisabStatus.thresholds.silver,
       isDirectGoldPrice: true,
-      isDirectSilverPrice: true
+      isDirectSilverPrice: true,
+      usedFallback: false
     });
-    
+
     // Set initialized to true
     hasInitializedRef.current = true;
-    
+    setHasInitialized(true);
+
     // Force an immediate refresh of metal prices and nisab data when component first loads
     const initializeNisabData = async () => {
       try {
         // Special handling for Replit environment
         if (IS_REPLIT) {
           console.log('useNisabStatus: Replit environment detected, forcing immediate update');
-          
+
           // Check if we've already initialized in this session
           let alreadyInitialized = false;
           try {
             alreadyInitialized = sessionStorage.getItem(ALREADY_INITIALIZED_KEY) === 'true';
-          } catch (e) {
+          } catch {
             // Ignore storage errors
           }
-          
+
           // If not yet initialized in this session, force a complete refresh
           if (!alreadyInitialized) {
             console.log('useNisabStatus: First load in session, forcing complete refresh');
             forceImmediateUpdate(true); // Pass true to force a refresh after fallback
             return;
           }
-          
+
           // If already initialized, still update but don't need to be as aggressive
           forceImmediateUpdate(false);
           return;
         }
-        
+
         // For non-Replit environments, continue with normal initialization
         const currentState = useZakatStore.getState();
         const currentPrices = currentState.metalPrices;
-        
+
         // Update local values if we have valid prices with matching currency
-        if (currentPrices && currentPrices.currency === currency &&
-            currentPrices.gold && currentPrices.silver) {
+        if (currentPrices && currentPrices.gold && currentPrices.silver) {
           console.log('useNisabStatus: Using existing prices for initial load');
+          // Use dynamic calculation instead of stored values
           updateLocalNisabValues(currentPrices);
         } else {
           // Otherwise fetch new prices for the current currency
           console.log('useNisabStatus: Fetching fresh prices for initial load');
           await handleManualCurrencyUpdate(currency);
         }
-        
+
         // Always fetch fresh nisab data after a short delay
         setTimeout(() => {
           if (!currentState.isFetchingNisab) {
             console.log('useNisabStatus: Triggering fresh nisab data fetch on initial load');
             fetchNisabData().catch(error => {
-              console.error('useNisabStatus: Error fetching nisab data on initial load:', error);
+              console.error('useNisabStatus: Error fetching nisab data on initial load:', error instanceof Error ? error.message : String(error));
             });
           }
         }, 300);
-      } catch (error) {
-        console.error('useNisabStatus: Error during initial load:', error);
-        
+      } catch (error: unknown) {
+        console.error('useNisabStatus: Error during initial load:', error instanceof Error ? error.message : String(error));
+
         // On error, still try to display something
         if (IS_REPLIT) {
           setIsOfflineMode(true);
@@ -778,17 +675,17 @@ export function useNisabStatus(
         }
       }
     };
-    
+
     // Execute the initialization
     initializeNisabData();
-    
+
     // Emit an event to notify other components that we're initializing
     const event = new CustomEvent('nisab-initializing', {
       detail: { currency }
     });
     window.dispatchEvent(event);
-  }, []); // Empty dependency array means this only runs once on mount
-  
+  }, [isStoreHydrated, hasInitialized, currency, nisabStatus]); // Add isStoreHydrated as a dependency
+
   // Effect to detect offline mode from error message
   useEffect(() => {
     if (
@@ -805,43 +702,50 @@ export function useNisabStatus(
   useEffect(() => {
     // Always check if currency has changed from the last one we processed
     const currencyChanged = currency !== lastReceivedCurrencyRef.current;
-    
-    if (currencyChanged) {
+
+    // Add a debounce mechanism to prevent rapid currency changes
+    const now = Date.now();
+    const timeSinceLastChange = now - currencyRefreshTimeRef.current;
+    const isDebounced = timeSinceLastChange < 2000; // 2 second debounce
+
+    if (currencyChanged && !isDebounced) {
       console.log(`useNisabStatus: Currency changed from ${lastReceivedCurrencyRef.current} to ${currency} - FORCING IMMEDIATE UPDATE`);
-      
+
       // Update the reference immediately to prevent duplicate processing
       lastReceivedCurrencyRef.current = currency;
-      
+
       // Force an immediate component rerender with a new key
       setComponentKey(Date.now());
-      
+
       // Set immediate fetching state for UI feedback
       setIsFetching(true);
-      
+
       // Clear any errors and reset retry count
       setLocalError(null);
       setRetryCount(0);
-      
-      // Force immediate update with potential fallback for Replit
-      if (IS_REPLIT) {
-        forceImmediateUpdate(true);
-      } else {
-        // For non-Replit, force a direct metal price fetch
-        // We're using setTimeout with 0 to push this to the next event loop cycle
-        // which helps prevent any race conditions
-        setTimeout(() => {
-          handleManualCurrencyUpdate(currency, false);
-        }, 0);
+
+      // If we have current metal prices, recalculate nisab values with the new currency
+      if (metalPrices && metalPrices.gold && metalPrices.silver) {
+        console.log('useNisabStatus: Recalculating nisab values with new currency using existing metal prices');
+        updateLocalNisabValues(metalPrices);
       }
-      
+
+      // Always use the safer forceImmediateUpdate approach with fallback data first
+      // This ensures the UI remains responsive
+      forceImmediateUpdate(false);
+
       // Record the time of this currency change for future reference
-      currencyRefreshTimeRef.current = Date.now();
+      currencyRefreshTimeRef.current = now;
+    } else if (currencyChanged && isDebounced) {
+      console.log(`useNisabStatus: Currency change to ${currency} debounced (last change ${timeSinceLastChange}ms ago)`);
+      // Still update the reference to prevent future processing
+      lastReceivedCurrencyRef.current = currency;
     }
-  }, [currency]); // Only depend on currency to detect changes
+  }, [currency, metalPrices, updateLocalNisabValues, forceImmediateUpdate]); // Add forceImmediateUpdate to dependencies
 
   // Effect to track metalPrices changes and update UI
   useEffect(() => {
-    if (metalPrices && !isFetching && !isFetchingNisab) {
+    if (metalPrices && !isFetching) {
       console.log('useNisabStatus: Metal prices updated, refreshing calculations', {
         gold: metalPrices.gold,
         silver: metalPrices.silver,
@@ -849,13 +753,29 @@ export function useNisabStatus(
         currency: metalPrices.currency,
         displayCurrency: currency
       });
-      
-      // Only update if we have valid metal prices with the correct currency
-      if (metalPrices.currency === currency) {
-        updateLocalNisabValues(metalPrices);
+
+      // Always recalculate nisab values dynamically with the current currency
+      // This ensures we're always showing values in the user's selected currency
+      updateLocalNisabValues(metalPrices);
+
+      // Force a refresh of the nisab threshold in the store
+      // This ensures the nisab threshold is always in sync with the metal prices
+      const currentState = useZakatStore.getState();
+      if (typeof currentState.updateNisabWithPrices === 'function') {
+        console.log('useNisabStatus: Forcing nisab update with current metal prices');
+        currentState.updateNisabWithPrices(metalPrices);
+      } else if (typeof currentState.forceRefreshNisabForCurrency === 'function' && metalPrices.currency) {
+        console.log('useNisabStatus: Forcing nisab refresh with current currency:', metalPrices.currency);
+        currentState.forceRefreshNisabForCurrency(metalPrices.currency)
+          .then(success => {
+            console.log('useNisabStatus: Nisab refresh result:', success ? 'success' : 'failed');
+          })
+          .catch(error => {
+            console.error('useNisabStatus: Error refreshing nisab data:', error);
+          });
       }
     }
-  }, [metalPrices, currency, isFetching, isFetchingNisab]);
+  }, [metalPrices, currency, isFetching, updateLocalNisabValues]);
 
   // Effect to update totalValue when it changes in props
   useEffect(() => {
@@ -865,13 +785,13 @@ export function useNisabStatus(
         old: convertedValues.totalValue,
         new: nisabStatus.totalValue
       });
-      
+
       setConvertedValues(prev => ({
         ...prev,
         totalValue: nisabStatus.totalValue
       }));
     }
-  }, [nisabStatus.totalValue]);
+  }, [nisabStatus.totalValue, convertedValues.totalValue]);
 
   return {
     convertedValues,
@@ -882,8 +802,8 @@ export function useNisabStatus(
     retryCount,
     meetsNisab,
     componentKey,
-    
-    handleRefresh,
+
+    handleRefresh: handleManualRefresh,
     handleManualCurrencyUpdate,
     forceImmediateUpdate,
     updateLocalNisabValues,
