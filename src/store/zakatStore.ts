@@ -15,8 +15,11 @@ const initialState: Partial<ZakatState> = {
   currency: 'USD', // Default currency
   metalsValues: {
     gold_regular: 0,
+    gold_regular_purity: '24K',
     gold_occasional: 0,
+    gold_occasional_purity: '24K',
     gold_investment: 0,
+    gold_investment_purity: '24K',
     silver_regular: 0,
     silver_occasional: 0,
     silver_investment: 0
@@ -452,10 +455,33 @@ export const useZakatStore = create<ZakatState>()(
             // Try to fetch new prices with the currency
             try {
               // Implement API call to fetch fresh metal prices with the new currency
-              // For example:
-              fetch(`/api/prices/metals?currency=${newCurrency}&refresh=true`)
-                .then(response => response.json())
+              fetch(`/api/prices/metals?currency=${newCurrency}&refresh=true`, {
+                cache: 'no-store',
+                headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
+              })
+                .then(response => {
+                  if (!response.ok) {
+                    throw new Error(`API returned status ${response.status}`);
+                  }
+
+                  // Check content type to ensure we're getting JSON
+                  const contentType = response.headers.get('content-type');
+                  if (!contentType || !contentType.includes('application/json')) {
+                    throw new Error(`Expected JSON but got ${contentType || 'unknown content type'}`);
+                  }
+
+                  return response.json();
+                })
                 .then(data => {
+                  // Validate the data structure
+                  if (!data || typeof data !== 'object' || data.error) {
+                    throw new Error(data.error || 'Invalid data structure received from API');
+                  }
+
+                  if (typeof data.gold !== 'number' || typeof data.silver !== 'number') {
+                    throw new Error('Invalid metal prices received from API');
+                  }
+
                   // Update the store with fresh metal prices
                   get().setMetalPrices({
                     gold: data.gold,
@@ -479,6 +505,50 @@ export const useZakatStore = create<ZakatState>()(
                 })
                 .catch(error => {
                   console.error('Failed to fetch fresh metal prices:', error instanceof Error ? error.message : String(error));
+
+                  // Use fallback values if API fails
+                  const fallbackGoldPrices = {
+                    USD: 2400,
+                    GBP: 1900,
+                    EUR: 2200,
+                    PKR: 670000,
+                    INR: 200000,
+                    SAR: 9000
+                  };
+
+                  const fallbackSilverPrices = {
+                    USD: 30,
+                    GBP: 24,
+                    EUR: 27,
+                    PKR: 8400,
+                    INR: 2500,
+                    SAR: 112
+                  };
+
+                  // Check if we have fallback values for this currency
+                  if (newCurrency in fallbackGoldPrices && newCurrency in fallbackSilverPrices) {
+                    console.log(`Using fallback metal prices for ${newCurrency}`);
+
+                    // Update with fallback values - convert from per oz to per gram
+                    get().setMetalPrices({
+                      gold: fallbackGoldPrices[newCurrency as keyof typeof fallbackGoldPrices] / 31.1034768,
+                      silver: fallbackSilverPrices[newCurrency as keyof typeof fallbackSilverPrices] / 31.1034768,
+                      currency: newCurrency,
+                      lastUpdated: new Date(),
+                      isCache: true,
+                      source: 'Fallback Values'
+                    });
+
+                    // Dispatch event for fallback values
+                    const fallbackEvent = new CustomEvent('metals-updated', {
+                      detail: {
+                        currency: newCurrency,
+                        immediate: false,
+                        fallback: true
+                      }
+                    });
+                    window.dispatchEvent(fallbackEvent);
+                  }
                   // We already updated with the converted values, so the UI is still correct
                 });
             } catch (fetchError) {
@@ -604,8 +674,11 @@ export const useZakatStore = create<ZakatState>()(
             // Reset metals values
             metalsValues: {
               gold_regular: 0,
+              gold_regular_purity: '24K',
               gold_occasional: 0,
+              gold_occasional_purity: '24K',
               gold_investment: 0,
+              gold_investment_purity: '24K',
               silver_regular: 0,
               silver_occasional: 0,
               silver_investment: 0

@@ -1,8 +1,8 @@
-import { 
-  validateInitialState, 
-  validateValueTypes, 
+import {
+  validateInitialState,
+  validateValueTypes,
   validateCalculations,
-  validateValuePropagation 
+  validateValuePropagation
 } from '../store'
 import { ZakatState, CashValues, MetalsValues, StockValues } from '@/store/types'
 import '@testing-library/jest-dom'
@@ -10,7 +10,7 @@ import '@testing-library/jest-dom'
 describe('Store Validation Tests', () => {
   // Mock console.error to prevent test output noise
   beforeEach(() => {
-    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'error').mockImplementation(() => { })
   })
 
   afterEach(() => {
@@ -29,8 +29,11 @@ describe('Store Validation Tests', () => {
         },
         metalsValues: {
           gold_regular: 0,
+          gold_regular_purity: '24K',
           gold_occasional: 0,
+          gold_occasional_purity: '24K',
           gold_investment: 0,
+          gold_investment_purity: '24K',
           silver_regular: 0,
           silver_occasional: 0,
           silver_investment: 0
@@ -92,7 +95,17 @@ describe('Store Validation Tests', () => {
     it('should return false for invalid hawl status', () => {
       const invalidState: Partial<ZakatState> = {
         cashValues: {},
-        metalsValues: {},
+        metalsValues: {
+          gold_regular: 0,
+          gold_regular_purity: '24K',
+          gold_occasional: 0,
+          gold_occasional_purity: '24K',
+          gold_investment: 0,
+          gold_investment_purity: '24K',
+          silver_regular: 0,
+          silver_occasional: 0,
+          silver_investment: 0
+        },
         stockValues: {},
         metalPrices: { gold: 0, silver: 0, lastUpdated: new Date(), isCache: false },
         stockPrices: { currentMarketPrice: 0, lastUpdated: new Date() },

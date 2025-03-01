@@ -5,6 +5,47 @@ import { useCurrencyStore } from '@/lib/services/currency'
 import { MetalPrices } from '@/store/modules/metals.types'
 import { toGrams, WeightUnit } from '@/lib/utils/units'
 
+// Constants for conversion rates and purity levels
+const CONVERSION_RATES = {
+    OZ_TO_GRAM: 31.1034768, // Troy ounce to grams
+    GRAM_TO_KG: 1000,       // Grams to kilograms
+    TOLA_TO_GRAM: 11.66     // Tolas to grams
+};
+
+// Gold purity factors
+const PURITY = {
+    K24: 1.00,   // 100% pure gold
+    K22: 0.9167, // 91.67% pure gold
+    K21: 0.8750, // 87.5% pure gold
+    K18: 0.7500  // 75% pure gold
+};
+
+// Extended price information types
+interface ExtendedGoldPrices {
+    oz: number;
+    gram: number;
+    kg: number;
+    tola: number;
+    k24: number;
+    k22: number;
+    k21: number;
+    k18: number;
+}
+
+interface ExtendedSilverPrices {
+    oz: number;
+    gram: number;
+    kg: number;
+    tola: number;
+}
+
+interface ExtendedMetalPrices {
+    gold: ExtendedGoldPrices;
+    silver: ExtendedSilverPrices;
+    lastUpdated: Date;
+    currency: string;
+}
+
 interface UseMetalsPricesProps {
     currency: string;
 }
@@ -16,6 +57,7 @@ interface UseMetalsPricesProps {
  * - Provides cached price data with refresh mechanism
  * - Calculates Nisab thresholds based on current prices
  * - Offers fallback mechanisms for API failures
+ * - Supports gold purity levels and unit conversions
  */
 export function useMetalsPrices({ currency }: UseMetalsPricesProps) {
     const {
@@ -40,6 +82,9 @@ export function useMetalsPrices({ currency }: UseMetalsPricesProps) {
     const [isPricesLoading, setIsPricesLoading] = useState(true)
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
     const [isComponentMounted, setIsComponentMounted] = useState(false)
+
+    // Add state for extended prices information
+    const [extendedPrices, setExtendedPrices] = useState<ExtendedMetalPrices | null>(null)
 
     // Add a flag to prevent additional fetches during the current render cycle
     const isFetchingRef = useRef<boolean>(false)
@@ -164,6 +209,77 @@ export function useMetalsPrices({ currency }: UseMetalsPricesProps) {
                 source: data.source
             })
 
+            // Check if the response includes extended information
+            if (data.extended) {
+                console.log('Extended metal prices information received:', data.extended)
+
+                // Update the extended prices state
+                setExtendedPrices({
+                    gold: {
+                        oz: data.extended.gold.oz,
+                        gram: data.gold, // Base price is per gram
+                        kg: data.extended.gold.kg,
+                        tola: data.extended.gold.tola,
+                        k24: data.extended.gold.k24,
+                        k22: data.extended.gold.k22,
+                        k21: data.extended.gold.k21,
+                        k18: data.extended.gold.k18
+                    },
+                    silver: {
+                        oz: data.extended.silver.oz,
+                        gram: data.silver, // Base price is per gram
+                        kg: data.extended.silver.kg,
+                        tola: data.extended.silver.tola
+                    },
+                    lastUpdated: new Date(data.lastUpdated || new Date()),
+                    currency: data.currency || currency
+                })
+            } else {
+                // If extended information is not available, calculate it
+                console.log('Extended information not available, calculating from base prices')
+
+                // Calculate extended prices from the base prices
+                const goldPriceG = data.gold
+                const silverPriceG = data.silver
+
+                // Calculate gold prices in different units and purities
+                const goldPriceOZ = goldPriceG * CONVERSION_RATES.OZ_TO_GRAM
+                const goldPriceKG = goldPriceG * CONVERSION_RATES.GRAM_TO_KG
+                const goldPriceTola = goldPriceG * CONVERSION_RATES.TOLA_TO_GRAM
+
+                const goldPrice24K = goldPriceG
+                const goldPrice22K = goldPriceG * PURITY.K22
+                const goldPrice21K = goldPriceG * PURITY.K21
+                const goldPrice18K = goldPriceG * PURITY.K18
+
+                // Calculate silver prices in different units
+                const silverPriceOZ = silverPriceG * CONVERSION_RATES.OZ_TO_GRAM
+                const silverPriceKG = silverPriceG * CONVERSION_RATES.GRAM_TO_KG
+                const silverPriceTola = silverPriceG * CONVERSION_RATES.TOLA_TO_GRAM
+
+                // Update the extended prices state
+                setExtendedPrices({
+                    gold: {
+                        oz: goldPriceOZ,
+                        gram: goldPriceG,
+                        kg: goldPriceKG,
+                        tola: goldPriceTola,
+                        k24: goldPrice24K,
+                        k22: goldPrice22K,
+                        k21: goldPrice21K,
+                        k18: goldPrice18K
+                    },
+                    silver: {
+                        oz: silverPriceOZ,
+                        gram: silverPriceG,
+                        kg: silverPriceKG,
+                        tola: silverPriceTola
+                    },
+                    lastUpdated: new Date(data.lastUpdated || new Date()),
+                    currency: data.currency || currency
+                })
+            }
+
             // Always use the updateMetalPrices function for consistent handling
             updateMetalPrices(data, data.currency || 'USD', currency)
 
@@ -206,6 +322,47 @@ export function useMetalsPrices({ currency }: UseMetalsPricesProps) {
                 isCache: true,
                 currency: 'USD'
             }, 'USD', currency)
+
+            // Set fallback extended prices
+            const goldPriceG = 93.98
+            const silverPriceG = 1.02
+
+            // Calculate gold prices in different units and purities
+            const goldPriceOZ = goldPriceG * CONVERSION_RATES.OZ_TO_GRAM
+            const goldPriceKG = goldPriceG * CONVERSION_RATES.GRAM_TO_KG
+            const goldPriceTola = goldPriceG * CONVERSION_RATES.TOLA_TO_GRAM
+
+            const goldPrice24K = goldPriceG
+            const goldPrice22K = goldPriceG * PURITY.K22
+            const goldPrice21K = goldPriceG * PURITY.K21
+            const goldPrice18K = goldPriceG * PURITY.K18
+
+            // Calculate silver prices in different units
+            const silverPriceOZ = silverPriceG * CONVERSION_RATES.OZ_TO_GRAM
+            const silverPriceKG = silverPriceG * CONVERSION_RATES.GRAM_TO_KG
+            const silverPriceTola = silverPriceG * CONVERSION_RATES.TOLA_TO_GRAM
+
+            // Update the extended prices state with fallback values
+            setExtendedPrices({
+                gold: {
+                    oz: goldPriceOZ,
+                    gram: goldPriceG,
+                    kg: goldPriceKG,
+                    tola: goldPriceTola,
+                    k24: goldPrice24K,
+                    k22: goldPrice22K,
+                    k21: goldPrice21K,
+                    k18: goldPrice18K
+                },
+                silver: {
+                    oz: silverPriceOZ,
+                    gram: silverPriceG,
+                    kg: silverPriceKG,
+                    tola: silverPriceTola
+                },
+                lastUpdated: new Date(),
+                currency: currency
+            })
         } finally {
             if (shouldShowLoading) {
                 setIsPricesLoading(false)
@@ -268,7 +425,7 @@ export function useMetalsPrices({ currency }: UseMetalsPricesProps) {
         return () => {
             if (interval) clearInterval(interval)
         }
-    }, [currency, isConverting, lastUpdated, updateMetalPrices, metalPrices])
+    }, [currency, lastUpdated, isConverting, metalPrices, updateMetalPrices])
 
     // Add effect to reset cache when currency changes
     useEffect(() => {
@@ -411,20 +568,52 @@ export function useMetalsPrices({ currency }: UseMetalsPricesProps) {
         } else {
             // Use the value from the store
             const weightInGrams = metalsValues[categoryId as keyof typeof metalsValues] || 0;
-            const pricePerGram = categoryId.includes('gold') ? metalPrices.gold : metalPrices.silver;
-            return weightInGrams * pricePerGram;
+            const pricePerGram = categoryId.includes('gold')
+                ? (metalPrices.gold || 0)
+                : (metalPrices.silver || 0);
+            return Number(weightInGrams) * Number(pricePerGram);
         }
     }, [metalPrices]);
+
+    /**
+     * Get the gold price for a specific purity level
+     * @param purity The purity level (24K, 22K, 21K, 18K)
+     * @returns The gold price for the specified purity, or null if not available
+     */
+    const getGoldPriceForPurity = useCallback((purity: '24K' | '22K' | '21K' | '18K'): number | null => {
+        if (!extendedPrices) {
+            return null
+        }
+
+        switch (purity) {
+            case '24K':
+                return extendedPrices.gold.k24
+            case '22K':
+                return extendedPrices.gold.k22
+            case '21K':
+                return extendedPrices.gold.k21
+            case '18K':
+                return extendedPrices.gold.k18
+            default:
+                return null
+        }
+    }, [extendedPrices])
 
     return {
         // State
         metalPrices,
+        goldPrice: metalPrices.gold,
+        silverPrice: metalPrices.silver,
         isPricesLoading,
         lastUpdated,
 
         // Actions
         fetchPrices,
         updateMetalPrices,
+
+        // Extended prices
+        extendedPrices,
+        getGoldPriceForPurity,
 
         // Formatters
         formatCurrency,

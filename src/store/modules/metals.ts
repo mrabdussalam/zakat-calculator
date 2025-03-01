@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand'
-import { MetalsValues, MetalPrices, MetalsPreferences } from './metals.types'
+import { MetalsValues, MetalPrices, MetalsPreferences, GoldPurity } from './metals.types'
 import { DEFAULT_HAWL_STATUS } from '../constants'
 import { computeMetalsResults, clearMetalsCalculationCache } from '../utils'
 import { ZakatState } from '../types'
@@ -10,8 +10,11 @@ import debug from '@/lib/utils/debug'
 // Initial values
 const initialMetalsValues: MetalsValues = {
   gold_regular: 0,
+  gold_regular_purity: '24K',
   gold_occasional: 0,
+  gold_occasional_purity: '24K',
   gold_investment: 0,
+  gold_investment_purity: '24K',
   silver_regular: 0,
   silver_occasional: 0,
   silver_investment: 0
@@ -37,7 +40,7 @@ export interface MetalsSlice {
   metalsPreferences: MetalsPreferences
 
   // Actions
-  setMetalsValue: (key: keyof MetalsValues, value: number) => void
+  setMetalsValue: (key: keyof MetalsValues, value: number | GoldPurity) => void
   resetMetalsValues: () => void
   setMetalsValues: (values: Partial<MetalsValues>) => void
   setMetalPrices: (prices: Partial<MetalPrices>) => void
@@ -53,7 +56,15 @@ export interface MetalsSlice {
     zakatDue: number
     goldGrams: number
     silverGrams: number
-    items: Record<string, { value: number; weight: number; isZakatable: boolean; isExempt: boolean; zakatable: number; zakatDue: number }>
+    items: Record<string, {
+      value: number;
+      weight: number;
+      purity?: GoldPurity;
+      isZakatable: boolean;
+      isExempt: boolean;
+      zakatable: number;
+      zakatDue: number
+    }>
   }
 }
 
@@ -70,7 +81,7 @@ export const createMetalsSlice: StateCreator<
   metalsPreferences: initialMetalsPreferences,
 
   // Actions
-  setMetalsValue: (key: keyof MetalsValues, value: number) =>
+  setMetalsValue: (key: keyof MetalsValues, value: number | GoldPurity) =>
     set((state: ZakatState) => ({
       metalsValues: {
         ...state.metalsValues,
@@ -207,10 +218,19 @@ export const createMetalsSlice: StateCreator<
     // Use the memoized computation function
     const result = computeMetalsResults(metalsValues, metalPrices, metalsHawlMet);
 
-    const items: Record<string, { value: number; weight: number; isZakatable: boolean; isExempt: boolean; zakatable: number; zakatDue: number }> = {
+    const items: Record<string, {
+      value: number;
+      weight: number;
+      purity?: GoldPurity;
+      isZakatable: boolean;
+      isExempt: boolean;
+      zakatable: number;
+      zakatDue: number
+    }> = {
       gold_regular: {
         value: result.breakdown.gold.regular.value,
         weight: result.breakdown.gold.regular.weight,
+        purity: result.breakdown.gold.regular.purity,
         isZakatable: result.breakdown.gold.regular.isZakatable,
         isExempt: result.breakdown.gold.regular.isExempt,
         zakatable: metalsHawlMet ? (result.breakdown.gold.regular.isZakatable ? result.breakdown.gold.regular.value : 0) : 0,
@@ -219,6 +239,7 @@ export const createMetalsSlice: StateCreator<
       gold_occasional: {
         value: result.breakdown.gold.occasional.value,
         weight: result.breakdown.gold.occasional.weight,
+        purity: result.breakdown.gold.occasional.purity,
         isZakatable: result.breakdown.gold.occasional.isZakatable,
         isExempt: result.breakdown.gold.occasional.isExempt,
         zakatable: metalsHawlMet ? result.breakdown.gold.occasional.value : 0,
@@ -227,6 +248,7 @@ export const createMetalsSlice: StateCreator<
       gold_investment: {
         value: result.breakdown.gold.investment.value,
         weight: result.breakdown.gold.investment.weight,
+        purity: result.breakdown.gold.investment.purity,
         isZakatable: result.breakdown.gold.investment.isZakatable,
         isExempt: result.breakdown.gold.investment.isExempt,
         zakatable: metalsHawlMet ? result.breakdown.gold.investment.value : 0,

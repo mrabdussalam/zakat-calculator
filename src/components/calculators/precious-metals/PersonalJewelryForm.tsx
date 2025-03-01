@@ -42,6 +42,14 @@ import { MetalPrices } from '@/store/modules/metals.types'
 import { useMetalsForm, useMetalsPrices, METAL_CATEGORIES, MetalCategory } from '@/hooks/calculators/metals'
 import { useStoreHydration } from '@/hooks/useStoreHydration'
 
+// Gold purity options
+const GOLD_PURITY_OPTIONS = [
+  { value: '24K', label: '24K (99.9% pure)' },
+  { value: '22K', label: '22K (91.7% pure)' },
+  { value: '21K', label: '21K (87.5% pure)' },
+  { value: '18K', label: '18K (75.0% pure)' }
+];
+
 interface PersonalJewelryFormProps {
   currency: string
   onUpdateValues: (values: Record<string, number>) => void
@@ -64,6 +72,9 @@ export function PersonalJewelryForm({
   // Check if store is hydrated
   const isStoreHydrated = useStoreHydration()
 
+  // Add state for selected gold purity
+  const [selectedGoldPurity, setSelectedGoldPurity] = useState<'24K' | '22K' | '21K' | '18K'>('24K');
+
   // Use our custom hooks
   const {
     inputValues,
@@ -82,7 +93,8 @@ export function PersonalJewelryForm({
     lastUpdated,
     fetchPrices,
     updateMetalPrices,
-    getDisplayPriceForCategory
+    extendedPrices,
+    getGoldPriceForPurity
   } = useMetalsPrices({ currency });
 
   // Get store values needed for UI elements
@@ -106,11 +118,40 @@ export function PersonalJewelryForm({
     return () => setIsComponentMounted(false);
   }, []);
 
+  // Add state for advanced mode
+  const [useAdvancedMode, setUseAdvancedMode] = useState(false);
+
+  // Add state for individual purity levels
+  const [itemPurityLevels, setItemPurityLevels] = useState<Record<string, '24K' | '22K' | '21K' | '18K'>>({});
+
   // Always set hawl to true
   useEffect(() => {
     setMetalsHawl(true);
     onHawlUpdate(true);
   }, [setMetalsHawl, onHawlUpdate]);
+
+  // Initialize with values from the store
+  useEffect(() => {
+    if (isStoreHydrated) {
+      // Check if we have different purity values for gold items
+      const regularPurity = metalsValues.gold_regular_purity;
+      const occasionalPurity = metalsValues.gold_occasional_purity;
+      const investmentPurity = metalsValues.gold_investment_purity;
+
+      // Always use simple mode with the regular purity (or default to 24K)
+      setSelectedGoldPurity(regularPurity || '24K');
+      setUseAdvancedMode(false);
+
+      // Initialize individual purity levels for internal state
+      // (even though we're not showing advanced mode UI)
+      const initialPurityLevels: Record<string, '24K' | '22K' | '21K' | '18K'> = {};
+      if (regularPurity) initialPurityLevels['gold_regular'] = regularPurity;
+      if (occasionalPurity) initialPurityLevels['gold_occasional'] = occasionalPurity;
+      if (investmentPurity) initialPurityLevels['gold_investment'] = investmentPurity;
+
+      setItemPurityLevels(initialPurityLevels);
+    }
+  }, [isStoreHydrated, metalsValues, setSelectedGoldPurity, setUseAdvancedMode, setItemPurityLevels]);
 
   // Format helpers
   const formatNumber = (num: number): string => {
@@ -224,6 +265,92 @@ export function PersonalJewelryForm({
     handleUnitChange(unit)
   }
 
+  // Function to get purity for a specific category
+  const getPurityForCategory = (categoryId: string): '24K' | '22K' | '21K' | '18K' => {
+    if (categoryId === 'gold_regular') {
+      return itemPurityLevels.gold_regular || selectedGoldPurity;
+    } else if (categoryId === 'gold_occasional') {
+      return itemPurityLevels.gold_occasional || selectedGoldPurity;
+    } else if (categoryId === 'gold_investment') {
+      return itemPurityLevels.gold_investment || selectedGoldPurity;
+    }
+    return selectedGoldPurity;
+  };
+
+  // Function to handle changes in gold purity
+  const handleGoldPurityChange = useCallback((purity: '24K' | '22K' | '21K' | '18K') => {
+    setSelectedGoldPurity(purity);
+
+    // Update store with the new purity for all gold categories if not in advanced mode
+    if (!useAdvancedMode) {
+      // Update all gold purities in the store
+      setMetalsValue('gold_regular_purity', purity);
+      setMetalsValue('gold_occasional_purity', purity);
+      setMetalsValue('gold_investment_purity', purity);
+    }
+  }, [useAdvancedMode, setMetalsValue]);
+
+  // Get the current gold price based on selected purity
+  const getCurrentGoldPrice = useCallback(() => {
+    if (!extendedPrices) {
+      return metalPrices.gold;
+    }
+
+    const purityPrice = getGoldPriceForPurity(selectedGoldPurity);
+    return purityPrice !== null ? purityPrice : metalPrices.gold;
+  }, [extendedPrices, metalPrices.gold, selectedGoldPurity, getGoldPriceForPurity]);
+
+  // Function to handle individual item purity change
+  const handleItemPurityChange = useCallback((categoryId: string, purity: '24K' | '22K' | '21K' | '18K') => {
+    setItemPurityLevels(prev => ({
+      ...prev,
+      [categoryId]: purity
+    }));
+
+    // Update the store with the new purity for this specific category
+    if (categoryId === 'gold_regular') {
+      setMetalsValue('gold_regular_purity', purity);
+    } else if (categoryId === 'gold_occasional') {
+      setMetalsValue('gold_occasional_purity', purity);
+    } else if (categoryId === 'gold_investment') {
+      setMetalsValue('gold_investment_purity', purity);
+    }
+  }, [setMetalsValue]);
+
+  // Update the getDisplayPriceForCategory function to use category-specific purity
+  const getDisplayPriceForCategory = useCallback((categoryId: string, value: string | number, unit: WeightUnit) => {
+    // Convert to number if string
+    const numValue = typeof value === 'string' ? parseFloat(value) || 0 : value;
+
+    // Convert to grams for calculation
+    const weightInGrams = toGrams(numValue, unit);
+
+    // Find the category
+    const category = METAL_CATEGORIES.find(cat => cat.id === categoryId);
+
+    if (!category) return 0;
+
+    // Use the appropriate price based on category ID
+    let price = 0;
+    if (categoryId.includes('gold')) {
+      // Get the purity for this specific category
+      const purity = getPurityForCategory(categoryId);
+
+      // Get the gold price for this purity
+      const purityPrice = getGoldPriceForPurity(purity);
+      price = purityPrice !== null ? purityPrice : metalPrices.gold;
+    } else if (categoryId.includes('silver')) {
+      price = metalPrices.silver;
+    } else {
+      // Default to gold if we can't determine
+      console.warn(`Could not determine metal type for category: ${categoryId}`);
+      price = metalPrices.gold;
+    }
+
+    // Calculate the value
+    return weightInGrams * price;
+  }, [metalPrices, getGoldPriceForPurity, getPurityForCategory]);
+
   return (
     <div className="space-y-6">
       {/* Form content */}
@@ -243,17 +370,17 @@ export function PersonalJewelryForm({
               {/* Weight Unit Selection - More Compact UI */}
               <div className="mt-5 mb-6">
                 <div className="relative">
-                  <div className="flex rounded-xl shadow-sm bg-gray-50 p-1.5 relative">
+                  <div className="flex rounded-xl bg-gray-50 px-0.5 py-1.5 relative">
                     <motion.div
-                      className="absolute z-0 top-1.5 bottom-1.5 bg-white border border-gray-600 rounded-md"
+                      className="absolute z-0 top-0 bottom-0 bg-white border border-gray-900 rounded-lg"
                       initial={false}
                       animate={{
                         width: indicatorStyle.width,
                         left: indicatorStyle.left,
                       }}
                       transition={{
-                        duration: 0.2,
-                        ease: "easeOut"
+                        type: "tween",
+                        duration: 0.1
                       }}
                     />
                     {Object.values(WEIGHT_UNITS).map((unit) => (
@@ -262,10 +389,10 @@ export function PersonalJewelryForm({
                         type="button"
                         onClick={() => handleUnitChange(unit.value)}
                         className={cn(
-                          "flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors duration-200 relative z-10",
+                          "flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium rounded-lg relative z-10",
                           selectedUnit === unit.value
                             ? "text-gray-900"
-                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/50"
+                            : "text-gray-600 hover:text-gray-900"
                         )}
                         ref={(el) => {
                           if (el) unitRefs.current[unit.value] = el
@@ -279,7 +406,41 @@ export function PersonalJewelryForm({
                 </div>
               </div>
 
-              <div className="space-y-6">
+              {/* Gold Purity Selection */}
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="gold-purity" className="font-medium">Gold Purity</Label>
+                </div>
+
+                {/* Always show simple mode UI regardless of useAdvancedMode value */}
+                <div className="grid grid-cols-4 gap-2">
+                  {GOLD_PURITY_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleGoldPurityChange(option.value as '24K' | '22K' | '21K' | '18K')}
+                      className={cn(
+                        "flex flex-col items-center justify-center p-3 rounded-lg border",
+                        selectedGoldPurity === option.value
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                      )}
+                    >
+                      <span className="text-sm font-medium">{option.value}</span>
+                      <span className="text-xs text-gray-500">
+                        {option.label.match(/\((.+)\)/)?.[1] || option.label.split(' ')[1]}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {extendedPrices && (
+                  <div className="mt-2 text-xs text-gray-600">
+                    Current {selectedGoldPurity} gold price: {formatCurrency(getCurrentGoldPrice())} per gram
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-8">
                 {/* Show only personal jewelry fields first */}
                 {METAL_CATEGORIES
                   .filter((cat: MetalCategory) => !cat.id.includes('investment'))
@@ -287,7 +448,7 @@ export function PersonalJewelryForm({
                     <div key={category.id} className="space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
-                          <Label htmlFor={category.id}>
+                          <Label htmlFor={category.id} className="font-medium">
                             {category.name}
                           </Label>
                         </div>
@@ -297,14 +458,14 @@ export function PersonalJewelryForm({
                           </span>
                         )}
                       </div>
-                      <div className="relative">
+                      <div className="relative group">
                         <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                           <AnimatePresence mode="wait">
                             <motion.span
                               key={selectedUnit}
-                              initial={{ opacity: 0, y: 5 }}
+                              initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -5 }}
+                              exit={{ opacity: 0, y: -10 }}
                               transition={{ duration: 0.15 }}
                               className="flex h-6 min-w-6 items-center justify-center rounded-md bg-gray-100 px-1.5 text-sm font-medium text-gray-800"
                             >
@@ -319,12 +480,12 @@ export function PersonalJewelryForm({
                           step="0.001"
                           min="0"
                           className={cn(
-                            "pl-12 pr-32 text-sm bg-white focus-within:ring-1 focus-within:ring-blue-500",
-                            lastUnitChange && inputValues[category.id] ? "bg-blue-50 transition-colors duration-1000" : ""
+                            "pl-12 pr-32 text-sm bg-white border-gray-200 transition-colors duration-300 ease-in-out",
+                            lastUnitChange && inputValues[category.id] ? "bg-yellow-50" : ""
                           )}
                           value={inputValues[category.id] || ''}
                           onChange={(e) => handleValueChange(category.id, e)}
-                          placeholder={`Enter weight in ${WEIGHT_UNITS[selectedUnit].symbol}`}
+                          placeholder={`Enter weight in ${WEIGHT_UNITS[selectedUnit].label.toLowerCase()}`}
                         />
                         <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
                           {isPricesLoading ? (
@@ -365,7 +526,7 @@ export function PersonalJewelryForm({
                     onClick={() => {
                       handleInvestmentToggle(true);
                     }}
-                    className={`relative rounded-lg border ${showInvestment ? 'border-gray-900 bg-gray-50' : 'border-gray-100'} p-4 hover:border-gray-200 hover:bg-gray-50/50 transition-all text-left`}
+                    className={`relative rounded-lg border ${showInvestment ? 'border-gray-900 bg-gray-50' : 'border-gray-100'} p-4 hover:border-gray-200 hover:bg-gray-50/50`}
                   >
                     <h4 className="text-sm font-medium text-gray-900">Yes, I do</h4>
                   </button>
@@ -374,7 +535,7 @@ export function PersonalJewelryForm({
                     onClick={() => {
                       handleInvestmentToggle(false);
                     }}
-                    className={`relative rounded-lg border ${!showInvestment ? 'border-gray-900 bg-gray-50' : 'border-gray-100'} p-4 hover:border-gray-200 hover:bg-gray-50/50 transition-all text-left`}
+                    className={`relative rounded-lg border ${!showInvestment ? 'border-gray-900 bg-gray-50' : 'border-gray-100'} p-4 hover:border-gray-200 hover:bg-gray-50/50`}
                   >
                     <h4 className="text-sm font-medium text-gray-900">No, just jewelry</h4>
                   </button>
@@ -388,8 +549,7 @@ export function PersonalJewelryForm({
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{
-                    duration: 0.3,
-                    ease: [0.2, 0.4, 0.2, 1]
+                    duration: 0.2
                   }}
                 >
                   {/* Show only investment fields */}
@@ -399,19 +559,9 @@ export function PersonalJewelryForm({
                       <div key={category.id} className="space-y-2">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
-                            <Label htmlFor={category.id}>
+                            <Label htmlFor={category.id} className="font-medium">
                               {category.name}
                             </Label>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button type="button" className="text-gray-400 hover:text-gray-600 transition-colors">
-                                  <InfoIcon className="h-4 w-4" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {category.description}
-                              </TooltipContent>
-                            </Tooltip>
                           </div>
                           {!category.isZakatable && (
                             <span className="text-xs text-green-600 font-medium">
@@ -419,14 +569,14 @@ export function PersonalJewelryForm({
                             </span>
                           )}
                         </div>
-                        <div className="relative">
+                        <div className="relative group">
                           <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                             <AnimatePresence mode="wait">
                               <motion.span
                                 key={selectedUnit}
-                                initial={{ opacity: 0, y: 5 }}
+                                initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -5 }}
+                                exit={{ opacity: 0, y: -10 }}
                                 transition={{ duration: 0.15 }}
                                 className="flex h-6 min-w-6 items-center justify-center rounded-md bg-gray-100 px-1.5 text-sm font-medium text-gray-800"
                               >
@@ -441,12 +591,12 @@ export function PersonalJewelryForm({
                             step="0.001"
                             min="0"
                             className={cn(
-                              "pl-12 pr-32 text-sm bg-white focus-within:ring-1 focus-within:ring-blue-500",
-                              lastUnitChange && inputValues[category.id] ? "bg-blue-50 transition-colors duration-1000" : ""
+                              "pl-12 pr-32 text-sm bg-white border-gray-200 transition-colors duration-300 ease-in-out",
+                              lastUnitChange && inputValues[category.id] ? "bg-yellow-50" : ""
                             )}
                             value={inputValues[category.id] || ''}
                             onChange={(e) => handleValueChange(category.id, e)}
-                            placeholder={`Enter weight in ${WEIGHT_UNITS[selectedUnit].symbol}`}
+                            placeholder={`Enter weight in ${WEIGHT_UNITS[selectedUnit].label.toLowerCase()}`}
                           />
                           <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
                             {isPricesLoading ? (
@@ -467,6 +617,42 @@ export function PersonalJewelryForm({
                             )}
                           </div>
                         </div>
+
+                        {/* Show individual purity selector in advanced mode for gold items */}
+                        {useAdvancedMode && category.id.includes('gold') && (
+                          <div className="ml-1 mt-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-500">Purity:</span>
+                              <div className="flex gap-1">
+                                {GOLD_PURITY_OPTIONS.map((option) => (
+                                  <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() => handleItemPurityChange(category.id, option.value as '24K' | '22K' | '21K' | '18K')}
+                                    className={cn(
+                                      "text-xs px-2 py-1 rounded-md border transition-colors",
+                                      getPurityForCategory(category.id) === option.value
+                                        ? "border-blue-500 bg-blue-50 text-blue-700"
+                                        : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"
+                                    )}
+                                  >
+                                    {option.value}
+                                    <span className="text-[10px] ml-0.5 text-gray-500">
+                                      {option.label.match(/\((.+)\)/)?.[1] || ''}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Show purity info for gold items in simple mode */}
+                        {!useAdvancedMode && category.id.includes('gold') && (
+                          <div className="text-xs text-gray-500 ml-1">
+                            Using {selectedGoldPurity} gold purity for calculation
+                          </div>
+                        )}
                       </div>
                     ))}
                 </motion.div>
@@ -475,16 +661,18 @@ export function PersonalJewelryForm({
 
             {/* Price Source Indicator - Compact Version */}
             <div className="mt-6 text-xs">
-              <div className="flex items-center">
-                {!metalPrices.isCache && (
-                  <span className="relative flex h-[8px] w-[8px] mr-2">
-                    <span className="relative inline-flex rounded-full h-full w-full bg-green-500 opacity-80 animate-pulse"></span>
-                  </span>
-                )}
+              <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <span className="text-[11px] text-gray-400">
-                    Prices Last Updated: {new Date(metalPrices.lastUpdated).toLocaleString()}
-                  </span>
+                  {!metalPrices.isCache && (
+                    <span className="relative flex h-[8px] w-[8px] mr-2">
+                      <span className="relative inline-flex rounded-full h-full w-full bg-green-500 opacity-80 animate-pulse"></span>
+                    </span>
+                  )}
+                  <div className="flex items-center">
+                    <span className="text-xs text-gray-400">
+                      Prices Last Updated: {new Date(metalPrices.lastUpdated).toLocaleString()}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

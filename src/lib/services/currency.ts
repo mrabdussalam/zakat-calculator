@@ -502,7 +502,45 @@ export const useCurrencyStore = create<CurrencyState>((set, get) => ({
       }
 
       if (!success) {
-        throw new Error('All API sources failed during force refresh');
+        console.warn('All API sources failed during force refresh, using fallback rates');
+        // Use fallback hardcoded exchange rates instead of throwing an error
+        success = true;
+
+        // Fallback exchange rates with USD as base
+        const fallbackRates: Record<string, number> = {
+          USD: 1,
+          GBP: 0.78,
+          EUR: 0.91,
+          PKR: 278.5,
+          INR: 83.15,
+          SAR: 3.75
+        };
+
+        // Create data structure that matches the expected format
+        if (base.toUpperCase() === 'USD') {
+          // If base is USD, use the fallback rates directly
+          data = { rates: fallbackRates };
+          // Set sourceIndex to match exchangerate.host for processing
+          sourceIndex = API_SOURCES.indexOf('https://api.exchangerate.host/latest') + 1;
+        } else {
+          // For other base currencies, we need to convert
+          // Create a structure that matches currency-api format
+          const baseKey = base.toUpperCase();
+          const baseRate = baseKey in fallbackRates ? fallbackRates[baseKey] : 1;
+          const convertedRates: Record<string, number> = {};
+
+          // Convert all rates to the new base
+          Object.entries(fallbackRates).forEach(([currency, rate]) => {
+            convertedRates[currency.toLowerCase()] = rate / baseRate;
+          });
+
+          // Format data to match currency-api response
+          data = { [base.toLowerCase()]: convertedRates };
+          // Set sourceIndex to match currency-api for processing
+          sourceIndex = API_SOURCES.indexOf('https://api.exchangerate.host/latest') + 2;
+        }
+
+        console.log(`Using fallback exchange rates with base ${base}`);
       }
 
       // Process the data based on the source format
@@ -648,6 +686,63 @@ export const useCurrencyStore = create<CurrencyState>((set, get) => ({
     } catch (error) {
       console.error('Error during currency conversion:', error instanceof Error ? error.message : String(error));
       return getFallbackConversion(amount, fromCurrency, toCurrency);
+    }
+  },
+
+  // Convert currency using the store's exchange rates
+  convertCurrency(amount: number, from: string, to: string): number {
+    const { rates, baseCurrency } = get();
+
+    // If currencies are the same, no conversion needed
+    if (from.toUpperCase() === to.toUpperCase()) {
+      return amount;
+    }
+
+    // If we don't have rates, use fallback conversion
+    if (!rates || Object.keys(rates).length === 0) {
+      console.log(`No exchange rates available in store, using fallback`);
+      const converted = getFallbackConversion(amount, from, to);
+      console.log(`Using hardcoded conversion: ${amount} ${from} → ${converted} ${to}`);
+      return converted;
+    }
+
+    try {
+      // Normalize currency codes
+      const fromUpper = from.toUpperCase();
+      const toUpper = to.toUpperCase();
+      const baseUpper = baseCurrency.toUpperCase();
+
+      // Direct conversion if base currency matches from currency
+      if (baseUpper === fromUpper) {
+        // If we have a direct rate for the target currency
+        if (rates[toUpper]) {
+          return amount * rates[toUpper];
+        }
+      }
+
+      // Convert from source to base currency first, then to target
+      if (baseUpper === toUpper) {
+        // If we have a direct rate for the source currency
+        if (rates[fromUpper]) {
+          return amount / rates[fromUpper];
+        }
+      }
+
+      // Cross-currency conversion: from -> base -> to
+      if (rates[fromUpper] && rates[toUpper]) {
+        const amountInBaseCurrency = amount / rates[fromUpper];
+        return amountInBaseCurrency * rates[toUpper];
+      }
+
+      // If we get here, we couldn't convert using available rates
+      console.warn(`Could not convert ${from} to ${to} using available rates, falling back to hardcoded rates`);
+      const converted = getFallbackConversion(amount, from, to);
+      console.log(`Using hardcoded conversion: ${amount} ${from} → ${converted} ${to}`);
+      return converted;
+    } catch (error) {
+      console.error('Error converting currency:', error);
+      // Use fallback if anything goes wrong
+      return getFallbackConversion(amount, from, to);
     }
   }
 })); 

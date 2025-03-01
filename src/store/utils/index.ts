@@ -1,4 +1,4 @@
-import { MetalsValues, MetalPrices } from '../modules/metals.types'
+import { MetalsValues, MetalPrices, GoldPurity } from '../modules/metals.types'
 
 // Cache for metals calculations to prevent excessive recalculations
 interface CacheEntry {
@@ -11,10 +11,31 @@ const metalsCalculationCache = new Map<string, CacheEntry>();
 const CACHE_MAX_SIZE = 20;
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
 
+// Gold purity factors
+const PURITY = {
+  '24K': 1.00,   // 100% pure gold
+  '22K': 0.9167, // 91.67% pure gold
+  '21K': 0.8750, // 87.5% pure gold
+  '18K': 0.7500  // 75% pure gold
+};
+
 // Helper function to safely reduce numbers
 export const safeReduce = (values: number[]): number => {
   return values.reduce((sum: number, value: number) => sum + (value || 0), 0)
 }
+
+// Helper function to get gold price based on purity
+const getGoldPriceForPurity = (basePrice: number, purity: GoldPurity): number => {
+  return basePrice * PURITY[purity];
+}
+
+// Helper function to get a valid purity value
+const getValidPurity = (purity: GoldPurity | undefined): GoldPurity => {
+  if (purity && ['24K', '22K', '21K', '18K'].includes(purity)) {
+    return purity;
+  }
+  return '24K';
+};
 
 // Helper to compute metals results
 export const computeMetalsResults = (
@@ -28,7 +49,7 @@ export const computeMetalsResults = (
     prices: {
       gold: prices.gold,
       silver: prices.silver,
-      currency: typeof prices.currency === 'string' ? prices.currency : 'USD'
+      currency: prices.currency
     },
     hawlMet
   });
@@ -121,8 +142,11 @@ export const computeMetalsResults = (
   // Safely get values with fallbacks (all stored in grams)
   const safeValues = {
     gold_regular: values?.gold_regular || 0,
+    gold_regular_purity: values?.gold_regular_purity || '24K',
     gold_occasional: values?.gold_occasional || 0,
+    gold_occasional_purity: values?.gold_occasional_purity || '24K',
     gold_investment: values?.gold_investment || 0,
+    gold_investment_purity: values?.gold_investment_purity || '24K',
     silver_regular: values?.silver_regular || 0,
     silver_occasional: values?.silver_occasional || 0,
     silver_investment: values?.silver_investment || 0
@@ -131,19 +155,22 @@ export const computeMetalsResults = (
   // Calculate gold values (working with values in grams)
   const goldRegular = {
     weight: safeValues.gold_regular,
-    value: safeValues.gold_regular * safetyPrices.gold,
+    value: safeValues.gold_regular * getGoldPriceForPurity(safetyPrices.gold, safeValues.gold_regular_purity),
+    purity: safeValues.gold_regular_purity,
     isExempt: true,
     isZakatable: false
   }
   const goldOccasional = {
     weight: safeValues.gold_occasional,
-    value: safeValues.gold_occasional * safetyPrices.gold,
+    value: safeValues.gold_occasional * getGoldPriceForPurity(safetyPrices.gold, safeValues.gold_occasional_purity),
+    purity: safeValues.gold_occasional_purity,
     isZakatable: hawlMet,
     isExempt: false
   }
   const goldInvestment = {
     weight: safeValues.gold_investment,
-    value: safeValues.gold_investment * safetyPrices.gold,
+    value: safeValues.gold_investment * getGoldPriceForPurity(safetyPrices.gold, safeValues.gold_investment_purity),
+    purity: safeValues.gold_investment_purity,
     isZakatable: hawlMet,
     isExempt: false
   }
@@ -195,6 +222,11 @@ export const computeMetalsResults = (
   const zakatable = goldZakatable.value + silverZakatable.value
   const zakatDue = zakatable * 0.025
 
+  // Get purity values with defaults
+  const goldRegularPurity = getValidPurity(values.gold_regular_purity);
+  const goldOccasionalPurity = getValidPurity(values.gold_occasional_purity);
+  const goldInvestmentPurity = getValidPurity(values.gold_investment_purity);
+
   // Create the result object
   const result = {
     total: Number.isFinite(total) ? total : 0,
@@ -202,9 +234,18 @@ export const computeMetalsResults = (
     zakatDue: Number.isFinite(zakatDue) ? zakatDue : 0,
     breakdown: {
       gold: {
-        regular: goldRegular,
-        occasional: goldOccasional,
-        investment: goldInvestment,
+        regular: {
+          ...goldRegular,
+          purity: goldRegularPurity
+        },
+        occasional: {
+          ...goldOccasional,
+          purity: goldOccasionalPurity
+        },
+        investment: {
+          ...goldInvestment,
+          purity: goldInvestmentPurity
+        },
         total: goldTotal,
         zakatable: goldZakatable
       },
@@ -228,7 +269,9 @@ export const computeMetalsResults = (
   // Implement LRU-like behavior by deleting oldest entries if cache is full
   if (metalsCalculationCache.size >= CACHE_MAX_SIZE) {
     const oldestKey = metalsCalculationCache.keys().next().value;
-    metalsCalculationCache.delete(oldestKey);
+    if (oldestKey) {
+      metalsCalculationCache.delete(oldestKey);
+    }
   }
 
   metalsCalculationCache.set(cacheKey, {

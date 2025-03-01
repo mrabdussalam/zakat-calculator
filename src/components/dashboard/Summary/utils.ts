@@ -1,5 +1,6 @@
 import { AssetBreakdown } from "./types"
 import { WeightUnit, fromGrams, WEIGHT_UNITS } from '@/lib/utils/units'
+import { GoldPurity } from '@/store/modules/metals.types'
 
 type AssetBreakdownItem = {
   value: number
@@ -9,6 +10,7 @@ type AssetBreakdownItem = {
   label: string
   tooltip?: string
   isExempt?: boolean
+  purity?: string
 }
 
 export function adaptMetalsBreakdown(
@@ -21,6 +23,7 @@ export function adaptMetalsBreakdown(
     items: Record<string, {
       value: number
       weight: number
+      purity?: GoldPurity
       isZakatable: boolean
       isExempt: boolean
       zakatable: number
@@ -40,7 +43,13 @@ export function adaptMetalsBreakdown(
       const formattedWeight = convertedWeight.toFixed(2)
       const unitSymbol = WEIGHT_UNITS[weightUnit].symbol
 
-      const label = `${key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} (${formattedWeight}${unitSymbol})`
+      // Include purity in the label for gold items
+      let label = '';
+      if (key.includes('gold') && item.purity) {
+        label = `${key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} (${item.purity}, ${formattedWeight}${unitSymbol})`
+      } else {
+        label = `${key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} (${formattedWeight}${unitSymbol})`
+      }
 
       acc[key] = {
         value: item.value,
@@ -48,6 +57,7 @@ export function adaptMetalsBreakdown(
         zakatable: item.zakatable,
         zakatDue: item.zakatDue,
         label,
+        purity: item.purity,
         tooltip: item.isExempt ? 'Exempt from Zakat' : `${label}: ${item.value.toLocaleString('en-US', { style: 'currency', currency })}`,
         isExempt: item.isExempt
       }
