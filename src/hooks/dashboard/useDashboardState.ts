@@ -45,6 +45,8 @@ function ensureCompleteState(state: Partial<DashboardState>): DashboardState {
   const completeState: DashboardState = {
     ...DEFAULT_STATE,
     ...state,
+    // Always set selectedAsset to 'cash' if it's not specified or is null
+    selectedAsset: state.selectedAsset || 'cash',
     assetValues: {
       cash: {},
       'precious-metals': {},

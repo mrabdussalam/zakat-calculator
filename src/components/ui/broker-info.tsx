@@ -19,17 +19,17 @@ interface BrokerInfoProps {
   className?: string
 }
 
-export function BrokerInfo({ 
-  title, 
-  brokers, 
-  note, 
-  open, 
+export function BrokerInfo({
+  title,
+  brokers,
+  note,
+  open,
   onOpenChange,
-  className 
+  className
 }: BrokerInfoProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent 
+      <DialogContent
         className={cn(
           "bg-white/80 border-white/20 shadow-lg",
           "backdrop-blur-md",
@@ -60,8 +60,8 @@ export function BrokerInfo({
           {/* Broker List */}
           <div className="space-y-2">
             {brokers.map((broker, index) => (
-              <div 
-                key={index} 
+              <div
+                key={index}
                 className={cn(
                   "flex items-center gap-4 rounded-lg bg-white/60 px-4 py-3",
                   "hover:bg-white/80 transition-colors duration-200",

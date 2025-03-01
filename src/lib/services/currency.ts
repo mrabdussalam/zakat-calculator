@@ -231,7 +231,7 @@ function getFallbackConversion(amount: number, from: string, to: string): number
     'aud': 1.52,
     'inr': 83.15,
     'pkr': 278.5,
-    'aed': 3.67,
+    'aed': 3.67,  // 1 USD = 3.67 AED
     'sar': 3.75,
     'myr': 4.65,
     'sgd': 1.35,
@@ -248,13 +248,16 @@ function getFallbackConversion(amount: number, from: string, to: string): number
   const fromLower = from.toLowerCase();
   const toLower = to.toLowerCase();
 
+  console.log(`Fallback conversion attempt: ${amount} ${fromLower} → ${toLower}`);
+  console.log(`Available rates:`, rates);
+
   // If both currencies are in our rates list, we can do a conversion
   if (rates[fromLower] && rates[toLower]) {
     // Convert to USD first, then to target currency
     const amountInUSD = amount / rates[fromLower];
     const result = amountInUSD * rates[toLower];
 
-    console.warn(`Using fallback conversion: ${amount} ${from} → ${result.toFixed(2)} ${to}`);
+    console.warn(`Using fallback conversion: ${amount} ${from} → ${result.toFixed(2)} ${to} (via USD)`);
     return result;
   }
 

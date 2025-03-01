@@ -12,6 +12,7 @@ import localFont from "next/font/local";
 import { HydrationGuard } from '@/components/ui/HydrationGuard'
 import { HydrationStatus } from '@/components/ui/HydrationStatus'
 import { HydrationTester } from '@/components/ui/HydrationTester'
+import { PageTransition } from '@/components/ui/PageTransition'
 import { cn } from "@/lib/utils";
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID || 'G-N5SFJ07P99';
@@ -93,13 +94,15 @@ export default function RootLayout({
         <HydrationGuard fallback={
           <div className="flex h-screen w-full items-center justify-center">
             <div className="text-center">
-              <h2 className="text-lg font-medium">Loading your data...</h2>
+              <h2 className="text-lg font-medium">Loading...</h2>
               <p className="text-muted-foreground">Please wait while we restore your calculations</p>
             </div>
           </div>
         }>
           <CurrencyProvider>
-            {children}
+            <PageTransition>
+              {children}
+            </PageTransition>
           </CurrencyProvider>
         </HydrationGuard>
 

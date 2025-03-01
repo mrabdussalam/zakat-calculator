@@ -17,6 +17,31 @@ const notoNaskhArabic = Noto_Naskh_Arabic({
   display: 'swap',
 })
 
+// Animation variants for staggered animations
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.07,
+      delayChildren: 0.05
+    }
+  }
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 5 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: 'tween',
+      ease: [0.25, 0.1, 0.25, 1.0],
+      duration: 0.3
+    }
+  }
+}
+
 export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedCurrency, setSelectedCurrency] = useState('USD')
@@ -31,9 +56,37 @@ export default function HomePage() {
     }
 
     window.addEventListener('currency-changed', handleCurrencyChange as EventListener)
-    
+
     return () => {
       window.removeEventListener('currency-changed', handleCurrencyChange as EventListener)
+    }
+  }, [])
+
+  // Reset loading state when page becomes visible again
+  useEffect(() => {
+    // Reset loading state on initial load
+    setIsLoading(false)
+
+    // Reset loading state when user navigates back to this page
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setIsLoading(false)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    // Also reset on page load/reload
+    window.addEventListener('pageshow', (event) => {
+      // Reset state even if page is loaded from cache (bfcache)
+      if (event.persisted) {
+        setIsLoading(false)
+      }
+    })
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('pageshow', handleVisibilityChange)
     }
   }, [])
 
@@ -47,10 +100,10 @@ export default function HomePage() {
   const handleStartCalculation = (e: React.MouseEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    
+
     // Get the zakatStore instance
     const zakatStore = useZakatStore.getState()
-    
+
     // Perform a hard reset with the new currency
     if (zakatStore && typeof zakatStore.resetWithCurrencyChange === 'function') {
       console.log('Performing hard reset with currency change to:', selectedCurrency)
@@ -63,7 +116,7 @@ export default function HomePage() {
         setupCompleted: true
       }))
     }
-    
+
     // Small delay to show loading state
     setTimeout(() => {
       window.location.href = '/dashboard?t=' + Date.now()
@@ -73,16 +126,28 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-white">
       <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
-        <div className="max-w-xl mx-auto space-y-6">
-          {/* Hero Section */}
-          <div className="space-y-3">
-            <h1 className="text-3xl font-nb-international font-medium tracking-tight text-gray-900 text-center">
+        <motion.div
+          className="max-w-xl mx-auto space-y-6"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          {/* Hero Section with About button */}
+          <motion.div variants={itemVariants} className="flex justify-between items-center">
+            <h1 className="text-3xl font-nb-international font-medium tracking-tight text-gray-900">
               Zakat Calculator
             </h1>
-          </div>
+            <div className="flex items-center gap-2">
+              <Link href="/about">
+                <Button variant="ghost" size="sm" className="rounded-full">
+                  About
+                </Button>
+              </Link>
+            </div>
+          </motion.div>
 
           {/* Quranic Verse */}
-          <div className="rounded-xl border border-gray-100 p-6 space-y-4">
+          <motion.div variants={itemVariants} className="rounded-xl border border-gray-100 p-6 space-y-4">
             <p className={`text-lg sm:text-xl text-gray-900 leading-[2] text-right font-semibold ${notoNaskhArabic.className}`} dir="rtl">
               وَأَقِيمُوا الصَّلَاةَ وَآتُوا الزَّكَاةَ وَأَقْرِضُوا اللَّهَ قَرْضًا حَسَنًا ۚ وَمَا تُقَدِّمُوا لِأَنفُسِكُم مِّنْ خَيْرٍ تَجِدُوهُ عِندَ اللَّهِ هُوَ خَيْرًا وَأَعْظَمَ أَجْرًا
             </p>
@@ -94,53 +159,48 @@ export default function HomePage() {
                 Surah Al-Muzzammil [73:20]
               </p>
             </div>
-          </div>
-          
+          </motion.div>
+
           {/* Currency Selection */}
-          <div className="space-y-4">
+          <motion.div variants={itemVariants} className="space-y-4">
             <div className="space-y-1">
               <h2 className="text-xl font-medium tracking-tight text-gray-900">Select Your Currency</h2>
               <p className="text-sm text-gray-600">Choose the currency you'll use for calculations</p>
             </div>
-            
+
             <CurrencySelector />
 
             {/* CTA Button */}
             <div className="pt-4">
-              <a 
+              <a
                 href="#"
                 className="block"
                 onClick={handleStartCalculation}
               >
-                <motion.div>
-                  <Button 
-                    size="lg" 
-                    className="rounded-lg px-8 h-12 text-sm w-full"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="flex items-center"
-                      >
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Loading...
-                      </motion.div>
-                    ) : (
-                      <div className="flex items-center">
-                        Start Calculation
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </div>
-                    )}
-                  </Button>
-                </motion.div>
+                <Button
+                  variant="default"
+                  size="lg"
+                  className="rounded-lg bg-black hover:bg-gray-800 text-white px-8 h-12 text-sm w-full"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <div className="flex items-center">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading...
+                    </div>
+                  ) : (
+                    <div className="flex items-center">
+                      Start Calculation
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </div>
+                  )}
+                </Button>
               </a>
             </div>
-          </div>
+          </motion.div>
 
           {/* Features Grid */}
-          <div className="grid gap-4">
+          <motion.div variants={itemVariants} className="grid gap-4">
             {/* What is Zakat */}
             <div className="rounded-xl bg-gray-100/80 p-6 space-y-2">
               <h2 className="text-xl font-medium tracking-tight text-gray-900">What is Zakat?</h2>
@@ -149,10 +209,10 @@ export default function HomePage() {
                 calculated as 2.5% of your eligible wealth, to be given to those in need.
               </p>
             </div>
-          </div>
+          </motion.div>
 
           {/* How it Works & Supported Assets */}
-          <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
+          <motion.div variants={itemVariants} className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
             {/* How it Works */}
             <div className="space-y-6">
               <div className="space-y-3">
@@ -194,13 +254,36 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
 
-          <p className="text-xs text-gray-500">
-            For personalized advice, especially in complex situations, consulting a knowledgeable scholar 
+          {/* Contact Information */}
+          <motion.div variants={itemVariants} className="text-sm text-gray-600">
+            <p className="mb-1">
+              <strong>Contact:</strong> For bugs, feedback, or questions, please reach out to:
+            </p>
+            <p className="mb-1">Abdus Salam</p>
+            <p className="mb-1">
+              <a href="mailto:abdussalam.rafiq@gmail.com" className="text-blue-600">
+                abdussalam.rafiq@gmail.com
+              </a>
+            </p>
+            <p>
+              <a
+                href="https://www.linkedin.com/in/imabdussalam/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600"
+              >
+                LinkedIn
+              </a>
+            </p>
+          </motion.div>
+
+          <motion.div variants={itemVariants} className="text-xs text-gray-500">
+            For personalized advice, especially in complex situations, consulting a knowledgeable scholar
             or a trusted Islamic financial advisor is recommended.
-          </p>
-        </div>
+          </motion.div>
+        </motion.div>
       </div>
     </div>
   )

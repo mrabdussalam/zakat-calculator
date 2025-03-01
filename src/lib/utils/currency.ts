@@ -13,7 +13,8 @@ export const SUPPORTED_CURRENCIES = {
   USD: { code: "USD", locale: "en-US", symbol: "$", name: "US Dollar" },
   GBP: { code: "GBP", locale: "en-GB", symbol: "£", name: "British Pound" },
   SAR: { code: "SAR", locale: "ar-SA", symbol: "﷼", name: "Saudi Riyal" },
-  AED: { code: "AED", locale: "ar-AE", symbol: "د.إ", name: "UAE Dirham" },
+  // Temporarily removed AED until we fix currency conversion issues
+  // AED: { code: "AED", locale: "ar-AE", symbol: "د.إ", name: "UAE Dirham" },
   INR: { code: "INR", locale: "en-IN", symbol: "₹", name: "Indian Rupee" },
   PKR: { code: "PKR", locale: "ur-PK", symbol: "₨", name: "Pakistani Rupee" }
 }
@@ -37,22 +38,22 @@ export function formatCurrency(
 ): string {
   // Handle null/undefined values
   if (value === undefined || value === null) return '';
-  
+
   // Ensure we have a valid number
   if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) {
     console.warn('Invalid number passed to formatCurrency:', value);
     value = 0;
   }
-  
+
   // Validate currency - ensure it's one of our supported currencies or default to USD
   const validatedCurrency = SUPPORTED_CURRENCIES[currency as SupportedCurrency] ? currency : 'USD';
-  
+
   // Get symbol for fallback formatting
   const symbol = SUPPORTED_CURRENCIES[validatedCurrency as SupportedCurrency]?.symbol || '$';
-  
+
   // Format with toFixed for simple fallback
   const formattedValue = value.toFixed(2);
-  
+
   // Safe formatted output using multiple fallback strategies
   try {
     // First try: The simplest and most reliable approach - no locale, just currency
@@ -64,7 +65,7 @@ export function formatCurrency(
     }).format(value);
   } catch (error) {
     console.warn('Primary currency formatting failed:', error);
-    
+
     // Fallback 1: Try with USD as a very safe default
     try {
       return new Intl.NumberFormat(undefined, {
@@ -75,7 +76,7 @@ export function formatCurrency(
       }).format(value);
     } catch (e) {
       console.warn('Secondary currency formatting failed:', e);
-      
+
       // Final fallback: Manual string formatting
       return `${symbol}${formattedValue}`;
     }
@@ -93,19 +94,19 @@ export function formatPercentage(
 ): string {
   // Handle null/undefined values
   if (value === undefined || value === null) return '';
-  
+
   // Ensure we have a valid number
   if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) {
     console.warn('Invalid number passed to formatPercentage:', value);
     value = 0;
   }
-  
+
   // Calculate percentage value
   const percentValue = value / 100;
-  
+
   // Format with toFixed for reliability
   const formattedValue = (percentValue * 100).toFixed(maximumFractionDigits) + '%';
-  
+
   // Try Intl.NumberFormat
   try {
     return new Intl.NumberFormat(undefined, {
@@ -125,10 +126,10 @@ export function formatPercentage(
  */
 export function parseCurrency(value: string): number {
   if (!value) return 0
-  
+
   // Remove currency symbols and delimiters
   const cleanValue = value.replace(/[^\d.-]/g, '')
-  
+
   // Convert to number
   return parseFloat(cleanValue) || 0
 }
@@ -137,8 +138,8 @@ export function parseCurrency(value: string): number {
  * Validates if a value is a valid currency amount
  */
 export const isValidCurrencyAmount = (value: number): boolean => {
-  return typeof value === 'number' && 
-    isFinite(value) && 
-    value >= 0 && 
+  return typeof value === 'number' &&
+    isFinite(value) &&
+    value >= 0 &&
     value <= Number.MAX_SAFE_INTEGER
 } 

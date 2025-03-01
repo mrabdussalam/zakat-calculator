@@ -14,6 +14,8 @@ import { LockIcon } from '@/components/ui/icons/lock'
 import { RetirementValues, StockValues, ActiveStock } from '@/store/types'
 import { useDashboardCurrencyConversion } from '@/hooks/dashboard/useDashboardCurrencyConversion'
 import { useDashboardState, DashboardState, DEFAULT_STATE } from '@/hooks/dashboard/useDashboardState'
+import { FeedbackFormModal } from '@/components/ui/FeedbackFormModal'
+import { RefreshIcon } from '@/components/ui/icons'
 
 // Local types not exported from the hook
 interface ConvertedStock {
@@ -95,6 +97,16 @@ export default function DashboardPage() {
       setShouldAnimate(true)
     }
   }, [])
+
+  // Force 'cash' to be the default selected asset when the dashboard loads
+  useEffect(() => {
+    // Wait for hydration to complete
+    if (isHydrated) {
+      // Set the selected asset to 'cash' on initial load
+      handleAssetSelect('cash')
+      console.log('Dashboard: Explicitly set selected asset to cash')
+    }
+  }, [isHydrated, handleAssetSelect])
 
   // Custom titles for calculators
   const CALCULATOR_TITLES = {
@@ -247,6 +259,7 @@ export default function DashboardPage() {
                 </Button>
               </div>
               <div className="flex items-center gap-2">
+                <FeedbackFormModal />
                 <Button
                   onClick={handleReset}
                   variant="ghost"
@@ -474,14 +487,17 @@ export default function DashboardPage() {
               >
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-nb-international text-gray-900 font-medium tracking-tight">Summary</h2>
-                  <Button
-                    onClick={handleReset}
-                    variant="ghost"
-                    size="sm"
-                    className="rounded-full"
-                  >
-                    Reset
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <FeedbackFormModal />
+                    <Button
+                      onClick={handleReset}
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-full"
+                    >
+                      Reset
+                    </Button>
+                  </div>
                 </div>
               </motion.div>
               <div className="flex-1 min-h-0">
@@ -494,11 +510,6 @@ export default function DashboardPage() {
                       <Summary
                         currency={state.currency}
                       />
-                    </div>
-                    <div className="mt-4 text-center text-gray-300">
-                      <p className="![font-size:12px]">
-                        All calculations are performed locally in your browser — no financial data leaves your device
-                      </p>
                     </div>
                   </div>
                 </MotionScrollArea>

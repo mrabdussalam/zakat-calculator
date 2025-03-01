@@ -89,6 +89,7 @@ export function useMetalsForm({ onUpdateValues }: UseMetalsFormProps = {}) {
     )
 
     // Keep track of whether to show investment section
+    // Initialize based on existing investment values, but allow toggling regardless of personal jewelry values
     const [showInvestment, setShowInvestment] = useState(() => {
         // Check for existing investment values during initialization
         return METAL_CATEGORIES
@@ -189,10 +190,7 @@ export function useMetalsForm({ onUpdateValues }: UseMetalsFormProps = {}) {
                 }
             }, {} as Record<string, string>))
 
-            // Also reset the showInvestment state if it's true
-            if (showInvestment) {
-                setShowInvestment(false)
-            }
+            // Do not reset the showInvestment state to allow users to toggle it regardless of other values
 
             // Clear any active input tracking
             setActiveInputId(null)
@@ -394,20 +392,21 @@ export function useMetalsForm({ onUpdateValues }: UseMetalsFormProps = {}) {
 
     // Update showInvestment handler to reset investment values when switching to "No"
     const handleInvestmentToggle = (show: boolean) => {
-        setShowInvestment(show)
+        // Always allow toggling to "Yes" regardless of personal jewelry values
+        setShowInvestment(show);
 
         // If switching to "No", reset all investment values
         if (!show) {
             // Reset store values
-            setMetalsValue('gold_investment', 0)
-            setMetalsValue('silver_investment', 0)
+            setMetalsValue('gold_investment', 0);
+            setMetalsValue('silver_investment', 0);
 
             // Reset input display values
             setInputValues(prev => ({
                 ...prev,
                 gold_investment: '',
                 silver_investment: ''
-            }))
+            }));
         }
     }
 
@@ -442,8 +441,7 @@ export function useMetalsForm({ onUpdateValues }: UseMetalsFormProps = {}) {
             }, {} as Record<string, string>)
             setInputValues(emptyInputs)
 
-            // Reset investment section
-            setShowInvestment(false)
+            // Do not reset investment section to allow users to toggle it regardless of other values
         }
 
         // Listen for custom reset events from the store

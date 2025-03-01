@@ -1,5 +1,6 @@
 import { Fragment, ReactNode } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
+import { cn } from '@/lib/utils';
 
 interface ModalProps {
   isOpen: boolean;
@@ -7,6 +8,7 @@ interface ModalProps {
   title?: string;
   children: ReactNode;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl';
+  customWidth?: string;
 }
 
 const maxWidthClasses = {
@@ -16,12 +18,13 @@ const maxWidthClasses = {
   xl: 'max-w-xl',
 };
 
-export function Modal({ 
-  isOpen, 
-  onClose, 
-  title, 
-  children, 
-  maxWidth = 'md' 
+export function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  maxWidth = 'md',
+  customWidth
 }: ModalProps) {
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -51,8 +54,11 @@ export function Modal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel 
-                className={`w-full ${maxWidthClasses[maxWidth]} transform overflow-hidden rounded-xl bg-white p-6 shadow-xs transition-all`}
+              <Dialog.Panel
+                className={cn(
+                  "w-full transform overflow-hidden rounded-xl bg-white p-6 shadow-xs transition-all",
+                  customWidth || maxWidthClasses[maxWidth]
+                )}
               >
                 {title && (
                   <Dialog.Title as="h3" className="text-lg font-medium text-gray-900 mb-4">

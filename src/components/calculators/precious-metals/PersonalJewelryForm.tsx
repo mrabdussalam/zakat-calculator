@@ -204,6 +204,26 @@ export function PersonalJewelryForm({
     console.log(`Currency changed to ${currency} (change #${currencyChangeCount.current})`);
   }, [currency]);
 
+  // Add refs for the unit selector animation
+  const unitRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({})
+  const [indicatorStyle, setIndicatorStyle] = useState({ width: 0, left: 0 })
+
+  // Update indicator position when unit changes
+  useEffect(() => {
+    const activeUnitElement = unitRefs.current[selectedUnit]
+    if (activeUnitElement) {
+      setIndicatorStyle({
+        width: activeUnitElement.offsetWidth,
+        left: activeUnitElement.offsetLeft
+      })
+    }
+  }, [selectedUnit])
+
+  // Custom unit change handler to update the indicator
+  const handleUnitChangeWithAnimation = (unit: WeightUnit) => {
+    handleUnitChange(unit)
+  }
+
   return (
     <div className="space-y-6">
       {/* Form content */}
@@ -222,22 +242,40 @@ export function PersonalJewelryForm({
 
               {/* Weight Unit Selection - More Compact UI */}
               <div className="mt-5 mb-6">
-                <div className="flex rounded-xl shadow-sm bg-gray-50 p-1.5">
-                  {Object.values(WEIGHT_UNITS).map((unit) => (
-                    <button
-                      key={unit.value}
-                      type="button"
-                      onClick={() => handleUnitChange(unit.value)}
-                      className={cn(
-                        "flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors duration-200",
-                        selectedUnit === unit.value
-                          ? "bg-white border border-gray-600 text-gray-900"
-                          : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                      )}
-                    >
-                      <span className="text-sm">{unit.label} <span className={`text-sm ${selectedUnit === unit.value ? "text-gray-500" : "text-gray-500"}`}>({unit.symbol})</span></span>
-                    </button>
-                  ))}
+                <div className="relative">
+                  <div className="flex rounded-xl shadow-sm bg-gray-50 p-1.5 relative">
+                    <motion.div
+                      className="absolute z-0 top-1.5 bottom-1.5 bg-white border border-gray-600 rounded-md"
+                      initial={false}
+                      animate={{
+                        width: indicatorStyle.width,
+                        left: indicatorStyle.left,
+                      }}
+                      transition={{
+                        duration: 0.2,
+                        ease: "easeOut"
+                      }}
+                    />
+                    {Object.values(WEIGHT_UNITS).map((unit) => (
+                      <button
+                        key={unit.value}
+                        type="button"
+                        onClick={() => handleUnitChange(unit.value)}
+                        className={cn(
+                          "flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors duration-200 relative z-10",
+                          selectedUnit === unit.value
+                            ? "text-gray-900"
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/50"
+                        )}
+                        ref={(el) => {
+                          if (el) unitRefs.current[unit.value] = el
+                          return undefined
+                        }}
+                      >
+                        <span className="text-sm">{unit.label} <span className={`text-sm ${selectedUnit === unit.value ? "text-gray-500" : "text-gray-500"}`}>({unit.symbol})</span></span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -321,25 +359,39 @@ export function PersonalJewelryForm({
                 </p>
               </div>
               <div className="mt-6">
-                <RadioGroup
-                  value={showInvestment ? "yes" : "no"}
-                  onValueChange={(value) => handleInvestmentToggle(value === "yes")}
-                >
-                  <div className="grid grid-cols-2 gap-4">
-                    <RadioGroupCard
-                      value="yes"
-                      title="Yes, I do"
-                    />
-                    <RadioGroupCard
-                      value="no"
-                      title="No, just jewelry"
-                    />
-                  </div>
-                </RadioGroup>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleInvestmentToggle(true);
+                    }}
+                    className={`relative rounded-lg border ${showInvestment ? 'border-gray-900 bg-gray-50' : 'border-gray-100'} p-4 hover:border-gray-200 hover:bg-gray-50/50 transition-all text-left`}
+                  >
+                    <h4 className="text-sm font-medium text-gray-900">Yes, I do</h4>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleInvestmentToggle(false);
+                    }}
+                    className={`relative rounded-lg border ${!showInvestment ? 'border-gray-900 bg-gray-50' : 'border-gray-100'} p-4 hover:border-gray-200 hover:bg-gray-50/50 transition-all text-left`}
+                  >
+                    <h4 className="text-sm font-medium text-gray-900">No, just jewelry</h4>
+                  </button>
+                </div>
               </div>
 
               {showInvestment && (
-                <div className="mt-6 space-y-6">
+                <motion.div
+                  className="mt-6 space-y-6"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{
+                    duration: 0.3,
+                    ease: [0.2, 0.4, 0.2, 1]
+                  }}
+                >
                   {/* Show only investment fields */}
                   {METAL_CATEGORIES
                     .filter((cat: MetalCategory) => cat.id.includes('investment'))
@@ -417,7 +469,7 @@ export function PersonalJewelryForm({
                         </div>
                       </div>
                     ))}
-                </div>
+                </motion.div>
               )}
             </div>
 

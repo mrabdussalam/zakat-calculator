@@ -311,26 +311,20 @@ const ForeignCurrencyInput: React.FC<ForeignCurrencyInputProps> = ({
   onChange,
   convertAmount
 }) => {
-  // Memoize the formatter
-  const formatTruncatedCurrency = useCallback((value: number): React.ReactNode => {
+  // Format currency for display
+  const formatCurrency = useCallback((value: number): string => {
     if (value === 0) return '-'
 
-    const formattedValue = new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat(undefined, {
       style: 'currency',
       currency: currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(value)
-
-    return (
-      <span className="text-sm text-gray-500 whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px] inline-block">
-        ≈ {formattedValue}
-      </span>
-    )
   }, [currency])
 
   return (
-    <div className="space-y-3 w-full">
+    <div className="space-y-6 w-full">
       {/* Show error status only when needed */}
       {error && (
         <ConversionStatus
@@ -342,37 +336,37 @@ const ForeignCurrencyInput: React.FC<ForeignCurrencyInputProps> = ({
       )}
 
       {entries.map((entry: ForeignCurrencyEntry, index: number) => (
-        <div key={index} className="w-full">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full">
-            <div className="w-full sm:w-[240px]">
-              <CurrencySelector
-                value={entry.currency}
-                onValueChange={(value) => onChange(index, 'currency', value)}
-              />
-            </div>
-            <div className="relative flex-1 min-w-0">
-              <Input
-                type="text"
-                inputMode="decimal"
-                pattern="[\d+\-*/.() ]*"
-                className="bg-white w-full pr-32"
-                value={entry.rawInput || ''}
-                onChange={(e) => {
-                  onChange(index, 'amount', e.target.value);
-                }}
-                placeholder="Enter amount"
-              />
-              <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                {entry.amount > 0 && entry.currency !== currency && (
-                  formatTruncatedCurrency(convertAmount(entry.amount, entry.currency, currency))
-                )}
+        <div key={index} className="w-full grid grid-cols-1 sm:grid-cols-[240px,1fr,auto] gap-2">
+          <div>
+            <CurrencySelector
+              value={entry.currency}
+              onValueChange={(value) => onChange(index, 'currency', value)}
+            />
+          </div>
+          <div>
+            <Input
+              type="text"
+              inputMode="decimal"
+              pattern="[\d+\-*/.() ]*"
+              className="bg-white w-full"
+              value={entry.rawInput || ''}
+              onChange={(e) => {
+                onChange(index, 'amount', e.target.value);
+              }}
+              placeholder="Enter amount"
+            />
+            {entry.amount > 0 && entry.currency !== currency && (
+              <div className="mt-1 text-xs text-gray-500">
+                ≈ {formatCurrency(convertAmount(entry.amount, entry.currency, currency))}
               </div>
-            </div>
+            )}
+          </div>
+          <div className="flex sm:justify-end">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onRemove(index)}
-              className="text-gray-500 hover:text-red-500 hover:bg-red-50 group transition-colors w-full sm:w-auto shrink-0"
+              className="text-gray-500 hover:text-red-500 hover:bg-red-50 group transition-colors w-full sm:w-auto"
             >
               <DeleteIcon className="h-4 w-4 group-hover:text-red-500 transition-colors" />
               <span className="ml-2 sm:hidden">Remove</span>

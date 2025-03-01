@@ -185,18 +185,27 @@ export const createCryptoSlice: StateCreator<
         'USD-GBP': 0.78,  // 1 USD = 0.78 GBP
         'GBP-USD': 1 / 0.78,
         'USD-EUR': 0.92,  // 1 USD = 0.92 EUR
-        'EUR-USD': 1 / 0.92
+        'EUR-USD': 1 / 0.92,
+        'USD-AED': 3.67,  // 1 USD = 3.67 AED
+        'AED-USD': 1 / 3.67
       };
 
+      console.log(`Crypto conversion: ${value} ${fromCurr} → ${toCurr}`);
+
       // If same currency, no conversion needed
-      if (fromCurr === toCurr) return value;
+      if (fromCurr === toCurr) {
+        console.log(`No conversion needed for ${fromCurr} to ${toCurr}`);
+        return value;
+      }
 
       // Try to find conversion rate
       const rateKey = `${fromCurr}-${toCurr}`;
       const rate = rates[rateKey];
 
       if (rate) {
-        return value * rate;
+        const result = value * rate;
+        console.log(`Direct conversion ${fromCurr} to ${toCurr}: ${value} * ${rate} = ${result}`);
+        return result;
       }
 
       // If no direct conversion found, try to convert through USD
@@ -205,7 +214,9 @@ export const createCryptoSlice: StateCreator<
         const usdToTarget = rates[`USD-${toCurr}`] || (1 / rates[`${toCurr}-USD`]);
 
         if (fromToUSD && usdToTarget) {
-          return value * fromToUSD * usdToTarget;
+          const result = value * fromToUSD * usdToTarget;
+          console.log(`Indirect conversion via USD: ${value} ${fromCurr} → ${value * fromToUSD} USD → ${result} ${toCurr}`);
+          return result;
         }
       }
 
@@ -217,29 +228,49 @@ export const createCryptoSlice: StateCreator<
     // Update each coin with the new currency
     const updatedCoins = state.cryptoValues.coins.map(coin => {
       // If coin already has this currency or no from currency specified, don't convert
-      if (coin.currency === targetCurrency || !fromCurrency) {
+      if (coin.currency === targetCurrency) {
+        console.log(`Coin ${coin.symbol} already in ${targetCurrency}, skipping conversion`);
         return coin;
       }
 
+      // Determine the source currency - use the coin's currency if available, otherwise use fromCurrency or default to USD
       const sourceCurrency = coin.currency || fromCurrency || 'USD';
+      console.log(`Converting coin ${coin.symbol} from ${sourceCurrency} to ${targetCurrency}`);
 
       // Convert the coin's values to the new currency
       const convertedPrice = convertValue(coin.currentPrice, sourceCurrency, targetCurrency);
       const convertedMarketValue = convertValue(coin.marketValue, sourceCurrency, targetCurrency);
       const convertedZakatDue = convertValue(coin.zakatDue, sourceCurrency, targetCurrency);
 
+      console.log(`Conversion results for ${coin.symbol}:`, {
+        price: `${coin.currentPrice} ${sourceCurrency} → ${convertedPrice} ${targetCurrency}`,
+        marketValue: `${coin.marketValue} ${sourceCurrency} → ${convertedMarketValue} ${targetCurrency}`,
+        zakatDue: `${coin.zakatDue} ${sourceCurrency} → ${convertedZakatDue} ${targetCurrency}`
+      });
+
       return {
         ...coin,
         currentPrice: roundCurrency(convertedPrice),
         marketValue: roundCurrency(convertedMarketValue),
         zakatDue: roundCurrency(convertedZakatDue),
-        currency: targetCurrency // Update the currency property
+        currency: targetCurrency, // Update the currency property
+        sourceCurrency: sourceCurrency // Track the original currency
       };
     });
 
     // Calculate the new total 
     const newTotal = roundCurrency(updatedCoins.reduce((sum, coin) => sum + coin.marketValue, 0));
     const newZakatable = state.cryptoHawlMet ? newTotal : 0;
+
+    console.log(`Calculated new crypto totals:`, {
+      total: newTotal,
+      zakatable: newZakatable,
+      coins: updatedCoins.map(coin => ({
+        symbol: coin.symbol,
+        marketValue: coin.marketValue,
+        currency: coin.currency
+      }))
+    });
 
     // Update the state
     set({
@@ -276,6 +307,10 @@ export const createCryptoSlice: StateCreator<
     // Ensure coins array exists
     const coins = state.cryptoValues?.coins || []
 
+    // Get the current currency from the state or default to USD
+    const currentCurrency = state.currency || 'USD'
+    console.log(`Getting crypto breakdown with currency: ${currentCurrency}`)
+
     return {
       total,
       zakatable,
@@ -299,7 +334,7 @@ export const createCryptoSlice: StateCreator<
           label: `${coin.symbol} (${coin.quantity} coins)`,
           tooltip: `${coin.quantity} ${coin.symbol} at ${new Intl.NumberFormat(undefined, {
             style: 'currency',
-            currency: coin.currency || state.currency || 'USD',
+            currency: coin.currency || currentCurrency,
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
           }).format(roundCurrency(coin.currentPrice))} each`,

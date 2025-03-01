@@ -144,7 +144,7 @@ export function CurrencySelector({ className, onChange }: CurrencySelectorProps)
   const currencyArray = Object.values(SUPPORTED_CURRENCIES)
 
   // Sort currencies to prioritize specific ones in custom order
-  const priorityOrder = ["USD", "PKR", "GBP", "SAR", "AED", "INR"];
+  const priorityOrder = ["USD", "PKR", "GBP", "SAR", "INR"];
 
   // Sort the currency array based on priority
   const sortedCurrencyArray = [...currencyArray].sort((a, b) => {
@@ -302,7 +302,7 @@ export function CurrencySelector({ className, onChange }: CurrencySelectorProps)
 
   return (
     <div className={cn("w-full", className)}>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-6 gap-3 w-full">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-2 w-full">
         {sortedCurrencyArray.map((currency) => (
           <button
             key={currency.code}
@@ -311,7 +311,7 @@ export function CurrencySelector({ className, onChange }: CurrencySelectorProps)
             onMouseEnter={() => setHoveredCurrency(currency.code)}
             onMouseLeave={() => setHoveredCurrency(null)}
             className={cn(
-              "flex flex-col items-center justify-center py-3 rounded-xl transition-all",
+              "flex flex-col items-center justify-center py-3 px-1 rounded-xl transition-all w-full",
               value === currency.code
                 ? "bg-white ring-2 ring-primary ring-offset-2 shadow-md border border-gray-100"
                 : "bg-white hover:bg-gray-50 border border-gray-200"

@@ -14,7 +14,7 @@
 import { Input } from '@/components/ui/form/input'
 import { Label } from '@/components/ui/label'
 import { InfoIcon } from '@/components/ui/icons'
-import { 
+import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -127,72 +127,72 @@ const validatePassiveInvestmentState = (state: any): state is PassiveInvestmentS
       console.error('State is null or undefined')
       return false
     }
-    
+
     // Check version
     if (state.version !== '2.0') {
       console.error('Invalid version:', state.version)
       return false
     }
-    
+
     // Check required fields with type safety
     if (typeof state.method !== 'string' || !['quick', 'detailed'].includes(state.method)) {
       console.error('Invalid method:', state.method)
       return false
     }
-    
+
     if (!Array.isArray(state.investments)) {
       console.error('Invalid investments array')
       return false
     }
-    
+
     if (typeof state.marketValue !== 'number' || isNaN(state.marketValue)) {
       console.error('Invalid market value:', state.marketValue)
       return false
     }
-    
+
     if (typeof state.zakatableValue !== 'number' || isNaN(state.zakatableValue)) {
       console.error('Invalid zakatable value:', state.zakatableValue)
       return false
     }
-    
+
     // Check hawlStatus
     if (!state.hawlStatus || typeof state.hawlStatus !== 'object') {
       console.error('Invalid hawlStatus object')
       return false
     }
-    
+
     if (typeof state.hawlStatus.isComplete !== 'boolean') {
       console.error('Invalid hawlStatus.isComplete:', state.hawlStatus.isComplete)
       return false
     }
-    
+
     // Check displayProperties
     if (!state.displayProperties || typeof state.displayProperties !== 'object') {
       console.error('Invalid displayProperties object')
       return false
     }
-    
+
     if (typeof state.displayProperties.currency !== 'string') {
       console.error('Invalid currency:', state.displayProperties.currency)
       return false
     }
-    
+
     if (typeof state.displayProperties.method !== 'string') {
       console.error('Invalid method display:', state.displayProperties.method)
       return false
     }
-    
+
     if (typeof state.displayProperties.totalLabel !== 'string') {
       console.error('Invalid totalLabel:', state.displayProperties.totalLabel)
       return false
     }
-    
+
     // Validate investments array
     if (!state.investments.every((inv: any) => isValidInvestment(inv))) {
       console.error('Invalid investment in array')
       return false
     }
-    
+
     return true
   } catch (error) {
     console.error('Error validating passive investment state:', error)
@@ -304,13 +304,13 @@ export function PassiveInvestmentsTab({
   })
 
   // Memoize total market value calculation
-  const totalMarketValue = useMemo(() => 
+  const totalMarketValue = useMemo(() =>
     investments.reduce((sum, inv) => sum + (inv.marketValue || 0), 0),
     [investments]
   )
 
   // Format currency helper
-  const formatCurrency = useCallback((value: number, currency: string) => 
+  const formatCurrency = useCallback((value: number, currency: string) =>
     `${currency} ${value.toLocaleString()}`,
     [currency]
   )
@@ -319,7 +319,7 @@ export function PassiveInvestmentsTab({
   const validateNumericInput = useCallback((value: number, max: number) => {
     if (value < 0) return 'Value cannot be negative'
     if (value > max) return `Value cannot exceed ${max}`
-    if (value.toString().split('.')[1]?.length > DECIMAL_PRECISION) 
+    if (value.toString().split('.')[1]?.length > DECIMAL_PRECISION)
       return `Maximum ${DECIMAL_PRECISION} decimal places allowed`
     return null
   }, [])
@@ -331,7 +331,7 @@ export function PassiveInvestmentsTab({
     } else {
       const { company_cash, company_receivables, company_inventory, passive_shares, total_shares_issued } = inputValues
       if (!total_shares_issued) return 0
-      
+
       const totalLiquidAssets = (company_cash || 0) + (company_receivables || 0) + (company_inventory || 0)
       const shareholderPercentage = (passive_shares || 0) / total_shares_issued
       return totalLiquidAssets * shareholderPercentage
@@ -371,7 +371,7 @@ export function PassiveInvestmentsTab({
   // Effect to update calculations when values change
   useEffect(() => {
     // Check if any relevant values have changed
-    const valuesChanged = 
+    const valuesChanged =
       JSON.stringify(investments) !== JSON.stringify(previousValues.current.investments) ||
       JSON.stringify(inputValues) !== JSON.stringify(previousValues.current.inputValues) ||
       method !== previousValues.current.method
@@ -386,10 +386,10 @@ export function PassiveInvestmentsTab({
     }
 
     const zakatableValue = calculateZakatableValue()
-    const marketValue = method === 'quick' 
-      ? totalMarketValue 
+    const marketValue = method === 'quick'
+      ? totalMarketValue
       : (inputValues.passive_shares || 0) * (inputValues.price_per_share || 0)
-    
+
     const calculations: PassiveCalculations = {
       totalMarketValue: marketValue,
       zakatableValue,
@@ -397,7 +397,7 @@ export function PassiveInvestmentsTab({
       breakdown: {
         marketValue,
         liquidValue: zakatableValue,
-        items: method === 'quick' ? 
+        items: method === 'quick' ?
           investments.map(inv => ({
             id: inv.id,
             label: inv.name || 'Unnamed Investment',
@@ -410,7 +410,7 @@ export function PassiveInvestmentsTab({
               pricePerShare: inv.pricePerShare,
               currency
             }
-          })) : 
+          })) :
           [{
             id: 'company-financials',
             label: 'Company Financial Assets',
@@ -466,7 +466,7 @@ export function PassiveInvestmentsTab({
         yourShares: inputValues.passive_shares || 0,
         displayProperties: {
           currency,
-          sharePercentage: inputValues.total_shares_issued > 0 ? 
+          sharePercentage: inputValues.total_shares_issued > 0 ?
             (inputValues.passive_shares / inputValues.total_shares_issued) * 100 : 0
         }
       } : undefined,
@@ -508,7 +508,7 @@ export function PassiveInvestmentsTab({
     const newMethod = value as 'quick' | 'detailed'
     setMethod(newMethod)
     setErrors([])
-    
+
     if (newMethod === 'quick') {
       // Preserve existing investments or initialize with current market value
       const currentInvestments = investments.length ? investments : [{
@@ -535,28 +535,28 @@ export function PassiveInvestmentsTab({
   // Enhanced investment update handler
   const updateInvestment = useCallback((id: string, field: keyof Investment, value: string) => {
     const numericValue = field === 'name' ? 0 : Number(value) || 0
-    
+
     if (field !== 'name') {
       const error = validateNumericInput(
         numericValue,
         field === 'shares' ? MAX_SHARE_VALUE : MAX_PRICE_VALUE
       )
-      
+
       if (error) {
-        setErrors(prev => [...prev.filter(e => e.field !== `${field}-${id}`), 
-          { field: `${field}-${id}`, message: error }])
+        setErrors(prev => [...prev.filter(e => e.field !== `${field}-${id}`),
+        { field: `${field}-${id}`, message: error }])
         return
       } else {
         setErrors(prev => prev.filter(e => e.field !== `${field}-${id}`))
       }
     }
-    
-    setInvestments(prevInvestments => 
+
+    setInvestments(prevInvestments =>
       prevInvestments.map(inv => {
         if (inv.id === id) {
-          const updatedInv = { 
-            ...inv, 
-            [field]: field === 'name' ? value : numericValue 
+          const updatedInv = {
+            ...inv,
+            [field]: field === 'name' ? value : numericValue
           }
           if (field === 'shares' || field === 'pricePerShare') {
             updatedInv.marketValue = updatedInv.shares * updatedInv.pricePerShare
@@ -644,13 +644,13 @@ export function PassiveInvestmentsTab({
                     {/* <Tooltip>
                       <TooltipTrigger asChild>
                         <div>*/}
-                          <RadioGroupCard 
-                            value="quick" 
-                            title="Quick Estimate (30% Rule)"
-                            description="Calculate using 30% of your investment's market value."
-                            className="text-gray-900"
-                          />
-                        {/*</div>
+                    <RadioGroupCard
+                      value="quick"
+                      title="Quick Estimate (30% Rule)"
+                      description="Calculate using 30% of your investment's market value."
+                      className="text-gray-900"
+                    />
+                    {/*</div>
                       </TooltipTrigger>
                       <TooltipContent side="top" align="center" className="bg-gray-900 p-3 text-sm max-w-[400px]">
                         <p className="font-medium text-white mb-1">Quick Estimate Method</p>
@@ -662,8 +662,8 @@ export function PassiveInvestmentsTab({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <div>
-                          <RadioGroupCard 
-                            value="cri" 
+                          <RadioGroupCard
+                            value="cri"
                             title="Detailed CRI Method"
                             description="Calculate using company balance sheets."
                             disabled
@@ -691,7 +691,7 @@ export function PassiveInvestmentsTab({
                         variant="ghost"
                         size="icon"
                         onClick={() => setBrokerInfoOpen(true)}
-                        className="h-8 w-8 text-gray-400 hover:text-gray-100 hover:bg-gray-800"
+                        className="h-8 w-8 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full"
                       >
                         <LucideInfoIcon className="h-4 w-4" />
                       </Button>
@@ -711,7 +711,7 @@ export function PassiveInvestmentsTab({
                       onChange={(e) => {
                         const inputValue = e.target.value
                         setRawMarketValue(inputValue)
-                        
+
                         try {
                           // Allow empty input
                           if (!inputValue) {
@@ -730,7 +730,7 @@ export function PassiveInvestmentsTab({
                           if (!/[+\-*/.]$/.test(inputValue)) {
                             // Evaluate arithmetic expression
                             const value = evaluateExpression(inputValue)
-                            
+
                             // Validate the numeric result
                             const error = validateNumericInput(value, MAX_PRICE_VALUE)
                             if (error) {
@@ -750,9 +750,9 @@ export function PassiveInvestmentsTab({
                         } catch (error) {
                           // Only show error if the expression is complete
                           if (!/[+\-*/.]$/.test(inputValue)) {
-                            setErrors([{ 
-                              field: 'total_market_value', 
-                              message: 'Invalid arithmetic expression' 
+                            setErrors([{
+                              field: 'total_market_value',
+                              message: 'Invalid arithmetic expression'
                             }])
                           }
                         }
