@@ -54,12 +54,16 @@ export const realEstate: AssetType = {
 
     // Property for sale is zakatable if actively listed
     const propertyForSaleValue = safeCalculate(values.property_for_sale_value)
-    const isPropertyForSaleActive = values.property_for_sale_active === 1
+    const isPropertyForSaleActive = typeof values.property_for_sale_active === 'boolean'
+      ? values.property_for_sale_active
+      : values.property_for_sale_active === 1
     const propertyForSaleZakatable = hawlMet && isPropertyForSaleActive ? propertyForSaleValue : 0
 
     // Vacant land is zakatable if sold during the year
     const vacantLandValue = safeCalculate(values.vacant_land_value)
-    const isVacantLandSold = values.vacant_land_sold === 1
+    const isVacantLandSold = typeof values.vacant_land_sold === 'boolean'
+      ? values.vacant_land_sold
+      : values.vacant_land_sold === 1
     const salePrice = safeCalculate(values.sale_price)
     const vacantLandZakatable = hawlMet && isVacantLandSold ? salePrice : 0
 
@@ -88,13 +92,17 @@ export const realEstate: AssetType = {
 
     // Property for Sale
     const propertyForSaleValue = safeCalculate(values.property_for_sale_value)
-    const isPropertyForSaleActive = values.property_for_sale_active === 1
+    const isPropertyForSaleActive = typeof values.property_for_sale_active === 'boolean'
+      ? values.property_for_sale_active
+      : values.property_for_sale_active === 1
     const propertyForSaleZakatable = hawlMet && isPropertyForSaleActive ? propertyForSaleValue : 0
     const propertyForSaleZakatDue = propertyForSaleZakatable * ZAKAT_RATE
 
     // Vacant Land
     const vacantLandValue = safeCalculate(values.vacant_land_value)
-    const isVacantLandSold = values.vacant_land_sold === 1
+    const isVacantLandSold = typeof values.vacant_land_sold === 'boolean'
+      ? values.vacant_land_sold
+      : values.vacant_land_sold === 1
     const salePrice = safeCalculate(values.sale_price)
     const vacantLandZakatable = hawlMet && isVacantLandSold ? salePrice : 0
     const vacantLandZakatDue = vacantLandZakatable * ZAKAT_RATE

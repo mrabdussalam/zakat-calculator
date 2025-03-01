@@ -133,7 +133,7 @@ export const createRealEstateSlice: StateCreator<
         ...state.realEstateValues,
         ...values
       }
-      
+
       // Validate the new values
       const newErrors: RealEstateErrors = { ...state.realEstateErrors }
       Object.entries(values).forEach(([field, value]) => {
@@ -142,9 +142,9 @@ export const createRealEstateSlice: StateCreator<
           newErrors[field] = error
         }
       })
-      
+
       const isValid = !Object.values(newErrors).some(error => error !== undefined)
-      
+
       return {
         realEstateValues: newValues,
         realEstateErrors: newErrors,
@@ -193,7 +193,7 @@ export const createRealEstateSlice: StateCreator<
       realEstateValues.primary_residence_value +
       realEstateValues.rental_income +
       (realEstateValues.property_for_sale_active ? realEstateValues.property_for_sale_value : 0) +
-      (realEstateValues.vacant_land_sold ? realEstateValues.vacant_land_value : 0)
+      (realEstateValues.vacant_land_sold ? realEstateValues.sale_price : realEstateValues.vacant_land_value)
     )
     return roundCurrency(total)
   },
@@ -204,7 +204,7 @@ export const createRealEstateSlice: StateCreator<
 
     const rentalNet = Math.max(0, realEstateValues.rental_income - realEstateValues.rental_expenses)
     const propertyForSale = realEstateValues.property_for_sale_active ? realEstateValues.property_for_sale_value : 0
-    const vacantLand = realEstateValues.vacant_land_sold ? realEstateValues.vacant_land_value : 0
+    const vacantLand = realEstateValues.vacant_land_sold ? realEstateValues.sale_price : 0
 
     return roundCurrency(rentalNet + propertyForSale + vacantLand)
   },
@@ -212,29 +212,29 @@ export const createRealEstateSlice: StateCreator<
   getRealEstateBreakdown: () => {
     const state = get();
     const { realEstateValues, realEstateHawlMet } = get()
-    
+
     // Calculate values
     const rentalIncome = roundCurrency(realEstateValues.rental_income || 0)
     const rentalExpenses = roundCurrency(realEstateValues.rental_expenses || 0)
     const rentalNet = roundCurrency(Math.max(0, rentalIncome - rentalExpenses))
-    
+
     const propertyForSaleValue = roundCurrency(realEstateValues.property_for_sale_value || 0)
     const propertyForSaleActive = realEstateValues.property_for_sale_active || false
-    
+
     const vacantLandValue = roundCurrency(realEstateValues.vacant_land_value || 0)
     const vacantLandSold = realEstateValues.vacant_land_sold || false
     const salePrice = roundCurrency(realEstateValues.sale_price || 0)
-    
+
     const primaryResidenceValue = roundCurrency(realEstateValues.primary_residence_value || 0)
 
     // Calculate totals
-    const total = roundCurrency(primaryResidenceValue + rentalIncome + 
-      (propertyForSaleActive ? propertyForSaleValue : 0) + 
+    const total = roundCurrency(primaryResidenceValue + rentalIncome +
+      (propertyForSaleActive ? propertyForSaleValue : 0) +
       (vacantLandSold ? salePrice : vacantLandValue))
 
     const zakatable = realEstateHawlMet ? roundCurrency(
-      rentalNet + 
-      (propertyForSaleActive ? propertyForSaleValue : 0) + 
+      rentalNet +
+      (propertyForSaleActive ? propertyForSaleValue : 0) +
       (vacantLandSold ? salePrice : 0)
     ) : 0
 
@@ -273,8 +273,8 @@ export const createRealEstateSlice: StateCreator<
           zakatable: (propertyForSaleActive && realEstateHawlMet) ? propertyForSaleValue : 0,
           zakatDue: propertyForSaleZakatDue,
           label: 'Property for Sale',
-          tooltip: propertyForSaleActive 
-            ? `Property is actively listed for sale (${formatCurrency(propertyForSaleValue, state.currency)})` 
+          tooltip: propertyForSaleActive
+            ? `Property is actively listed for sale (${formatCurrency(propertyForSaleValue, state.currency)})`
             : 'Not currently for sale'
         },
         vacant_land: {
@@ -283,8 +283,8 @@ export const createRealEstateSlice: StateCreator<
           zakatable: (vacantLandSold && realEstateHawlMet) ? salePrice : 0,
           zakatDue: vacantLandZakatDue,
           label: vacantLandSold ? 'Vacant Land (Sold)' : 'Vacant Land',
-          tooltip: vacantLandSold 
-            ? `Land has been sold for ${formatCurrency(salePrice, state.currency)}` 
+          tooltip: vacantLandSold
+            ? `Land has been sold for ${formatCurrency(salePrice, state.currency)}`
             : `Land is not currently for sale (${formatCurrency(vacantLandValue, state.currency)})`
         }
       }
