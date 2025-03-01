@@ -34,6 +34,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.0.4",
     "framer-motion": "^12.1.0",
+    "fs": "^0.0.2",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.5.31",
