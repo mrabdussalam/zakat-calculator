@@ -9,11 +9,11 @@ async function getExchangeRate(from: string, to: string): Promise<number | null>
   if (from.toUpperCase() === to.toUpperCase()) {
     return 1;
   }
-  
+
   try {
     // Always try to get exchange rate from Frankfurter API first
     const response = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=${to}`);
-    
+
     if (response.ok) {
       const data = await response.json();
       if (data && data.rates && data.rates[to.toUpperCase()]) {
@@ -21,37 +21,37 @@ async function getExchangeRate(from: string, to: string): Promise<number | null>
         return data.rates[to.toUpperCase()];
       }
     }
-    
+
     console.log(`Frankfurter API failed for ${from} to ${to}, using fallbacks`);
-    
+
     // Fallback to hardcoded rates if API fails
     // Special case for USD to SAR (Saudi Riyal)
     if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'SAR') {
       console.log(`Using fallback rate for USD to SAR: 3.75`);
       return 3.75; // Fixed rate for SAR
     }
-    
+
     // Special case for USD to PKR (Pakistani Rupee) - approximate rate
     if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'PKR') {
       console.log(`Using fallback rate for USD to PKR: 278.5`);
       return 278.5; // Approximate rate for PKR
     }
-    
+
     return null;
   } catch (error) {
     console.error(`Error fetching exchange rate from ${from} to ${to}:`, error);
-    
+
     // Fallback to hardcoded rates if error occurs
     if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'SAR') {
       console.log(`Using fallback rate after error for USD to SAR: 3.75`);
       return 3.75;
     }
-    
+
     if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'PKR') {
       console.log(`Using fallback rate after error for USD to PKR: 278.5`);
       return 278.5;
     }
-    
+
     return null;
   }
 }
@@ -72,7 +72,7 @@ export async function GET(request: Request) {
   try {
     const upperSymbol = symbol.toUpperCase()
     const coinId = SYMBOL_TO_ID[upperSymbol]
-    
+
     if (!coinId) {
       return NextResponse.json(
         { error: `Unsupported cryptocurrency symbol: ${symbol}` },
@@ -97,11 +97,11 @@ export async function GET(request: Request) {
     let price = data[coinId].usd
     const sourceCurrency = 'USD'
     let conversionApplied = false
-    
+
     // Convert currency if needed and different from USD
     if (requestedCurrency !== 'USD') {
       const rate = await getExchangeRate(sourceCurrency, requestedCurrency)
-      
+
       if (rate) {
         price = Number((price * rate).toFixed(2))
         conversionApplied = true

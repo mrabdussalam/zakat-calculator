@@ -1,3 +1,5 @@
+import { SYMBOL_TO_ID, DEFAULT_MAPPINGS } from '@/data/crypto-mappings';
+
 const COINGECKO_API_URL = 'https://api.coingecko.com/api/v3'
 
 export class CryptoAPIError extends Error {
@@ -7,19 +9,8 @@ export class CryptoAPIError extends Error {
   }
 }
 
-// Map common symbols to CoinGecko IDs
-export const SYMBOL_TO_ID: Record<string, string> = {
-  'BTC': 'bitcoin',
-  'ETH': 'ethereum',
-  'USDT': 'tether',
-  'BNB': 'binancecoin',
-  'XRP': 'ripple',
-  'ADA': 'cardano',
-  'DOGE': 'dogecoin',
-  'SOL': 'solana',
-  'DOT': 'polkadot',
-  'MATIC': 'matic-network'
-}
+// Export for use in API
+export { SYMBOL_TO_ID, DEFAULT_MAPPINGS };
 
 /**
  * Fetches the current price of a cryptocurrency 
@@ -31,7 +22,7 @@ export const SYMBOL_TO_ID: Record<string, string> = {
 export async function getCryptoPrice(symbol: string, currency: string = 'USD'): Promise<number> {
   try {
     const upperSymbol = symbol.toUpperCase()
-    
+
     // Call our local API which includes currency conversion
     const response = await fetch(`/api/prices/crypto?symbol=${encodeURIComponent(upperSymbol)}&currency=${currency}`)
 
