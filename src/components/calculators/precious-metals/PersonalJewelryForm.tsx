@@ -368,9 +368,9 @@ export function PersonalJewelryForm({
               />
 
               {/* Weight Unit Selection - More Compact UI */}
-              <div className="mt-5 mb-6">
+              <div className="mt-8 mb-8">
                 <div className="relative">
-                  <div className="flex rounded-xl bg-gray-50 px-0.5 py-1.5 relative">
+                  <div className="flex rounded-xl bg-gray-50 px-1 py-1.5 relative">
                     <motion.div
                       className="absolute z-0 top-0 bottom-0 bg-white border border-gray-900 rounded-lg"
                       initial={false}
@@ -389,7 +389,7 @@ export function PersonalJewelryForm({
                         type="button"
                         onClick={() => handleUnitChange(unit.value)}
                         className={cn(
-                          "flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium rounded-lg relative z-10",
+                          "flex-1 flex items-center justify-center px-4 py-1.5 text-sm font-medium rounded-lg relative z-10",
                           selectedUnit === unit.value
                             ? "text-gray-900"
                             : "text-gray-600 hover:text-gray-900"
@@ -422,7 +422,7 @@ export function PersonalJewelryForm({
                       className={cn(
                         "flex flex-col items-center justify-center p-3 rounded-lg border",
                         selectedGoldPurity === option.value
-                          ? "border-blue-500 bg-blue-50"
+                          ? "border-gray-700 bg-gray-50"
                           : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                       )}
                     >

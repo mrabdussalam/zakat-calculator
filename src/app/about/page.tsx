@@ -101,28 +101,28 @@ export default function AboutPage() {
                             <h2 className="text-xl font-medium tracking-tight text-gray-900 mb-2">Design Principles</h2>
                             <ul className="space-y-8 text-gray-600">
                                 <li className="flex items-start gap-4">
-                                    <ShieldIcon size={20} className="flex-none mt-0.5 text-emerald-600" />
+                                    <ShieldIcon size={20} className="flex-none mt-0.5 text-gray-700" />
                                     <div className="space-y-1">
                                         <p className="text-sm font-medium text-gray-800">Privacy first design</p>
                                         <p className="text-sm">No sign-up or account is required—your data stays on your device. All calculations occur locally in your browser without any back-end storage.</p>
                                     </div>
                                 </li>
                                 <li className="flex items-start gap-4">
-                                    <StackIcon size={20} className="flex-none mt-0.5 text-emerald-600" />
+                                    <StackIcon size={20} className="flex-none mt-0.5 text-gray-700" />
                                     <div className="space-y-1">
                                         <p className="text-sm font-medium text-gray-800">Comprehensive coverage</p>
                                         <p className="text-sm">Quickly calculate Zakat on various asset types—cash, stocks (active vs. passive investments), precious metals, real estate, crypto, and more.</p>
                                     </div>
                                 </li>
                                 <li className="flex items-start gap-4">
-                                    <FeedbackIcon size={20} className="flex-none mt-0.5 text-emerald-600" />
+                                    <FeedbackIcon size={20} className="flex-none mt-0.5 text-gray-700" />
                                     <div className="space-y-1">
                                         <p className="text-sm font-medium text-gray-800">Real-time, interactive feedback</p>
                                         <p className="text-sm">See immediate updates as you adjust figures (e.g., gold weight, stock quantities) using auto-fetched current market prices via API.</p>
                                     </div>
                                 </li>
                                 <li className="flex items-start gap-4">
-                                    <SummaryIcon size={20} className="flex-none mt-0.5 text-emerald-600" />
+                                    <SummaryIcon size={20} className="flex-none mt-0.5 text-gray-700" />
                                     <div className="space-y-1">
                                         <p className="text-sm font-medium text-gray-800">Visual Summaries</p>
                                         <p className="text-sm">View an overall breakdown of Zakatable vs. exempt amounts, so you understand precisely how each asset contributes.</p>

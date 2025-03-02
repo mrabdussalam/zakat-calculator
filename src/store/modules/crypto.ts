@@ -32,6 +32,9 @@ export const createCryptoSlice: StateCreator<
       return
     }
 
+    // Set loading state to true
+    set({ isLoading: true })
+
     try {
       const currentPrice = await getCryptoPrice(symbol, currency)
       const marketValue = roundCurrency(quantity * currentPrice)
@@ -51,19 +54,29 @@ export const createCryptoSlice: StateCreator<
 
         return {
           cryptoValues: {
+            ...state.cryptoValues,
             coins: newCoins,
             total_value: total,
             zakatable_value: state.cryptoHawlMet ? total : 0
-          }
+          },
+          isLoading: false, // Set loading state to false after successful operation
+          lastError: null
         }
       })
     } catch (error) {
       console.error('Error adding coin:', error)
+      set({
+        isLoading: false, // Set loading state to false in case of error
+        lastError: error instanceof CryptoAPIError ? error.message : 'Failed to add coin'
+      })
       throw error
     }
   },
 
   removeCoin: (symbol: string) => {
+    // Set loading state to true
+    set({ isLoading: true })
+
     set((state: ZakatState) => {
       const newCoins = state.cryptoValues.coins.filter(
         (coin: CryptoHolding) => coin.symbol !== symbol.toUpperCase()
@@ -73,10 +86,12 @@ export const createCryptoSlice: StateCreator<
 
       return {
         cryptoValues: {
+          ...state.cryptoValues,
           coins: newCoins,
           total_value: total,
           zakatable_value: state.cryptoHawlMet ? total : 0
-        }
+        },
+        isLoading: false // Set loading state to false after operation
       }
     })
   },

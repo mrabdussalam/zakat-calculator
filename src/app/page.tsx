@@ -256,32 +256,60 @@ export default function HomePage() {
             </div>
           </motion.div>
 
+          <motion.div variants={itemVariants} className="text-xs text-gray-500">
+            For personalized advice, especially in complex situations, consulting a knowledgeable scholar
+            or a trusted Islamic financial advisor is recommended.
+          </motion.div>
+
+          {/* Separator */}
+          <motion.div variants={itemVariants} className="border-t border-gray-100 my-4"></motion.div>
+
           {/* Contact Information */}
-          <motion.div variants={itemVariants} className="text-sm text-gray-600">
-            <p className="mb-1">
-              <strong>Contact:</strong> For bugs, feedback, or questions, please reach out to:
-            </p>
-            <p className="mb-1">Abdus Salam</p>
-            <p className="mb-1">
-              <a href="mailto:abdussalam.rafiq@gmail.com" className="text-blue-600">
-                abdussalam.rafiq@gmail.com
-              </a>
-            </p>
-            <p>
+          <motion.div variants={itemVariants} className="text-gray-600 text-xs leading-tight">
+            <p className="mb-1 text-xs">
+              <strong>Contributors:</strong>{" "}
               <a
                 href="https://www.linkedin.com/in/imabdussalam/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600"
+                className="text-blue-600 text-xs"
               >
-                LinkedIn
+                Abdus Salam
+              </a>
+              ,{" "}
+              <a
+                href="https://github.com/MrAsimZahid"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 text-xs"
+              >
+                Asim Zahid
               </a>
             </p>
           </motion.div>
 
-          <motion.div variants={itemVariants} className="text-xs text-gray-500">
-            For personalized advice, especially in complex situations, consulting a knowledgeable scholar
-            or a trusted Islamic financial advisor is recommended.
+          {/* Footer Links */}
+          <motion.div variants={itemVariants} className="flex flex-col items-center mt-2">
+            <div className="flex items-center space-x-3">
+              <Link href="mailto:abdussalam.rafiq@gmail.com">
+                <Button variant="ghost" size="sm" className="rounded-full">
+                  Contact
+                </Button>
+              </Link>
+              {/* Dot separator between buttons */}
+              <div className="w-1 h-1 rounded-full bg-gray-400"></div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-full"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.open("https://docs.google.com/forms/d/e/1FAIpQLSfD2nnRNka_P4GU-YyUuyOahFCNpJe8yHsLs3jlyLkZqRMiig/viewform?embedded=true", "_blank");
+                }}
+              >
+                Feedback
+              </Button>
+            </div>
           </motion.div>
         </motion.div>
       </div>
