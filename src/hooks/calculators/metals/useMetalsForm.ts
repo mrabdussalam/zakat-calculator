@@ -312,14 +312,15 @@ export function useMetalsForm({ onUpdateValues }: UseMetalsFormProps = {}) {
         }
     }
 
-    // Update the handleValueChange function to track active input
+    // Handle value changes for input fields
     const handleValueChange = (categoryId: string, event: React.ChangeEvent<HTMLInputElement>) => {
         const inputValue = event.target.value
+        console.log(`Input value change for ${categoryId}: "${inputValue}"`)
 
-        // Set this field as the active input to prevent interference from the useEffect
+        // Set this input as active to prevent interference from useEffect
         setActiveInputId(categoryId)
 
-        // Clear any previous timeout
+        // Clear any existing timeout
         if (inputTimeoutRef.current) {
             clearTimeout(inputTimeoutRef.current)
         }
@@ -327,66 +328,104 @@ export function useMetalsForm({ onUpdateValues }: UseMetalsFormProps = {}) {
         // Set a timeout to clear the active input status after user stops typing
         inputTimeoutRef.current = setTimeout(() => {
             setActiveInputId(null)
-        }, 1000) // Wait 1 second after last keystroke
+        }, 1000)
 
-        // Debug the incoming event value
-        console.log(`Input event for ${categoryId}:`, { value: inputValue })
+        // Always update the input value in the local state immediately for responsive UI
+        setInputValues(prev => ({
+            ...prev,
+            [categoryId]: inputValue
+        }))
 
-        // Handle empty value first - always allow clearing the input
+        // Handle empty input - clear the value
         if (inputValue === '') {
-            console.log(`Clearing input for ${categoryId}`)
-            setInputValues(prev => ({ ...prev, [categoryId]: '' }))
+            console.log(`Clearing value for ${categoryId}`)
             setMetalsValue(categoryId as keyof MetalsValues, 0)
             return
         }
 
-        // Always update input state first to keep the UI responsive
-        setInputValues(prev => ({ ...prev, [categoryId]: inputValue }))
-
-        // Much more permissive validation - allow almost anything during typing
-        // This effectively disables validation during typing to prevent input blocking
-        const looseValidation = /^[0-9]*\.?[0-9]*$/
-        if (!looseValidation.test(inputValue)) {
-            console.log(`Input validation failed for ${categoryId}: ${inputValue}`)
-            // We've already updated the display value, so just return without updating store
-            return
-        }
-
-        // For partial inputs that are still being typed, don't try to process yet
-        if (inputValue === '.' || inputValue === '0.') {
-            console.log(`Partial input detected for ${categoryId}, awaiting more input`)
-            return
-        }
-
-        try {
-            // Only process complete numbers
-            const numericValue = parseFloat(inputValue)
-
-            // Only update store if we have a valid number
-            if (!isNaN(numericValue) && isFinite(numericValue) && numericValue >= 0) {
-                console.log(`Processing value: ${inputValue} (${numericValue}) in ${selectedUnit}`)
-
-                // Convert from selected unit to grams for storage
-                const valueInGrams = toGrams(numericValue, selectedUnit)
-
-                // Round to avoid floating point issues
-                const roundedValue = Math.round(valueInGrams * 1000) / 1000
-
-                // Update the store with the processed value
-                // Do this in a setTimeout to avoid blocking the input
-                setTimeout(() => {
-                    setMetalsValue(categoryId as keyof MetalsValues, roundedValue)
-
-                    // Notify parent component if callback exists
-                    if (onUpdateValues) {
-                        const updatedValues = { ...metalsValues }
-                        updatedValues[categoryId as keyof MetalsValues] = roundedValue
-                        onUpdateValues(updatedValues)
-                    }
-                }, 0)
+        // Special handling for ounces - be more permissive with decimal inputs
+        if (selectedUnit === 'ounce') {
+            // For ounces, allow any input that could be a valid decimal number
+            // This includes partial inputs like ".", "0.", and multiple decimal places
+            if (!/^[0-9]*\.?[0-9]*$/.test(inputValue)) {
+                console.log(`Input validation failed for ${categoryId} (ounce): ${inputValue}`)
+                return
             }
-        } catch (error) {
-            console.error(`Error processing input:`, error)
+
+            // For partial inputs like "." or "0.", just update the UI but don't process the value yet
+            if (inputValue === '.' || inputValue === '0.' || inputValue.endsWith('.')) {
+                console.log(`Partial decimal input detected for ounce: ${inputValue}, not processing yet`)
+                return
+            }
+
+            // Only process if we have a valid number
+            const numericValue = parseFloat(inputValue)
+            if (isNaN(numericValue)) {
+                return
+            }
+
+            // Convert from ounces to grams for storage with higher precision
+            const valueInGrams = toGrams(numericValue, 'ounce')
+            // Use more decimal places for ounces to avoid rounding errors
+            const roundedValue = Number(valueInGrams.toFixed(6))
+
+            console.log(`Converted ounce value: ${inputValue} oz -> ${roundedValue} grams (rounded)`)
+
+            // Update the store with the processed value
+            setMetalsValue(categoryId as keyof MetalsValues, roundedValue)
+
+            // Notify parent component if callback exists
+            if (onUpdateValues) {
+                const numericValues: Record<string, number> = {};
+                Object.entries(metalsValues).forEach(([key, value]) => {
+                    if (typeof value === 'number') {
+                        numericValues[key] = value;
+                    }
+                });
+                numericValues[categoryId] = roundedValue;
+                onUpdateValues(numericValues);
+            }
+            return;
+        }
+
+        // For other units (gram, tola), use the standard validation
+        // Simple validation - allow any input that could be a valid number
+        if (!/^[0-9]*\.?[0-9]*$/.test(inputValue)) {
+            console.log(`Input validation failed for ${categoryId}: ${inputValue}`)
+            return
+        }
+
+        // For partial inputs like "." or "0.", just update the UI but don't process the value yet
+        if (inputValue === '.' || inputValue === '0.' || inputValue.endsWith('.')) {
+            console.log(`Partial decimal input detected: ${inputValue}, not processing yet`)
+            return
+        }
+
+        // Only process if we have a valid number
+        const numericValue = parseFloat(inputValue)
+        if (isNaN(numericValue)) {
+            return
+        }
+
+        // Convert from selected unit to grams for storage
+        const valueInGrams = toGrams(numericValue, selectedUnit)
+        const roundedValue = Number(valueInGrams.toFixed(3))
+
+        console.log(`Converted value: ${inputValue} ${selectedUnit} -> ${roundedValue} grams (rounded)`)
+
+        // Update the store with the processed value
+        setMetalsValue(categoryId as keyof MetalsValues, roundedValue)
+
+        // Notify parent component if callback exists
+        if (onUpdateValues) {
+            const numericValues: Record<string, number> = {};
+            Object.entries(metalsValues).forEach(([key, value]) => {
+                if (typeof value === 'number') {
+                    numericValues[key] = value;
+                }
+            });
+            numericValues[categoryId] = roundedValue;
+            onUpdateValues(numericValues);
         }
     }
 
@@ -456,6 +495,39 @@ export function useMetalsForm({ onUpdateValues }: UseMetalsFormProps = {}) {
         return undefined
     }, [])
 
+    // Simplified key down handler - only prevent non-numeric and multiple decimal points
+    const handleKeyDown = (categoryId: string, event: React.KeyboardEvent<HTMLInputElement>) => {
+        // Allow navigation keys always
+        const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End']
+        if (allowedKeys.includes(event.key)) {
+            return
+        }
+
+        // Allow numbers always
+        if (/^[0-9]$/.test(event.key)) {
+            return
+        }
+
+        // Special handling for decimal point
+        if (event.key === '.') {
+            // For ounces, be more permissive with decimal points
+            if (selectedUnit === 'ounce') {
+                // Always allow decimal point for ounces, even if there's already one
+                // This is because ounce values often need more precision
+                return
+            }
+
+            // For other units, only prevent if there's already a decimal point in the value
+            if (event.currentTarget.value.includes('.')) {
+                event.preventDefault()
+            }
+            return
+        }
+
+        // Prevent all other keys
+        event.preventDefault()
+    }
+
     return {
         // State
         inputValues,
@@ -471,5 +543,6 @@ export function useMetalsForm({ onUpdateValues }: UseMetalsFormProps = {}) {
         handleValueChange,
         handleInvestmentToggle,
         setActiveInputId,
+        handleKeyDown,
     }
 } 

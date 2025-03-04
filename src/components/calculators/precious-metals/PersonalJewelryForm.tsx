@@ -84,7 +84,8 @@ export function PersonalJewelryForm({
     activeInputId,
     handleValueChange,
     handleUnitChange,
-    handleInvestmentToggle
+    handleInvestmentToggle,
+    handleKeyDown
   } = useMetalsForm({ onUpdateValues });
 
   const {
@@ -477,7 +478,7 @@ export function PersonalJewelryForm({
                           id={category.id}
                           type="text"
                           inputMode="decimal"
-                          step="0.001"
+                          step="any"
                           min="0"
                           className={cn(
                             "pl-12 pr-32 text-sm bg-white border-gray-200 transition-colors duration-300 ease-in-out",
@@ -485,6 +486,7 @@ export function PersonalJewelryForm({
                           )}
                           value={inputValues[category.id] || ''}
                           onChange={(e) => handleValueChange(category.id, e)}
+                          onKeyDown={(e) => handleKeyDown(category.id, e)}
                           placeholder={`Enter weight in ${WEIGHT_UNITS[selectedUnit].label.toLowerCase()}`}
                         />
                         <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
@@ -588,7 +590,7 @@ export function PersonalJewelryForm({
                             id={category.id}
                             type="text"
                             inputMode="decimal"
-                            step="0.001"
+                            step="any"
                             min="0"
                             className={cn(
                               "pl-12 pr-32 text-sm bg-white border-gray-200 transition-colors duration-300 ease-in-out",
@@ -596,6 +598,7 @@ export function PersonalJewelryForm({
                             )}
                             value={inputValues[category.id] || ''}
                             onChange={(e) => handleValueChange(category.id, e)}
+                            onKeyDown={(e) => handleKeyDown(category.id, e)}
                             placeholder={`Enter weight in ${WEIGHT_UNITS[selectedUnit].label.toLowerCase()}`}
                           />
                           <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">

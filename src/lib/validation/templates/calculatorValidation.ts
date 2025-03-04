@@ -25,7 +25,7 @@ export interface CalculatorValidationTemplate<T> {
 export function createCalculatorValidator<T extends Record<string, unknown>>(template: CalculatorValidationTemplate<T>): CalculatorValidationFn<T> {
   return (values: T, hawlMet: boolean): ValidationResult => {
     const result: ValidationResult = { isValid: true, errors: [], warnings: [] }
-    
+
     // Run template validations
     const validations = [
       template.requiredFields ? validateRequiredFields(template.requiredFields) : null,
@@ -33,7 +33,7 @@ export function createCalculatorValidator<T extends Record<string, unknown>>(tem
       template.booleanFields ? validateBooleanFields(template.booleanFields) : null,
       ...(template.customValidations || []),
     ].filter(Boolean) as CalculatorValidationFn<T>[]
-    
+
     // Run each validation
     for (const validation of validations) {
       const validationResult = validation(values, hawlMet)
@@ -43,7 +43,7 @@ export function createCalculatorValidator<T extends Record<string, unknown>>(tem
         result.warnings.push(...validationResult.warnings)
       }
     }
-    
+
     // Run zakatable amount validation if provided and hawlMet
     if (hawlMet && template.validateZakatableAmount) {
       const zakatableValidation = template.validateZakatableAmount(values, hawlMet)
@@ -53,10 +53,14 @@ export function createCalculatorValidator<T extends Record<string, unknown>>(tem
         result.warnings.push(...zakatableValidation.warnings)
       }
     }
-    
+
     return result
   }
 }
+
+// Export an alias for createCalculatorValidator as createCalculatorValidation
+// This fixes the import issue in files that import createCalculatorValidation
+export const createCalculatorValidation = createCalculatorValidator;
 
 /**
  * Validates that required fields are present
@@ -64,14 +68,14 @@ export function createCalculatorValidator<T extends Record<string, unknown>>(tem
 function validateRequiredFields<T extends Record<string, unknown>>(requiredFields: string[]): CalculatorValidationFn<T> {
   return (values: T): ValidationResult => {
     const result: ValidationResult = { isValid: true, errors: [], warnings: [] }
-    
+
     for (const field of requiredFields) {
       if (values[field] === undefined || values[field] === null || values[field] === '') {
         result.isValid = false
         result.errors.push(`Field '${field}' is required`)
       }
     }
-    
+
     return result
   }
 }
@@ -82,11 +86,11 @@ function validateRequiredFields<T extends Record<string, unknown>>(requiredField
 function validateNumericFields<T extends Record<string, unknown>>(numericFields: string[]): CalculatorValidationFn<T> {
   return (values: T): ValidationResult => {
     const result: ValidationResult = { isValid: true, errors: [], warnings: [] }
-    
+
     for (const field of numericFields) {
       if (values[field] !== undefined && values[field] !== null) {
         const value = values[field]
-        
+
         if (typeof value !== 'number' || isNaN(value)) {
           result.isValid = false
           result.errors.push(`Field '${field}' must be a valid number`)
@@ -96,7 +100,7 @@ function validateNumericFields<T extends Record<string, unknown>>(numericFields:
         }
       }
     }
-    
+
     return result
   }
 }
@@ -107,7 +111,7 @@ function validateNumericFields<T extends Record<string, unknown>>(numericFields:
 function validateBooleanFields<T extends Record<string, unknown>>(booleanFields: string[]): CalculatorValidationFn<T> {
   return (values: T): ValidationResult => {
     const result: ValidationResult = { isValid: true, errors: [], warnings: [] }
-    
+
     for (const field of booleanFields) {
       if (values[field] !== undefined && values[field] !== null) {
         if (typeof values[field] !== 'boolean') {
@@ -116,7 +120,7 @@ function validateBooleanFields<T extends Record<string, unknown>>(booleanFields:
         }
       }
     }
-    
+
     return result
   }
 }

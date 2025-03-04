@@ -24,10 +24,10 @@ export const FeedbackFormModal = () => {
             <Button
                 variant="ghost"
                 size="sm"
-                className="rounded-full hidden md:block text-muted-foreground"
+                className="rounded-full hidden md:block"
                 onClick={handleOpen}
             >
-                Feedback
+                Report a Bug
             </Button>
 
             <Modal
