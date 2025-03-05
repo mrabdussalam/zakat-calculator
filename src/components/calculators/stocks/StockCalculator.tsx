@@ -73,6 +73,12 @@ interface PassiveInvestmentState {
   }
 }
 
+// Define the stock fields that need to be reset
+const STOCK_FIELDS = [
+  'passive_investments',
+  'active_stocks'
+] as const;
+
 export function StockCalculator({
   currency,
   onUpdateValues,
@@ -95,7 +101,8 @@ export function StockCalculator({
     getActiveStocksBreakdown,
     setStockValue,
     updatePassiveInvestments: updatePassiveInvestmentsStore,
-    passiveInvestments
+    passiveInvestments,
+    resetStockValues
   } = useZakatStore()
 
   const stockAsset = getAssetType('stocks')
@@ -152,6 +159,57 @@ export function StockCalculator({
     }
   }, [stockValues, setStockHawl, onHawlUpdate, stockHawlMet])
 
+  // Add a listener to detect store resets
+  useEffect(() => {
+    // Only process resets after hydration is complete to prevent false resets
+    if (!storeHydrated) return;
+
+    const handleReset = (event?: Event) => {
+      console.log('StockCalculator: Store reset event detected');
+
+      // Check if this is still during initial page load
+      if (typeof window !== 'undefined') {
+        // Safe way to check for custom property without TypeScript errors
+        const win = window as any;
+        if (win.isInitialPageLoad) {
+          console.log('StockCalculator: Ignoring reset during initial page load');
+          return;
+        }
+      }
+
+      // This is a user-initiated reset, so clear all local state
+      console.log('StockCalculator: Clearing local state due to user-initiated reset');
+
+      // Clear input fields
+      setNewTicker('');
+      setNewShares('');
+      setNewPricePerShare('');
+      setError(null);
+      setPassiveCalculations(null);
+
+      // Use the resetStockValues function from the store
+      resetStockValues();
+
+      // Update parent with zeroed values
+      onUpdateValues({
+        total_stock_value: 0,
+        zakatable_stock_value: 0,
+        passive_total_value: 0,
+        passive_zakatable_value: 0
+      });
+    };
+
+    // Listen for both possible reset event names
+    window.addEventListener('store-reset', handleReset);
+    window.addEventListener('zakat-store-reset', handleReset);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('store-reset', handleReset);
+      window.removeEventListener('zakat-store-reset', handleReset);
+    };
+  }, [storeHydrated, onUpdateValues, resetStockValues]);
+
   // Handle value changes for passive/dividend/fund tabs
   const handleValueChange = (fieldId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = event.target.value
@@ -161,32 +219,70 @@ export function StockCalculator({
       return // Ignore invalid characters
     }
 
+    // Always update the store with the raw input value to maintain what the user is typing
+    setStockValue(fieldId as keyof typeof stockValues, inputValue as any)
+
     try {
-      // Convert to numeric value (handles calculations)
-      const numericValue = evaluateExpression(inputValue)
-
-      // Only update store if we have a valid number
-      if (!isNaN(numericValue) && stockAsset) {
-        // Update the store
-        setStockValue(fieldId as keyof typeof stockValues, numericValue)
-
-        // Get updated totals using the asset type system
-        const updatedValues = {
-          ...stockValues,
-          [fieldId]: numericValue
-        }
-
-        const total = stockAsset.calculateTotal(updatedValues, stockPrices)
-        const zakatable = stockAsset.calculateZakatable(updatedValues, stockPrices, stockHawlMet)
+      // Allow empty input
+      if (!inputValue) {
+        // Update the store with zero
+        setStockValue(fieldId as keyof typeof stockValues, 0)
 
         // Update parent with new totals
-        onUpdateValues({
-          total_stock_value: total,
-          zakatable_stock_value: zakatable
-        })
+        if (stockAsset) {
+          const updatedValues = {
+            ...stockValues,
+            [fieldId]: 0
+          }
+
+          const total = stockAsset.calculateTotal(updatedValues, stockPrices)
+          const zakatable = stockAsset.calculateZakatable(updatedValues, stockPrices, stockHawlMet)
+
+          onUpdateValues({
+            total_stock_value: total,
+            zakatable_stock_value: zakatable
+          })
+        }
+        return
+      }
+
+      // Only evaluate if the expression is complete (not ending with an operator or open parenthesis)
+      if (!/[+\-*/.()]$/.test(inputValue) && !/\(\s*$/.test(inputValue)) {
+        // Remove any commas from the input before evaluating
+        const cleanInput = inputValue.replace(/,/g, '')
+
+        try {
+          // Convert to numeric value (handles calculations)
+          const numericValue = evaluateExpression(cleanInput)
+
+          // Only update store if we have a valid number
+          if (!isNaN(numericValue) && isFinite(numericValue) && stockAsset) {
+            // Update the store with the numeric result
+            setStockValue(fieldId as keyof typeof stockValues, numericValue)
+
+            // Get updated totals using the asset type system
+            const updatedValues = {
+              ...stockValues,
+              [fieldId]: numericValue
+            }
+
+            const total = stockAsset.calculateTotal(updatedValues, stockPrices)
+            const zakatable = stockAsset.calculateZakatable(updatedValues, stockPrices, stockHawlMet)
+
+            // Update parent with new totals
+            onUpdateValues({
+              total_stock_value: total,
+              zakatable_stock_value: zakatable
+            })
+          }
+        } catch (evalError) {
+          console.warn('Error evaluating expression:', evalError)
+          // Keep the raw input in the store but don't update numeric calculations
+        }
       }
     } catch (error) {
-      // Invalid calculation - don't update store
+      // Invalid calculation - don't update store with the numeric value
+      // but keep the raw input value for user experience
       console.warn('Invalid calculation:', error)
     }
   }

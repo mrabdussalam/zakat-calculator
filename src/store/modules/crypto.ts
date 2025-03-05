@@ -33,10 +33,51 @@ export const createCryptoSlice: StateCreator<
     }
 
     // Set loading state to true
-    set({ isLoading: true })
+    set({ isLoading: true, lastError: null })
 
     try {
+      console.log(`Adding ${quantity} ${symbol} in ${currency}`);
       const currentPrice = await getCryptoPrice(symbol, currency)
+
+      if (currentPrice === 0 && (symbol.toUpperCase() === 'BTC' || symbol.toUpperCase() === 'ETH')) {
+        console.warn(`Received zero price for ${symbol}, using fallback price`);
+        // Use fallback prices for major coins if API returns zero
+        const fallbackPrices: Record<string, number> = {
+          'BTC': 65000,
+          'ETH': 3500
+        };
+
+        const marketValue = roundCurrency(quantity * fallbackPrices[symbol.toUpperCase()]);
+        const zakatDue = roundCurrency(marketValue * ZAKAT_RATE);
+
+        set((state: ZakatState) => {
+          const newCoins = [...state.cryptoValues.coins, {
+            symbol: symbol.toUpperCase(),
+            quantity,
+            currentPrice: fallbackPrices[symbol.toUpperCase()],
+            marketValue,
+            zakatDue,
+            currency,
+            isFallback: true
+          }]
+
+          const total = roundCurrency(newCoins.reduce((sum: number, coin: CryptoHolding) => sum + coin.marketValue, 0))
+
+          return {
+            cryptoValues: {
+              ...state.cryptoValues,
+              coins: newCoins,
+              total_value: total,
+              zakatable_value: state.cryptoHawlMet ? total : 0
+            },
+            isLoading: false,
+            lastError: 'Using fallback price due to API issues'
+          }
+        });
+
+        return;
+      }
+
       const marketValue = roundCurrency(quantity * currentPrice)
       const zakatDue = roundCurrency(marketValue * ZAKAT_RATE)
 
@@ -65,6 +106,46 @@ export const createCryptoSlice: StateCreator<
       })
     } catch (error) {
       console.error('Error adding coin:', error)
+
+      // For major coins, add with fallback price if API fails
+      if (symbol.toUpperCase() === 'BTC' || symbol.toUpperCase() === 'ETH') {
+        console.log(`Using fallback price for ${symbol} due to API error`);
+        const fallbackPrices: Record<string, number> = {
+          'BTC': 65000,
+          'ETH': 3500
+        };
+
+        const marketValue = roundCurrency(quantity * fallbackPrices[symbol.toUpperCase()]);
+        const zakatDue = roundCurrency(marketValue * ZAKAT_RATE);
+
+        set((state: ZakatState) => {
+          const newCoins = [...state.cryptoValues.coins, {
+            symbol: symbol.toUpperCase(),
+            quantity,
+            currentPrice: fallbackPrices[symbol.toUpperCase()],
+            marketValue,
+            zakatDue,
+            currency,
+            isFallback: true
+          }]
+
+          const total = roundCurrency(newCoins.reduce((sum: number, coin: CryptoHolding) => sum + coin.marketValue, 0))
+
+          return {
+            cryptoValues: {
+              ...state.cryptoValues,
+              coins: newCoins,
+              total_value: total,
+              zakatable_value: state.cryptoHawlMet ? total : 0
+            },
+            isLoading: false,
+            lastError: 'Using fallback price due to API issues'
+          }
+        });
+
+        return;
+      }
+
       set({
         isLoading: false, // Set loading state to false in case of error
         lastError: error instanceof CryptoAPIError ? error.message : 'Failed to add coin'

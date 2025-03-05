@@ -33,7 +33,7 @@ interface NavButtonProps {
 
 function NavButton({ direction, calculator, onClick }: NavButtonProps) {
   const label = CALCULATOR_NAMES[calculator as keyof typeof CALCULATOR_NAMES]
-  
+
   return (
     <div className="relative">
       <Button
@@ -42,8 +42,8 @@ function NavButton({ direction, calculator, onClick }: NavButtonProps) {
         className={cn(
           "h-11 group overflow-hidden transition-all duration-200 ease-out",
           "bg-gray-100/80 hover:bg-gray-900 rounded-full",
-          direction === 'prev' ? 
-            "w-11 px-0" : 
+          direction === 'prev' ?
+            "w-11 px-0" :
             "w-auto px-3"
         )}
       >
@@ -53,8 +53,8 @@ function NavButton({ direction, calculator, onClick }: NavButtonProps) {
         )}>
           <div className={cn(
             "transition-transform duration-200 ease-out text-gray-600 group-hover:text-white",
-            direction === 'prev' 
-              ? "group-hover:-translate-x-0.5" 
+            direction === 'prev'
+              ? "group-hover:-translate-x-0.5"
               : "group-hover:translate-x-0.5"
           )}>
             {direction === 'prev' ? (
@@ -81,19 +81,19 @@ interface CalculatorNavProps {
   onOpenSummary?: () => void
 }
 
-export function CalculatorNav({ 
-  currentCalculator, 
-  onCalculatorChange, 
+export function CalculatorNav({
+  currentCalculator,
+  onCalculatorChange,
   className,
-  onOpenSummary 
+  onOpenSummary
 }: CalculatorNavProps) {
   // Find current index
   const currentIndex = CALCULATOR_ORDER.indexOf(currentCalculator as typeof CALCULATOR_ORDER[number])
-  
+
   // Get prev/next calculators
   const prevCalculator = currentIndex > 0 ? CALCULATOR_ORDER[currentIndex - 1] : null
   const nextCalculator = currentIndex < CALCULATOR_ORDER.length - 1 ? CALCULATOR_ORDER[currentIndex + 1] : null
-  
+
   // Check if we're on the last calculator
   const isLastCalculator = currentIndex === CALCULATOR_ORDER.length - 1
 
@@ -119,10 +119,10 @@ export function CalculatorNav({
             />
           )}
         </div>
-        
+
         {/* Empty middle space */}
         <div className="flex-1" />
-        
+
         {/* Next button or Summary button on mobile */}
         <div>
           {isLastCalculator && onOpenSummary ? (

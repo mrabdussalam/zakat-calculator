@@ -201,4 +201,14 @@ export interface RootState {
   getRetirementTotal: () => number
   getRetirementZakatable: () => number
   getRetirementBreakdown: () => AssetBreakdown
+}
+
+export interface CryptoHolding {
+  symbol: string
+  quantity: number
+  currentPrice: number
+  marketValue: number
+  zakatDue: number
+  currency?: string
+  isFallback?: boolean
 } 

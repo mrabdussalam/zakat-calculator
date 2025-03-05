@@ -29,8 +29,8 @@ export function AssetRow({
   isExpanded,
   onToggle
 }: AssetRowProps) {
-  const hasDetails = breakdown && 
-    Object.keys(breakdown.items).length > 0 && 
+  const hasDetails = breakdown &&
+    Object.keys(breakdown.items).length > 0 &&
     Object.values(breakdown.items).some(item => item.value > 0)
   const percentage = totalAssets > 0 ? ((total / totalAssets) * 100).toFixed(1) : '0.0'
   const color = ASSET_COLORS[assetType as keyof typeof ASSET_COLORS]
@@ -57,9 +57,9 @@ export function AssetRow({
 
   return (
     <div>
-      <div 
+      <div
         className={cn(
-          "px-2 py-2.5 rounded-lg select-none", 
+          "px-2 py-2.5 rounded-lg select-none",
           hasDetails && "cursor-pointer hover:bg-gray-50"
         )}
         onClick={handleClick}
@@ -83,7 +83,7 @@ export function AssetRow({
               </motion.div>
             </div>
             <div className="flex items-center gap-2 min-w-0">
-              <div 
+              <div
                 className="w-2 h-2 rounded-full flex-shrink-0"
                 style={{ backgroundColor: color }}
               />
@@ -116,7 +116,7 @@ export function AssetRow({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ 
+            transition={{
               duration: 0.3,
               ease: [0.2, 0.4, 0.2, 1]
             }}

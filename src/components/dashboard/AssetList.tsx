@@ -79,41 +79,41 @@ export function AssetList({ selectedAsset, onAssetSelect, isCollapsed }: AssetLi
                     "relative box-border transition-all duration-200",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400",
                     "before:absolute before:inset-0 before:rounded-lg before:border before:transition-all",
-                    isSelected 
-                      ? "bg-white before:border-transparent shadow-sm" 
+                    isSelected
+                      ? "bg-white before:border-transparent shadow-sm"
                       : "bg-transparent before:border-transparent hover:bg-white/80",
-                    isCollapsed 
-                      ? "px-2 py-2" 
+                    isCollapsed
+                      ? "px-2 py-2"
                       : "px-3 py-3"
                   )}
                 >
-                  <motion.div 
+                  <motion.div
                     className={cn(
                       "rounded-lg flex items-center justify-center shrink-0 relative overflow-hidden transition-colors",
                       isCollapsed ? "w-8 h-8" : "w-10 h-10",
-                      isSelected 
+                      isSelected
                         ? cn(
-                            colors.selectedBg,
-                            "border border-black/[0.12]",
-                            colors.selectedIcon
-                          )
+                          colors.selectedBg,
+                          "border border-black/[0.12]",
+                          colors.selectedIcon
+                        )
                         : cn(
-                            colors.bg,
-                            "border border-black/[0.05] shadow-[0_1px_2px_rgba(0,0,0,0.03)]",
-                            colors.icon
-                          )
+                          colors.bg,
+                          "border border-black/[0.05] shadow-[0_1px_2px_rgba(0,0,0,0.03)]",
+                          colors.icon
+                        )
                     )}
                     initial={false}
-                    animate={{ 
+                    animate={{
                       scale: isSelected ? [1, 0.9, 1] : 1,
                     }}
                     whileHover={!isSelected ? { scale: 1.1 } : undefined}
-                    transition={{ 
+                    transition={{
                       duration: 0.2,
                       times: [0, 0.5, 1]
                     }}
                   >
-                    <Icon 
+                    <Icon
                       size={isCollapsed ? 18 : 20}
                       className="transition-all relative z-10"
                     />

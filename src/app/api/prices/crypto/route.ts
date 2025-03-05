@@ -56,7 +56,65 @@ async function getExchangeRate(from: string, to: string): Promise<number | null>
   }
 }
 
+// Direct CoinGecko API call with retries
+async function fetchFromCoinGecko(coinId: string, retries = 3): Promise<number | null> {
+  let lastError = null;
+
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      console.log(`CoinGecko attempt ${attempt + 1} for ${coinId}`);
+
+      const response = await fetch(
+        `${COINGECKO_API_URL}/simple/price?ids=${coinId}&vs_currencies=usd`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          cache: 'no-store'
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`CoinGecko API returned ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (!data[coinId]?.usd) {
+        throw new Error(`No price data found for ${coinId}`);
+      }
+
+      return data[coinId].usd;
+    } catch (error) {
+      console.error(`CoinGecko attempt ${attempt + 1} failed:`, error);
+      lastError = error;
+
+      // Wait before retrying (exponential backoff)
+      if (attempt < retries - 1) {
+        const delay = Math.pow(2, attempt) * 500;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  console.error(`All ${retries} attempts to CoinGecko failed for ${coinId}`);
+  throw lastError;
+}
+
 export async function GET(request: Request) {
+  // Set CORS headers for cross-origin requests
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Cache-Control': 'public, max-age=10, stale-while-revalidate=20'
+  };
+
+  // Handle OPTIONS request for CORS preflight
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, { headers });
+  }
+
   const { searchParams } = new URL(request.url)
   const symbol = searchParams.get('symbol')
   // Accept currency parameter similar to stocks API
@@ -65,7 +123,7 @@ export async function GET(request: Request) {
   if (!symbol) {
     return NextResponse.json(
       { error: 'Symbol is required' },
-      { status: 400 }
+      { status: 400, headers }
     )
   }
 
@@ -76,38 +134,30 @@ export async function GET(request: Request) {
     if (!coinId) {
       return NextResponse.json(
         { error: `Unsupported cryptocurrency symbol: ${symbol}` },
-        { status: 400 }
+        { status: 400, headers }
       )
     }
 
-    const response = await fetch(
-      `${COINGECKO_API_URL}/simple/price?ids=${coinId}&vs_currencies=usd`
-    )
+    console.log(`Fetching price for ${upperSymbol} (${coinId}) in ${requestedCurrency}`);
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch price from CoinGecko')
-    }
-
-    const data = await response.json()
-    if (!data[coinId]?.usd) {
-      throw new Error(`No price data found for ${symbol}`)
-    }
+    // Use the direct CoinGecko function with retries
+    const usdPrice = await fetchFromCoinGecko(coinId);
 
     // Base price is always in USD from CoinGecko
-    let price = data[coinId].usd
-    const sourceCurrency = 'USD'
-    let conversionApplied = false
+    let price = usdPrice || 0; // Ensure price is not null
+    const sourceCurrency = 'USD';
+    let conversionApplied = false;
 
     // Convert currency if needed and different from USD
     if (requestedCurrency !== 'USD') {
-      const rate = await getExchangeRate(sourceCurrency, requestedCurrency)
+      const rate = await getExchangeRate(sourceCurrency, requestedCurrency);
 
       if (rate) {
-        price = Number((price * rate).toFixed(2))
-        conversionApplied = true
-        console.log(`Converted ${symbol} price from ${sourceCurrency} to ${requestedCurrency} using rate ${rate}`)
+        price = Number((price * rate).toFixed(2));
+        conversionApplied = true;
+        console.log(`Converted ${symbol} price from ${sourceCurrency} to ${requestedCurrency} using rate ${rate}`);
       } else {
-        console.log(`Could not convert ${symbol} price from ${sourceCurrency} to ${requestedCurrency}, returning original currency`)
+        console.log(`Could not convert ${symbol} price from ${sourceCurrency} to ${requestedCurrency}, returning original currency`);
       }
     }
 
@@ -119,17 +169,42 @@ export async function GET(request: Request) {
       currency: conversionApplied ? requestedCurrency : sourceCurrency,
       conversionApplied,
       requestedCurrency
-    }, {
-      headers: {
-        'Cache-Control': 'public, max-age=10, stale-while-revalidate=20'
-      }
-    })
+    }, { headers })
 
   } catch (error) {
-    console.error('Crypto API Error:', error)
+    console.error('Crypto API Error:', error);
+
+    // Provide fallback prices for major cryptocurrencies
+    if (symbol.toUpperCase() === 'BTC') {
+      return NextResponse.json({
+        symbol: symbol.toUpperCase(),
+        price: 65000, // Fallback price for BTC
+        lastUpdated: new Date().toISOString(),
+        sourceCurrency: 'USD',
+        currency: requestedCurrency,
+        conversionApplied: false,
+        isFallback: true
+      }, { headers });
+    }
+
+    if (symbol.toUpperCase() === 'ETH') {
+      return NextResponse.json({
+        symbol: symbol.toUpperCase(),
+        price: 3500, // Fallback price for ETH
+        lastUpdated: new Date().toISOString(),
+        sourceCurrency: 'USD',
+        currency: requestedCurrency,
+        conversionApplied: false,
+        isFallback: true
+      }, { headers });
+    }
+
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error fetching crypto price' },
-      { status: 500 }
+      {
+        error: error instanceof Error ? error.message : 'Unknown error fetching crypto price',
+        symbol: symbol.toUpperCase()
+      },
+      { status: 500, headers }
     )
   }
 } 

@@ -12,6 +12,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { RefreshIcon } from '@/components/ui/icons/refresh'
 import { cn } from '@/lib/utils'
 import { CalculatorNav } from '@/components/ui/calculator-nav'
+import { Loader2, Trash2 } from 'lucide-react'
+import { Info } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface CryptoCalculatorProps {
   currency: string
@@ -273,6 +277,17 @@ export function CryptoCalculator({
     ]
   }
 
+  // Update the CryptoHolding type to include isFallback
+  interface CryptoHolding {
+    symbol: string
+    quantity: number
+    currentPrice: number
+    marketValue: number
+    zakatDue: number
+    currency?: string
+    isFallback?: boolean
+  }
+
   return (
     <div className="space-y-6">
       <FAQ
@@ -389,14 +404,7 @@ export function CryptoCalculator({
                 }
               }}
             >
-              {cryptoValues.coins.map((coin: {
-                symbol: string
-                quantity: number
-                currentPrice: number
-                marketValue: number
-                zakatDue: number
-                currency?: string
-              }, index: number) => (
+              {cryptoValues.coins.map((coin: CryptoHolding, index: number) => (
                 <motion.div
                   key={`${coin.symbol}-${index}`}
                   variants={{

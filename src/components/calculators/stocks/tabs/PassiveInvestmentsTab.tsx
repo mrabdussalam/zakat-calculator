@@ -20,7 +20,7 @@ import {
   TooltipContent,
   TooltipProvider
 } from "@/components/ui/tooltip"
-import { StockValues, calculatePassiveInvestments } from '@/lib/assets/stocks'
+import { StockValues } from '@/lib/assets/stocks'
 import { Investment } from '@/lib/assets/types'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { cn, evaluateExpression } from '@/lib/utils'
@@ -94,8 +94,16 @@ interface PassiveCalculations {
 
 interface PassiveInvestmentsTabProps {
   currency: string
-  inputValues: StockValues
-  onValueChange: (fieldId: keyof StockValues, event: React.ChangeEvent<HTMLInputElement>) => void
+  inputValues: {
+    passive_shares?: string | number
+    price_per_share?: string | number
+    company_cash?: string | number
+    company_receivables?: string | number
+    company_inventory?: string | number
+    total_shares_issued?: string | number
+    [key: string]: any
+  }
+  onValueChange: (fieldId: string, event: React.ChangeEvent<HTMLInputElement>) => void
   onCalculate: (calculations: PassiveCalculations) => void
   updatePassiveInvestments: (state: PassiveInvestmentState) => void
   passiveInvestments?: PassiveInvestmentState
@@ -289,19 +297,141 @@ export function PassiveInvestmentsTab({
       marketValue: 0
     }]
   )
-  const [rawMarketValue, setRawMarketValue] = useState(() => {
-    // Initialize with the first investment's market value from passiveInvestments
-    if (validatedState?.investments?.[0]?.marketValue) {
-      return validatedState.investments[0].marketValue.toString()
-    }
-    return ''
+
+  // Track both raw input values and processed numeric values
+  const [rawInputValues, setRawInputValues] = useState<Record<string, string>>({
+    total_market_value: validatedState?.investments?.[0]?.marketValue
+      ? validatedState.investments[0].marketValue.toString()
+      : '',
+    passive_shares: inputValues.passive_shares?.toString() || '',
+    price_per_share: inputValues.price_per_share?.toString() || '',
+    company_cash: inputValues.company_cash?.toString() || '',
+    company_receivables: inputValues.company_receivables?.toString() || '',
+    company_inventory: inputValues.company_inventory?.toString() || '',
+    total_shares_issued: inputValues.total_shares_issued?.toString() || ''
   })
+
   const [errors, setErrors] = useState<ValidationError[]>([])
   const previousValues = useRef({
     investments,
     inputValues,
     method
   })
+
+  // Add a state to track if store has been hydrated
+  const [storeHydrated, setStoreHydrated] = useState(false)
+
+  // Add a listener for the store hydration event
+  useEffect(() => {
+    const handleHydrationComplete = () => {
+      console.log('PassiveInvestmentsTab: Store hydration complete event received')
+      setStoreHydrated(true)
+    }
+
+    // Listen for the custom hydration event
+    window.addEventListener('store-hydration-complete', handleHydrationComplete)
+
+    // Check if hydration already happened
+    if (typeof window !== 'undefined') {
+      // Safe way to check for custom property without TypeScript errors
+      const win = window as any
+      if (win.hasDispatchedHydrationEvent) {
+        handleHydrationComplete()
+      }
+    }
+
+    return () => {
+      window.removeEventListener('store-hydration-complete', handleHydrationComplete)
+    }
+  }, [])
+
+  // Add a listener to detect store resets
+  useEffect(() => {
+    // Only process resets after hydration is complete to prevent false resets
+    if (!storeHydrated) return
+
+    const handleReset = (event?: Event) => {
+      console.log('PassiveInvestmentsTab: Store reset event detected')
+
+      // Check if this is still during initial page load
+      if (typeof window !== 'undefined') {
+        // Safe way to check for custom property without TypeScript errors
+        const win = window as any
+        if (win.isInitialPageLoad) {
+          console.log('PassiveInvestmentsTab: Ignoring reset during initial page load')
+          return
+        }
+      }
+
+      // This is a user-initiated reset, so clear all local state
+      console.log('PassiveInvestmentsTab: Clearing local state due to user-initiated reset')
+
+      // Clear all input values
+      setRawInputValues({
+        total_market_value: '',
+        passive_shares: '',
+        price_per_share: '',
+        company_cash: '',
+        company_receivables: '',
+        company_inventory: '',
+        total_shares_issued: ''
+      })
+
+      // Reset investments to default
+      setInvestments([{
+        id: Date.now().toString(),
+        name: '',
+        shares: 0,
+        pricePerShare: 0,
+        marketValue: 0
+      }])
+
+      // Clear errors
+      setErrors([])
+
+      // Reset method to quick
+      setMethod('quick')
+
+      // Update the store with empty values
+      updatePassiveInvestments(createDefaultState(currency))
+
+      // Notify parent component of reset
+      onCalculate({
+        totalMarketValue: 0,
+        zakatableValue: 0,
+        method: 'quick',
+        breakdown: {
+          marketValue: 0,
+          liquidValue: 0,
+          items: []
+        },
+        displayProperties: {
+          currency,
+          method: '30% Rule',
+          totalLabel: 'Total Investments'
+        }
+      })
+
+      // Clear all input values in parent component
+      const emptyEvent = { target: { value: '' } } as React.ChangeEvent<HTMLInputElement>
+      onValueChange('passive_shares', emptyEvent)
+      onValueChange('price_per_share', emptyEvent)
+      onValueChange('company_cash', emptyEvent)
+      onValueChange('company_receivables', emptyEvent)
+      onValueChange('company_inventory', emptyEvent)
+      onValueChange('total_shares_issued', emptyEvent)
+    }
+
+    // Listen for both possible reset event names
+    window.addEventListener('store-reset', handleReset)
+    window.addEventListener('zakat-store-reset', handleReset)
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('store-reset', handleReset)
+      window.removeEventListener('zakat-store-reset', handleReset)
+    }
+  }, [storeHydrated, currency, updatePassiveInvestments, onCalculate, onValueChange])
 
   // Memoize total market value calculation
   const totalMarketValue = useMemo(() =>
@@ -329,14 +459,90 @@ export function PassiveInvestmentsTab({
     if (method === 'quick') {
       return totalMarketValue * 0.3
     } else {
-      const { company_cash, company_receivables, company_inventory, passive_shares, total_shares_issued } = inputValues
+      const company_cash = Number(inputValues.company_cash || 0)
+      const company_receivables = Number(inputValues.company_receivables || 0)
+      const company_inventory = Number(inputValues.company_inventory || 0)
+      const passive_shares = Number(inputValues.passive_shares || 0)
+      const total_shares_issued = Number(inputValues.total_shares_issued || 0)
+
       if (!total_shares_issued) return 0
 
-      const totalLiquidAssets = (company_cash || 0) + (company_receivables || 0) + (company_inventory || 0)
-      const shareholderPercentage = (passive_shares || 0) / total_shares_issued
+      const totalLiquidAssets = company_cash + company_receivables + company_inventory
+      const shareholderPercentage = passive_shares / total_shares_issued
       return totalLiquidAssets * shareholderPercentage
     }
   }, [method, totalMarketValue, inputValues])
+
+  // Process input value and handle arithmetic expressions
+  const processInputValue = useCallback((fieldId: string, inputValue: string) => {
+    // Always update raw input value to show what user is typing
+    setRawInputValues(prev => ({
+      ...prev,
+      [fieldId]: inputValue
+    }))
+
+    try {
+      // Allow empty input
+      if (!inputValue) {
+        if (fieldId === 'total_market_value') {
+          setInvestments([{
+            id: 'total',
+            name: 'Total Passive Investments',
+            shares: 1,
+            pricePerShare: 0,
+            marketValue: 0
+          }])
+        } else {
+          // For detailed method fields, pass empty string to parent
+          const event = { target: { value: '' } } as React.ChangeEvent<HTMLInputElement>
+          onValueChange(fieldId, event)
+        }
+        setErrors(prev => prev.filter(e => e.field !== fieldId))
+        return
+      }
+
+      // Only evaluate if the expression is complete (not ending with an operator or open parenthesis)
+      if (!/[+\-*/.()]$/.test(inputValue) && !/\(\s*$/.test(inputValue)) {
+        try {
+          // Evaluate arithmetic expression
+          const value = evaluateExpression(inputValue)
+
+          // Validate the numeric result
+          const error = validateNumericInput(value, MAX_PRICE_VALUE)
+          if (error) {
+            setErrors(prev => [...prev.filter(e => e.field !== fieldId), { field: fieldId, message: error }])
+            return
+          }
+
+          // Update the appropriate state based on the field
+          if (fieldId === 'total_market_value') {
+            setErrors(prev => prev.filter(e => e.field !== fieldId))
+            setInvestments([{
+              id: 'total',
+              name: 'Total Passive Investments',
+              shares: 1,
+              pricePerShare: value,
+              marketValue: value
+            }])
+          } else {
+            // For detailed method fields, pass numeric value to parent
+            const event = { target: { value: value.toString() } } as React.ChangeEvent<HTMLInputElement>
+            onValueChange(fieldId, event)
+          }
+        } catch (evalError) {
+          console.warn('Error evaluating expression:', evalError)
+          // Only show error if the expression is complete and invalid
+          setErrors(prev => [...prev.filter(e => e.field !== fieldId), { field: fieldId, message: 'Invalid arithmetic expression' }])
+        }
+      }
+    } catch (error) {
+      console.warn('Error processing input:', error)
+      // Only show error if the expression is complete
+      if (!/[+\-*/.]$/.test(inputValue) && !/\(\s*$/.test(inputValue)) {
+        setErrors(prev => [...prev.filter(e => e.field !== fieldId), { field: fieldId, message: 'Invalid arithmetic expression' }])
+      }
+    }
+  }, [onValueChange, validateNumericInput])
 
   // Debounced update function
   const debouncedUpdate = useMemo(
@@ -345,28 +551,6 @@ export function PassiveInvestmentsTab({
     }, 300),
     [updatePassiveInvestments]
   )
-
-  // Add effect to sync rawMarketValue with store
-  useEffect(() => {
-    if (validatedState?.investments?.[0]?.marketValue) {
-      setRawMarketValue(validatedState.investments[0].marketValue.toString())
-    }
-  }, [validatedState?.investments])
-
-  // Add effect to handle store reset
-  useEffect(() => {
-    if (!validatedState?.investments?.length) {
-      setRawMarketValue('')
-      setInvestments([{
-        id: Date.now().toString(),
-        name: '',
-        shares: 0,
-        pricePerShare: 0,
-        marketValue: 0
-      }])
-      setErrors([])
-    }
-  }, [validatedState])
 
   // Effect to update calculations when values change
   useEffect(() => {
@@ -388,7 +572,7 @@ export function PassiveInvestmentsTab({
     const zakatableValue = calculateZakatableValue()
     const marketValue = method === 'quick'
       ? totalMarketValue
-      : (inputValues.passive_shares || 0) * (inputValues.price_per_share || 0)
+      : Number(inputValues.passive_shares || 0) * Number(inputValues.price_per_share || 0)
 
     const calculations: PassiveCalculations = {
       totalMarketValue: marketValue,
@@ -424,22 +608,22 @@ export function PassiveInvestmentsTab({
                 {
                   id: 'cash',
                   label: 'Cash Holdings',
-                  value: inputValues.company_cash || 0,
-                  percentage: zakatableValue > 0 ? ((inputValues.company_cash || 0) / zakatableValue) * 100 : 0,
+                  value: Number(inputValues.company_cash || 0),
+                  percentage: zakatableValue > 0 ? (Number(inputValues.company_cash || 0) / zakatableValue) * 100 : 0,
                   displayProperties: { currency }
                 },
                 {
                   id: 'receivables',
                   label: 'Receivables',
-                  value: inputValues.company_receivables || 0,
-                  percentage: zakatableValue > 0 ? ((inputValues.company_receivables || 0) / zakatableValue) * 100 : 0,
+                  value: Number(inputValues.company_receivables || 0),
+                  percentage: zakatableValue > 0 ? (Number(inputValues.company_receivables || 0) / zakatableValue) * 100 : 0,
                   displayProperties: { currency }
                 },
                 {
                   id: 'inventory',
                   label: 'Inventory',
-                  value: inputValues.company_inventory || 0,
-                  percentage: zakatableValue > 0 ? ((inputValues.company_inventory || 0) / zakatableValue) * 100 : 0,
+                  value: Number(inputValues.company_inventory || 0),
+                  percentage: zakatableValue > 0 ? (Number(inputValues.company_inventory || 0) / zakatableValue) * 100 : 0,
                   displayProperties: { currency }
                 }
               ]
@@ -459,15 +643,15 @@ export function PassiveInvestmentsTab({
       method,
       investments: method === 'quick' ? investments : [],
       companyData: method === 'detailed' ? {
-        cash: inputValues.company_cash || 0,
-        receivables: inputValues.company_receivables || 0,
-        inventory: inputValues.company_inventory || 0,
-        totalShares: inputValues.total_shares_issued || 0,
-        yourShares: inputValues.passive_shares || 0,
+        cash: Number(inputValues.company_cash || 0),
+        receivables: Number(inputValues.company_receivables || 0),
+        inventory: Number(inputValues.company_inventory || 0),
+        totalShares: Number(inputValues.total_shares_issued || 0),
+        yourShares: Number(inputValues.passive_shares || 0),
         displayProperties: {
           currency,
-          sharePercentage: inputValues.total_shares_issued > 0 ?
-            (inputValues.passive_shares / inputValues.total_shares_issued) * 100 : 0
+          sharePercentage: Number(inputValues.total_shares_issued || 0) > 0 ?
+            (Number(inputValues.passive_shares || 0) / Number(inputValues.total_shares_issued || 0)) * 100 : 0
         }
       } : undefined,
       marketValue,
@@ -515,14 +699,15 @@ export function PassiveInvestmentsTab({
         id: Date.now().toString(),
         name: 'Total Passive Investments',
         shares: 1,
-        pricePerShare: Number(rawMarketValue) || 0,
-        marketValue: Number(rawMarketValue) || 0
+        pricePerShare: Number(rawInputValues.total_market_value) || 0,
+        marketValue: Number(rawInputValues.total_market_value) || 0
       }]
       setInvestments(currentInvestments)
     } else {
       // Preserve values when switching to detailed
       if (!inputValues.passive_shares) {
-        const event = { target: { value: rawMarketValue || '0' } } as React.ChangeEvent<HTMLInputElement>
+        const marketValue = rawInputValues.total_market_value || '0'
+        const event = { target: { value: marketValue } } as React.ChangeEvent<HTMLInputElement>
         onValueChange('passive_shares', event)
         onValueChange('company_cash', event)
         onValueChange('company_receivables', event)
@@ -707,56 +892,8 @@ export function PassiveInvestmentsTab({
                       inputMode="decimal"
                       pattern="[\d+\-*/.() ]*"
                       className="pl-12"
-                      value={rawMarketValue}
-                      onChange={(e) => {
-                        const inputValue = e.target.value
-                        setRawMarketValue(inputValue)
-
-                        try {
-                          // Allow empty input
-                          if (!inputValue) {
-                            setErrors([])
-                            setInvestments([{
-                              id: 'total',
-                              name: 'Total Passive Investments',
-                              shares: 1,
-                              pricePerShare: 0,
-                              marketValue: 0
-                            }])
-                            return
-                          }
-
-                          // Only evaluate if the expression is complete (not ending with an operator)
-                          if (!/[+\-*/.]$/.test(inputValue)) {
-                            // Evaluate arithmetic expression
-                            const value = evaluateExpression(inputValue)
-
-                            // Validate the numeric result
-                            const error = validateNumericInput(value, MAX_PRICE_VALUE)
-                            if (error) {
-                              setErrors([{ field: 'total_market_value', message: error }])
-                              return
-                            }
-
-                            setErrors([])
-                            setInvestments([{
-                              id: 'total',
-                              name: 'Total Passive Investments',
-                              shares: 1,
-                              pricePerShare: value,
-                              marketValue: value
-                            }])
-                          }
-                        } catch (error) {
-                          // Only show error if the expression is complete
-                          if (!/[+\-*/.]$/.test(inputValue)) {
-                            setErrors([{
-                              field: 'total_market_value',
-                              message: 'Invalid arithmetic expression'
-                            }])
-                          }
-                        }
-                      }}
+                      value={rawInputValues.total_market_value || ''}
+                      onChange={(e) => processInputValue('total_market_value', e.target.value)}
                       placeholder="Enter total market value (e.g. 1000 + 2000)"
                     />
                   </div>
@@ -786,9 +923,9 @@ export function PassiveInvestmentsTab({
                     type="text"
                     inputMode="decimal"
                     pattern="[\d+\-*/.() ]*"
-                    value={inputValues.passive_shares || ''}
-                    onChange={(e) => onValueChange('passive_shares', e)}
-                    placeholder="Enter number of shares"
+                    value={rawInputValues.passive_shares || ''}
+                    onChange={(e) => processInputValue('passive_shares', e.target.value)}
+                    placeholder="Enter number of shares (e.g. 100 + 50)"
                   />
                 </div>
 
@@ -804,9 +941,9 @@ export function PassiveInvestmentsTab({
                       inputMode="decimal"
                       pattern="[\d+\-*/.() ]*"
                       className="pl-12"
-                      value={inputValues.company_cash || ''}
-                      onChange={(e) => onValueChange('company_cash', e)}
-                      placeholder="Enter company's cash holdings"
+                      value={rawInputValues.company_cash || ''}
+                      onChange={(e) => processInputValue('company_cash', e.target.value)}
+                      placeholder="Enter company's cash holdings (e.g. 10000 + 5000)"
                     />
                   </div>
                 </div>
@@ -823,9 +960,9 @@ export function PassiveInvestmentsTab({
                       inputMode="decimal"
                       pattern="[\d+\-*/.() ]*"
                       className="pl-12"
-                      value={inputValues.company_receivables || ''}
-                      onChange={(e) => onValueChange('company_receivables', e)}
-                      placeholder="Enter company's receivables"
+                      value={rawInputValues.company_receivables || ''}
+                      onChange={(e) => processInputValue('company_receivables', e.target.value)}
+                      placeholder="Enter company's receivables (e.g. 5000 + 2500)"
                     />
                   </div>
                 </div>
@@ -842,9 +979,9 @@ export function PassiveInvestmentsTab({
                       inputMode="decimal"
                       pattern="[\d+\-*/.() ]*"
                       className="pl-12"
-                      value={inputValues.company_inventory || ''}
-                      onChange={(e) => onValueChange('company_inventory', e)}
-                      placeholder="Enter company's inventory value"
+                      value={rawInputValues.company_inventory || ''}
+                      onChange={(e) => processInputValue('company_inventory', e.target.value)}
+                      placeholder="Enter company's inventory value (e.g. 7500 + 2500)"
                     />
                   </div>
                 </div>
@@ -856,9 +993,9 @@ export function PassiveInvestmentsTab({
                     type="text"
                     inputMode="decimal"
                     pattern="[\d+\-*/.() ]*"
-                    value={inputValues.total_shares_issued || ''}
-                    onChange={(e) => onValueChange('total_shares_issued', e)}
-                    placeholder="Enter total shares issued by company"
+                    value={rawInputValues.total_shares_issued || ''}
+                    onChange={(e) => processInputValue('total_shares_issued', e.target.value)}
+                    placeholder="Enter total shares issued by company (e.g. 1000 + 500)"
                   />
                 </div>
               </div>

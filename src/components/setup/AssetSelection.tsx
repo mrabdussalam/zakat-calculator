@@ -86,7 +86,7 @@ interface AssetSelectionProps {
   currency: string
 }
 
-export function AssetSelection({ 
+export function AssetSelection({
   onSubmit,
   initialSelection = ['cash'],
   currency
@@ -94,7 +94,7 @@ export function AssetSelection({
   const [selectedAssets, setSelectedAssets] = useState<string[]>(initialSelection)
 
   const toggleAsset = (assetId: string) => {
-    setSelectedAssets(prev => 
+    setSelectedAssets(prev =>
       prev.includes(assetId)
         ? prev.filter(id => id !== assetId)
         : [...prev, assetId]
@@ -124,7 +124,7 @@ export function AssetSelection({
               console.warn(`No icon found for category: ${category.id}`)
               return null
             }
-            
+
             const isSelected = selectedAssets.includes(category.id)
             const colors = categoryColors[category.id] || {
               bg: 'bg-gray-50',
@@ -168,13 +168,13 @@ export function AssetSelection({
                 {/* Selection Indicator */}
                 <div className={cn(
                   "w-5 h-5 rounded-full border-2 shrink-0 transition-colors",
-                  isSelected 
-                    ? "border-gray-900 bg-gray-900" 
+                  isSelected
+                    ? "border-gray-900 bg-gray-900"
                     : "border-gray-200"
                 )}>
                   {isSelected && (
-                    <svg 
-                      className="w-full h-full text-white" 
+                    <svg
+                      className="w-full h-full text-white"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"

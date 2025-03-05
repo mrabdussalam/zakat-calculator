@@ -21,12 +21,12 @@ import { trackEvent, AnalyticsEvents } from '@/lib/analytics'
 
 // Animation variants for the slide effect
 const slideAnimation = {
-  initial: { 
-    opacity: 0, 
+  initial: {
+    opacity: 0,
     x: 4,
   },
-  animate: { 
-    opacity: 1, 
+  animate: {
+    opacity: 1,
     x: 0,
     transition: {
       type: "tween",
@@ -34,8 +34,8 @@ const slideAnimation = {
       ease: [0.4, 0.0, 0.2, 1]
     }
   },
-  exit: { 
-    opacity: 0, 
+  exit: {
+    opacity: 0,
     x: -4,
     transition: {
       duration: 0.1
@@ -121,30 +121,30 @@ const MemoizedCalculatorSummary = memo(({ currency = 'USD' }: { currency?: strin
             <h3 className="text-lg font-semibold text-gray-900">
               Total Assets & Zakat Due
             </h3>
-            
+
             <div className="space-y-3">
               {/* Nisab Status */}
               <div className="text-sm" key={`nisab-${breakdown.combined.meetsNisab}`}>
                 <div className="flex items-center gap-2">
-                  <motion.span 
+                  <motion.span
                     className={cn(
                       "font-medium",
                       breakdown.combined.meetsNisab ? "text-green-600" : "text-gray-600"
                     )}
-                    animate={{ 
-                      scale: breakdown.combined.meetsNisab ? [1, 1.05, 1] : 1 
+                    animate={{
+                      scale: breakdown.combined.meetsNisab ? [1, 1.05, 1] : 1
                     }}
                     transition={{ duration: 0.3 }}
                   >
                     Nisab Status:
                   </motion.span>
-                  <motion.span 
+                  <motion.span
                     className={cn(
                       "text-sm",
                       breakdown.combined.meetsNisab ? "text-green-600" : "text-gray-500"
                     )}
-                    animate={{ 
-                      scale: breakdown.combined.meetsNisab ? [1, 1.05, 1] : 1 
+                    animate={{
+                      scale: breakdown.combined.meetsNisab ? [1, 1.05, 1] : 1
                     }}
                     transition={{ duration: 0.3 }}
                   >
@@ -158,8 +158,8 @@ const MemoizedCalculatorSummary = memo(({ currency = 'USD' }: { currency?: strin
                     </TooltipTrigger>
                     <TooltipContent>
                       <p className="text-sm">
-                        Nisab is met if you have either:<br/>
-                        • {NISAB.GOLD_GRAMS}g of gold<br/>
+                        Nisab is met if you have either:<br />
+                        • {NISAB.GOLD_GRAMS}g of gold<br />
                         • {NISAB.SILVER_GRAMS}g of silver
                       </p>
                     </TooltipContent>
@@ -187,9 +187,9 @@ const MemoizedCalculatorSummary = memo(({ currency = 'USD' }: { currency?: strin
                     </TooltipTrigger>
                     <TooltipContent>
                       <p className="text-sm">
-                        Only assets that:<br/>
-                        • Meet nisab threshold<br/>
-                        • Held for one lunar year<br/>
+                        Only assets that:<br />
+                        • Meet nisab threshold<br />
+                        • Held for one lunar year<br />
                         • Not for regular personal use
                       </p>
                     </TooltipContent>
@@ -219,9 +219,9 @@ const MemoizedCalculatorSummary = memo(({ currency = 'USD' }: { currency?: strin
 
 export const CalculatorSummary = MemoizedCalculatorSummary
 
-export function Calculator({ 
-  selectedAsset, 
-  currency, 
+export function Calculator({
+  selectedAsset,
+  currency,
   onUpdateValues,
   onHawlUpdate,
   onAssetSelect,
@@ -231,17 +231,17 @@ export function Calculator({
 }: CalculatorProps) {
   // Add state to track if the store has been hydrated
   const [storeHydrated, setStoreHydrated] = useState(false)
-  
+
   // Listen for store hydration event
   useEffect(() => {
     const handleHydrationComplete = (event?: Event) => {
       console.log('Dashboard Calculator: Store hydration complete event received')
       setStoreHydrated(true)
     }
-    
+
     // Listen for the custom hydration event
     window.addEventListener('store-hydration-complete', handleHydrationComplete)
-    
+
     // Check if hydration already happened
     if (typeof window !== 'undefined' && 'hasDispatchedHydrationEvent' in window) {
       // @ts-ignore - This is set by StoreHydration component
@@ -249,20 +249,20 @@ export function Calculator({
         handleHydrationComplete()
       }
     }
-    
+
     return () => {
       window.removeEventListener('store-hydration-complete', handleHydrationComplete)
     }
   }, [])
-  
+
   // Add a listener to detect store resets
   useEffect(() => {
     // Only process resets after hydration is complete to prevent false resets
     if (!storeHydrated) return;
-    
+
     const handleReset = (event?: CustomEvent) => {
       console.log('Dashboard Calculator: Store reset event detected');
-      
+
       // Check if this is still during initial page load
       if (typeof window !== 'undefined' && 'isInitialPageLoad' in window) {
         // @ts-ignore - Custom property added to window
@@ -271,17 +271,17 @@ export function Calculator({
           return;
         }
       }
-      
+
       // This is a user-initiated reset, handle any dashboard-specific logic here
       console.log('Dashboard Calculator: Processing user-initiated reset');
-      
+
       // If we need to reset any dashboard state that isn't in the store
       // We can do that here
     };
-    
+
     // Listen for the store-reset event
     window.addEventListener('store-reset', handleReset as EventListener);
-    
+
     // Cleanup
     return () => {
       window.removeEventListener('store-reset', handleReset as EventListener);
@@ -291,7 +291,7 @@ export function Calculator({
   const handleUpdateValues = useCallback((values: Record<string, number>) => {
     // Update dashboard state
     onUpdateValues(values)
-    
+
     // Force synchronize with localStorage if browser supports it
     if (typeof window !== 'undefined') {
       try {
@@ -305,7 +305,7 @@ export function Calculator({
               ...parsedState.assetValues[selectedAsset],
               ...values
             }
-            
+
             // Save back to localStorage
             localStorage.setItem('zakatState', JSON.stringify(parsedState))
             console.log('Calculator directly synced values to localStorage for asset:', selectedAsset)
@@ -315,7 +315,7 @@ export function Calculator({
         console.error('Error directly syncing calculator values to localStorage:', error)
       }
     }
-    
+
     // Track asset update
     if (selectedAsset) {
       trackEvent({
@@ -329,7 +329,7 @@ export function Calculator({
 
   const handleHawlUpdate = useCallback((hawlMet: boolean) => {
     onHawlUpdate(hawlMet)
-    
+
     // Track hawl status update
     if (selectedAsset) {
       trackEvent({
@@ -342,7 +342,7 @@ export function Calculator({
 
   const handleAssetSelect = useCallback((asset: string) => {
     onAssetSelect(asset)
-    
+
     // Track calculator switch
     trackEvent({
       ...AnalyticsEvents.CALCULATOR_SWITCH,

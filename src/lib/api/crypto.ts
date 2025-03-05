@@ -23,23 +23,63 @@ export async function getCryptoPrice(symbol: string, currency: string = 'USD'): 
   try {
     const upperSymbol = symbol.toUpperCase()
 
-    // Call our local API which includes currency conversion
-    const response = await fetch(`/api/prices/crypto?symbol=${encodeURIComponent(upperSymbol)}&currency=${currency}`)
+    // Get the base URL dynamically to support both local and deployed environments
+    const baseUrl = typeof window !== 'undefined'
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_API_BASE_URL || '';
+
+    // Use absolute URL with origin for better compatibility in deployed environments
+    const apiUrl = `${baseUrl}/api/prices/crypto?symbol=${encodeURIComponent(upperSymbol)}&currency=${currency}`;
+
+    console.log(`Fetching crypto price for ${upperSymbol} in ${currency} from: ${apiUrl}`);
+
+    const response = await fetch(apiUrl);
 
     if (!response.ok) {
-      const errorData = await response.json()
-      throw new CryptoAPIError(errorData.error || 'Failed to fetch crypto price')
+      const errorData = await response.json().catch(() => ({ error: `HTTP error ${response.status}` }));
+      console.error(`Error fetching ${upperSymbol} price:`, errorData);
+      throw new CryptoAPIError(errorData.error || `Failed to fetch crypto price for ${upperSymbol}`);
     }
 
-    const data = await response.json()
-    return data.price
-  } catch (error) {
-    if (error instanceof CryptoAPIError) {
-      throw error
+    const data = await response.json();
+    console.log(`Received price data for ${upperSymbol}:`, data);
+
+    if (!data.price && data.price !== 0) {
+      throw new CryptoAPIError(`No price data returned for ${upperSymbol}`);
     }
+
+    return data.price;
+  } catch (error) {
+    console.error(`Error in getCryptoPrice for ${symbol}:`, error);
+
+    if (error instanceof CryptoAPIError) {
+      throw error;
+    }
+
+    // If we can't fetch from our API, try a direct fallback for major coins
+    if (symbol.toUpperCase() === 'BTC' || symbol.toUpperCase() === 'ETH') {
+      try {
+        console.log(`Attempting direct CoinGecko fallback for ${symbol}...`);
+        const coinId = symbol.toUpperCase() === 'BTC' ? 'bitcoin' : 'ethereum';
+        const fallbackResponse = await fetch(
+          `${COINGECKO_API_URL}/simple/price?ids=${coinId}&vs_currencies=usd`
+        );
+
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          if (fallbackData[coinId]?.usd) {
+            console.log(`Fallback successful for ${symbol}: ${fallbackData[coinId].usd}`);
+            return fallbackData[coinId].usd;
+          }
+        }
+      } catch (fallbackError) {
+        console.error(`Fallback attempt failed for ${symbol}:`, fallbackError);
+      }
+    }
+
     throw new CryptoAPIError(
-      error instanceof Error ? error.message : 'Failed to fetch crypto price'
-    )
+      error instanceof Error ? error.message : `Failed to fetch crypto price for ${symbol}`
+    );
   }
 }
 

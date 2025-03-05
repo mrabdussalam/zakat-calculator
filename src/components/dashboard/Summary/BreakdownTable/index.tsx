@@ -17,7 +17,7 @@ interface BreakdownTableProps {
   assetBreakdowns: Record<string, AssetBreakdownWithHawl>
 }
 
-export function BreakdownTable({ 
+export function BreakdownTable({
   currency,
   totalAssets,
   breakdown,
@@ -53,7 +53,7 @@ export function BreakdownTable({
     <div className="flex-1 mt-8">
       <div className="bg-gray-50 rounded-2xl p-2">
         <TableHeader />
-        
+
         <div className="bg-white rounded-xl overflow-hidden border border-gray-100 shadow-[0_1px_2px_0_rgba(0,0,0,0.03)]">
           {/* Asset Categories Container */}
           <div className="divide-y divide-gray-100 p-2">

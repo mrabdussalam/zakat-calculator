@@ -18,7 +18,7 @@ interface AssetDetailsProps {
 export function AssetDetails({ items, currency, hawlMet }: AssetDetailsProps) {
   return (
     <div className="pl-[58px] pr-2 pb-2 pt-1">
-      <motion.div 
+      <motion.div
         className="space-y-2"
         initial="hidden"
         animate="visible"
@@ -31,14 +31,14 @@ export function AssetDetails({ items, currency, hawlMet }: AssetDetailsProps) {
         }}
       >
         {Object.entries(items).map(([key, item]) => (
-          <motion.div 
-            key={key} 
+          <motion.div
+            key={key}
             className="flex justify-between text-xs"
             variants={{
               hidden: { opacity: 0, y: 5 },
               visible: { opacity: 1, y: 0 }
             }}
-            transition={{ 
+            transition={{
               duration: 0.2,
               ease: [0.2, 0.4, 0.2, 1]
             }}
