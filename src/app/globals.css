@@ -7,52 +7,21 @@
 
 @font-face {
   font-family: 'NB International Pro';
-  src: url('/fonts/nb_international_pro_regular-webfont.ttf') format('truetype');
-  font-weight: normal;
+  src: url('/fonts/NBInternationalProRegular.woff2') format('woff2');
+  font-weight: 400;
   font-style: normal;
-  font-display: swap;
 }
 
 @font-face {
   font-family: 'NB International Pro';
-  src: url('/fonts/nb_international_pro_medium-webfont.ttf') format('truetype');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Aeonik font family */
-@font-face {
-  font-family: 'Aeonik';
-  src: url('/fonts/Aeonik/woff2/Aeonik-Regular.woff2') format('woff2'),
-    url('/fonts/Aeonik/otf/Aeonik-Regular.otf') format('opentype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Aeonik';
-  src: url('/fonts/Aeonik/woff2/Aeonik-Medium.woff2') format('woff2'),
-    url('/fonts/Aeonik/otf/Aeonik-Medium.otf') format('opentype');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Aeonik';
-  src: url('/fonts/Aeonik/woff2/Aeonik-Bold.woff2') format('woff2'),
-    url('/fonts/Aeonik/otf/Aeonik-Bold.otf') format('opentype');
+  src: url('/fonts/NBInternationalProBold.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
-  font-display: swap;
 }
 
 :root {
   --font-inter: 'Inter', sans-serif;
   --font-nb-international: 'NB International Pro', sans-serif;
-  --font-aeonik: 'Aeonik', sans-serif;
 }
 
 body {
@@ -177,15 +146,15 @@ body {
     @apply text-sm text-orange-500;
   }
 
-  /* Section titles with Aeonik font */
+  /* Section titles with NB International Pro font */
   .section-title {
     @apply text-2xl font-medium text-gray-900 tracking-tight;
-    font-family: var(--font-aeonik), sans-serif !important;
+    font-family: var(--font-nb-international), sans-serif !important;
   }
 
   .page-title {
     @apply text-3xl font-medium text-gray-900 tracking-tight;
-    font-family: var(--font-aeonik), sans-serif !important;
+    font-family: var(--font-nb-international), sans-serif !important;
   }
 }
 

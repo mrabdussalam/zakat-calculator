@@ -27,34 +27,9 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
-// Add Aeonik local font
-const aeonik = localFont({
-  src: [
-    {
-      path: '../fonts/Aeonik/woff2/Aeonik-Regular.woff2',
-      weight: '400',
-      style: 'normal',
-    },
-    {
-      path: '../fonts/Aeonik/woff2/Aeonik-Medium.woff2',
-      weight: '500',
-      style: 'normal',
-    },
-    {
-      path: '../fonts/Aeonik/woff2/Aeonik-Bold.woff2',
-      weight: '700',
-      style: 'normal',
-    },
-  ],
-  display: 'swap',
-  variable: '--font-aeonik',
-  preload: true,
-});
-
 // Log fonts for debugging
 console.log('Font variables:', {
-  inter: inter.variable,
-  aeonik: aeonik.variable
+  inter: inter.variable
 });
 
 export const metadata: Metadata = {
@@ -89,7 +64,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} ${aeonik.variable} antialiased`}>
+      <body className={`${inter.variable} antialiased`}>
         <ClientHydration />
         <HydrationGuard fallback={
           <div className="flex h-screen w-full items-center justify-center">

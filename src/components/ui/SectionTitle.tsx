@@ -9,30 +9,30 @@ interface SectionTitleProps {
   as?: 'h1' | 'h2' | 'h3' | 'div';
 }
 
-export function SectionTitle({ 
-  children, 
+export function SectionTitle({
+  children,
   className,
-  as: Component = 'h2' 
+  as: Component = 'h2'
 }: SectionTitleProps) {
   return (
-    <Component 
+    <Component
       className={cn("section-title", className)}
-      style={{ fontFamily: "var(--font-aeonik), sans-serif", fontWeight: 500 }}
+      style={{ fontFamily: "var(--font-nb-international), sans-serif", fontWeight: 500 }}
     >
       {children}
     </Component>
   );
 }
 
-export function PageTitle({ 
-  children, 
+export function PageTitle({
+  children,
   className,
-  as: Component = 'h1' 
+  as: Component = 'h1'
 }: SectionTitleProps) {
   return (
-    <Component 
+    <Component
       className={cn("page-title", className)}
-      style={{ fontFamily: "var(--font-aeonik), sans-serif", fontWeight: 500 }}
+      style={{ fontFamily: "var(--font-nb-international), sans-serif", fontWeight: 500 }}
     >
       {children}
     </Component>
