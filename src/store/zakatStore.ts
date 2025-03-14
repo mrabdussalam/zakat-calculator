@@ -8,6 +8,7 @@ import { createNisabSlice } from './modules/nisab'
 import { createRetirementSlice } from './modules/retirement'
 import { createRealEstateSlice } from './modules/realEstate'
 import { createCryptoSlice } from './modules/crypto'
+import { createDistributionSlice } from './modules/distribution'
 import { DEFAULT_HAWL_STATUS } from './constants'
 
 // Initial state
@@ -190,6 +191,7 @@ export const useZakatStore = create<ZakatState>()(
       const realEstateSlice = createRealEstateSlice(set, get, store)
       const cryptoSlice = createCryptoSlice(set, get, store)
       const nisabSlice = createNisabSlice(set, get, store)
+      const distributionSlice = createDistributionSlice(set, get, store)
 
       return {
         ...initialState,
@@ -200,6 +202,7 @@ export const useZakatStore = create<ZakatState>()(
         ...realEstateSlice,
         ...cryptoSlice,
         ...nisabSlice,
+        ...distributionSlice,
 
         // Reset all slices
         reset: () => {
@@ -812,6 +815,9 @@ export const useZakatStore = create<ZakatState>()(
                 realEstateHawlMet: state.realEstateHawlMet,
                 cryptoHawlMet: state.cryptoHawlMet,
                 metalPrices: state.metalPrices,
+                // Add distribution state to manual persistence
+                allocations: state.allocations,
+                distributionMode: state.distributionMode,
                 // Exclude nisab data from manual persistence
                 currency: state.currency
               };

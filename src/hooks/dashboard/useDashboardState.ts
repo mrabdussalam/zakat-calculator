@@ -148,47 +148,130 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
               ),
               assetValueCount: Object.keys(restoredState.assetValues).reduce((acc, key) => {
                 const assetKey = key as keyof typeof restoredState.assetValues;
-                return acc + Object.keys(restoredState.assetValues[assetKey]).length;
+                return acc + Object.keys(restoredState.assetValues[assetKey]).length
               }, 0)
             })
 
             return restoredState
           }
-        } catch (e) {
-          console.error('❌ Failed to parse saved state:', e)
+        } catch (error) {
+          console.error('🔴 Error parsing saved state:', error)
         }
       }
 
-      // If no saved state, create new default state
-      console.log('🟠 No valid saved state found, creating new default state')
-      const newState = { ...DEFAULT_STATE }
-
-      // Check for currency preference
-      const userCurrencyPreference = localStorage.getItem('selected-currency')
-      if (userCurrencyPreference) {
-        newState.currency = userCurrencyPreference
-        console.log('🟠 Using user currency preference for new state:', userCurrencyPreference)
-      }
-
-      // Initialize prevCurrency ref
-      prevCurrency.current = newState.currency
-
-      // Ensure the state is complete
-      const completeState = ensureCompleteState(newState);
-
-      // Save the initial state to localStorage
-      localStorage.setItem('zakatState', JSON.stringify(completeState))
-      localStorage.setItem('zakat-state-version', LOCAL_STATE_VERSION)
-
-      console.log('🟠 Created new default state with currency:', completeState.currency)
-      return completeState
+      // If we get here, either there was no saved state or it was invalid
+      console.log('🟢 Using default state (no valid saved state found)')
+      return DEFAULT_STATE
     } catch (error) {
-      console.error('❌ Error during state initialization:', error)
+      console.error('🔴 Error initializing dashboard state:', error)
       return DEFAULT_STATE
     }
   })
 
+  // Track if the component is mounted
+  const isMounted = useRef(false)
+
+  // Track if we've initialized the nisab data
+  const hasInitializedNisab = useRef(false)
+
+  // Get the store's nisab and metal prices functions
+  const {
+    fetchNisabData,
+    updateNisabWithPrices,
+    metalPrices,
+    setMetalPrices
+  } = useZakatStore()
+
+  // Track if the store is hydrated
   const [isHydrated, setIsHydrated] = useState(false)
+
+  // Get the store's hydration status
+  const storeState = useZakatStore()
+  const isStoreHydrated = typeof storeState === 'object' && Object.keys(storeState).length > 0
+
+  // Add effect to fetch metal prices and update nisab on initialization
+  useEffect(() => {
+    // Only run on client and after hydration
+    if (typeof window === 'undefined' || !isHydrated || !isStoreHydrated || hasInitializedNisab.current) {
+      return
+    }
+
+    const fetchMetalPricesAndUpdateNisab = async () => {
+      console.log('Dashboard: Fetching metal prices and updating nisab on initialization')
+
+      try {
+        // Fetch metal prices
+        const response = await fetch(`/api/prices/metals?currency=${state.currency}`)
+
+        if (!response.ok) {
+          console.warn(`Dashboard: Using fallback prices. API returned: ${response.status}`)
+          return
+        }
+
+        const data = await response.json()
+
+        // Log the API response for debugging
+        console.log(`Dashboard: Received metal prices:`, {
+          gold: data.gold,
+          silver: data.silver,
+          currency: data.currency || 'USD',
+          isCache: data.isCache,
+          source: data.source
+        })
+
+        // Update metal prices in the store
+        setMetalPrices({
+          gold: data.gold,
+          silver: data.silver,
+          lastUpdated: new Date(data.lastUpdated || new Date()),
+          isCache: data.isCache || false,
+          currency: data.currency || state.currency
+        })
+
+        // Update nisab with the new prices
+        if (updateNisabWithPrices) {
+          console.log('Dashboard: Triggering immediate nisab update with new prices')
+
+          // Ensure we have a valid lastUpdated from the API response
+          const lastUpdated = data.lastUpdated instanceof Date ?
+            data.lastUpdated :
+            (typeof data.lastUpdated === 'string' ?
+              new Date(data.lastUpdated) :
+              new Date())
+
+          updateNisabWithPrices({
+            gold: data.gold,
+            silver: data.silver,
+            currency: data.currency || state.currency,
+            lastUpdated: lastUpdated,
+            isCache: data.isCache || false
+          })
+        }
+      } catch (error) {
+        console.error('Dashboard: Error fetching metal prices:', error)
+      }
+
+      // Mark as initialized to prevent duplicate fetches
+      hasInitializedNisab.current = true
+    }
+
+    // Execute the fetch
+    fetchMetalPricesAndUpdateNisab()
+  }, [isHydrated, isStoreHydrated, state.currency, setMetalPrices, updateNisabWithPrices])
+
+  // Add effect to update nisab when metal prices change
+  useEffect(() => {
+    // Only run on client and after hydration
+    if (typeof window === 'undefined' || !isHydrated || !isStoreHydrated || !metalPrices) {
+      return
+    }
+
+    // If metal prices exist and currency matches, update nisab
+    if (metalPrices.currency === state.currency && updateNisabWithPrices) {
+      console.log('Dashboard: Updating nisab with current metal prices')
+      updateNisabWithPrices(metalPrices)
+    }
+  }, [isHydrated, isStoreHydrated, metalPrices, state.currency, updateNisabWithPrices])
 
   // Save state changes to localStorage
   useEffect(() => {

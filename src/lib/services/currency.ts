@@ -159,6 +159,249 @@ const EXCHANGE_RATE_CACHE = {
   }
 };
 
+// Cache for Frankfurter API rates
+const frankfurterRateCache = new Map<string, { rate: number; timestamp: number }>();
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+
+// Function to fetch rates from Frankfurter API and cache them
+// This should be called proactively, not during conversion
+function fetchAndCacheRate(from: string, to: string): Promise<number | null> {
+  console.log(`Fetching exchange rate from ${from} to ${to}`);
+
+  // Normalize currency codes
+  const fromUpper = from.toUpperCase();
+  const toUpper = to.toUpperCase();
+
+  // Try using our server-side proxy first
+  const proxyUrl = `/api/proxy/currency?base=${fromUpper}&symbols=${toUpper}`;
+  console.log(`Making proxy request to: ${proxyUrl}`);
+
+  return fetch(proxyUrl)
+    .then(response => {
+      if (!response.ok) {
+        console.warn(`Proxy API failed with status ${response.status}, trying direct APIs...`);
+
+        // Try Frankfurter API directly as fallback
+        console.log('Trying direct Frankfurter API call...');
+        const frankfurterUrl = `https://api.frankfurter.dev/v1/latest?base=${fromUpper}&symbols=${toUpper}`;
+
+        return fetch(frankfurterUrl, {
+          mode: 'cors',
+          headers: {
+            'Accept': 'application/json'
+          }
+        })
+          .then(frankfurterResponse => {
+            if (!frankfurterResponse.ok) {
+              console.warn(`Frankfurter API failed with status ${frankfurterResponse.status}, trying alternative API...`);
+
+              // Try Open Exchange Rates API
+              console.log('Trying Open Exchange Rates API...');
+              const openExchangeUrl = `https://open.er-api.com/v6/latest/${fromUpper}`;
+
+              return fetch(openExchangeUrl, {
+                mode: 'cors',
+                headers: {
+                  'Accept': 'application/json'
+                }
+              })
+                .then(openExchangeResponse => {
+                  if (!openExchangeResponse.ok) {
+                    console.warn(`Open Exchange Rates API failed with status ${openExchangeResponse.status}, trying final alternative...`);
+
+                    // Try ExchangeRate.host API as last resort
+                    console.log('Trying ExchangeRate.host API...');
+                    const exchangeRateHostUrl = `https://api.exchangerate.host/latest?base=${fromUpper}&symbols=${toUpper}`;
+
+                    return fetch(exchangeRateHostUrl, {
+                      mode: 'cors',
+                      headers: {
+                        'Accept': 'application/json'
+                      }
+                    })
+                      .then(exchangeRateHostResponse => {
+                        if (!exchangeRateHostResponse.ok) {
+                          console.error(`All APIs failed. Using fallback rates.`);
+                          return null;
+                        }
+                        return exchangeRateHostResponse.json();
+                      })
+                      .then(data => {
+                        if (!data || !data.rates || !data.rates[toUpper]) {
+                          console.error(`ExchangeRate.host API response missing rate for ${toUpper}`);
+                          return null;
+                        }
+
+                        const rate = data.rates[toUpper];
+                        cacheRate(fromUpper, toUpper, rate);
+                        return rate;
+                      });
+                  }
+
+                  return openExchangeResponse.json()
+                    .then(data => {
+                      if (!data || !data.rates || !data.rates[toUpper]) {
+                        console.error(`Open Exchange Rates API response missing rate for ${toUpper}`);
+                        return null;
+                      }
+
+                      const rate = data.rates[toUpper];
+                      cacheRate(fromUpper, toUpper, rate);
+                      return rate;
+                    });
+                });
+            }
+
+            return frankfurterResponse.json()
+              .then(data => {
+                if (!data || !data.rates || !data.rates[toUpper]) {
+                  console.error(`Frankfurter API response missing rate for ${toUpper}`);
+                  return null;
+                }
+
+                const rate = data.rates[toUpper];
+                cacheRate(fromUpper, toUpper, rate);
+                return rate;
+              });
+          });
+      }
+
+      return response.json();
+    })
+    .then(data => {
+      if (!data) return null;
+
+      if (data.rates && data.rates[toUpper]) {
+        const rate = data.rates[toUpper];
+        cacheRate(fromUpper, toUpper, rate);
+        return rate;
+      }
+
+      console.error(`Response missing rate for ${toUpper}:`, data);
+      return null;
+    })
+    .catch(error => {
+      console.error(`Error fetching exchange rate for ${fromUpper} to ${toUpper}:`, error);
+      return null;
+    });
+}
+
+// Helper function to cache a rate and its inverse
+function cacheRate(from: string, to: string, rate: number) {
+  const fromLower = from.toLowerCase();
+  const toLower = to.toLowerCase();
+
+  // Cache the direct rate
+  const cacheKey = `${fromLower}-${toLower}`;
+  frankfurterRateCache.set(cacheKey, {
+    rate,
+    timestamp: Date.now()
+  });
+
+  // Also cache the inverse rate
+  const inverseRate = 1 / rate;
+  const inverseCacheKey = `${toLower}-${fromLower}`;
+  frankfurterRateCache.set(inverseCacheKey, {
+    rate: inverseRate,
+    timestamp: Date.now()
+  });
+
+  console.log(`Cached rate for ${from} to ${to}: ${rate}`);
+}
+
+// Get a cached rate if available and valid
+function getCachedRate(from: string, to: string): number | null {
+  const cacheKey = `${from.toLowerCase()}-${to.toLowerCase()}`;
+  const cached = frankfurterRateCache.get(cacheKey);
+
+  if (!cached) return null;
+
+  // Check if cache is still valid
+  if (Date.now() - cached.timestamp > CACHE_DURATION) {
+    // Cache expired, fetch new rate in background
+    fetchAndCacheRate(from, to).catch(() => { });
+    return null;
+  }
+
+  return cached.rate;
+}
+
+// Enhanced fallback conversion with more accurate rates
+function getFallbackConversion(amount: number, from: string, to: string): number {
+  // Normalize currency codes
+  const fromLower = from.toLowerCase();
+  const toLower = to.toLowerCase();
+
+  // First try to use cached Frankfurter rates
+  const cachedRate = getCachedRate(fromLower, toLower);
+  if (cachedRate !== null) {
+    console.log(`Using cached Frankfurter rate for ${fromLower} to ${toLower}: ${cachedRate}`);
+    return amount * cachedRate;
+  }
+
+  // If no cached rate, try inverse cached rate
+  const inverseCachedRate = getCachedRate(toLower, fromLower);
+  if (inverseCachedRate !== null) {
+    console.log(`Using inverse cached Frankfurter rate for ${fromLower} to ${toLower}: ${1 / inverseCachedRate}`);
+    return amount / inverseCachedRate;
+  }
+
+  // Fetch new rate in background for next time
+  fetchAndCacheRate(fromLower, toLower).catch(() => { });
+
+  // Fall back to static rates
+  const rates: Record<string, number> = {
+    'usd': 1,
+    'eur': 0.92,
+    'gbp': 0.78,
+    'jpy': 150.5,
+    'cad': 1.35,
+    'aud': 1.52,
+    'inr': 83.15,
+    'pkr': 278.5,
+    'aed': 3.67,
+    'sar': 3.75,
+    'myr': 4.65,
+    'sgd': 1.35,
+    'bdt': 110.5,
+    'egp': 30.9,
+    'idr': 15600,
+    'kwd': 0.31,
+    'ngn': 1550,
+    'qar': 3.64,
+    'zar': 18.5
+  };
+
+  console.log(`Static fallback conversion attempt: ${amount} ${fromLower} → ${toLower}`);
+
+  // If both currencies are in our rates list, we can do a conversion
+  if (rates[fromLower] && rates[toLower]) {
+    // Convert to USD first, then to target currency
+    const amountInUSD = amount / rates[fromLower];
+    const result = amountInUSD * rates[toLower];
+
+    console.warn(`Using static fallback conversion: ${amount} ${from} → ${result.toFixed(2)} ${to} (via USD)`);
+    return result;
+  }
+
+  // If we can't convert, try to use the inverse rate if available
+  if (rates[toLower] && fromLower === 'usd') {
+    const result = amount * rates[toLower];
+    console.warn(`Using direct USD static conversion: ${amount} USD → ${result.toFixed(2)} ${to}`);
+    return result;
+  }
+
+  if (rates[fromLower] && toLower === 'usd') {
+    const result = amount / rates[fromLower];
+    console.warn(`Using inverse static conversion to USD: ${amount} ${from} → ${result.toFixed(2)} USD`);
+    return result;
+  }
+
+  // Last resort: return the original amount
+  console.warn(`Cannot convert ${from} to ${to} using any fallback method. Returning original amount.`);
+  return amount;
+}
+
 // Enhanced validation function
 function validateRates(rates: Record<string, number>, baseCurrency: string): Record<string, number> {
   const validatedRates: Record<string, number> = {};
@@ -219,66 +462,6 @@ function validateRates(rates: Record<string, number>, baseCurrency: string): Rec
   return validatedRates;
 }
 
-// Enhanced fallback conversion with more accurate rates
-function getFallbackConversion(amount: number, from: string, to: string): number {
-  // More comprehensive and up-to-date rates
-  const rates: Record<string, number> = {
-    'usd': 1,
-    'eur': 0.92,
-    'gbp': 0.78,
-    'jpy': 150.5,
-    'cad': 1.35,
-    'aud': 1.52,
-    'inr': 83.15,
-    'pkr': 278.5,
-    'aed': 3.67,  // 1 USD = 3.67 AED
-    'sar': 3.75,
-    'myr': 4.65,
-    'sgd': 1.35,
-    'bdt': 110.5,
-    'egp': 30.9,
-    'idr': 15600,
-    'kwd': 0.31,
-    'ngn': 1550,
-    'qar': 3.64,
-    'zar': 18.5
-  };
-
-  // Normalize currency codes
-  const fromLower = from.toLowerCase();
-  const toLower = to.toLowerCase();
-
-  console.log(`Fallback conversion attempt: ${amount} ${fromLower} → ${toLower}`);
-  console.log(`Available rates:`, rates);
-
-  // If both currencies are in our rates list, we can do a conversion
-  if (rates[fromLower] && rates[toLower]) {
-    // Convert to USD first, then to target currency
-    const amountInUSD = amount / rates[fromLower];
-    const result = amountInUSD * rates[toLower];
-
-    console.warn(`Using fallback conversion: ${amount} ${from} → ${result.toFixed(2)} ${to} (via USD)`);
-    return result;
-  }
-
-  // If we can't convert, try to use the inverse rate if available
-  if (rates[toLower] && fromLower === 'usd') {
-    const result = amount * rates[toLower];
-    console.warn(`Using direct USD conversion: ${amount} USD → ${result.toFixed(2)} ${to}`);
-    return result;
-  }
-
-  if (rates[fromLower] && toLower === 'usd') {
-    const result = amount / rates[fromLower];
-    console.warn(`Using inverse conversion to USD: ${amount} ${from} → ${result.toFixed(2)} USD`);
-    return result;
-  }
-
-  // Last resort: return the original amount
-  console.warn(`Cannot convert ${from} to ${to} using fallback rates. Returning original amount.`);
-  return amount;
-}
-
 // Enhanced fetchRates function with circuit breaker pattern
 export const useCurrencyStore = create<CurrencyState>((set, get) => ({
   rates: {},
@@ -288,157 +471,390 @@ export const useCurrencyStore = create<CurrencyState>((set, get) => ({
   error: null,
 
   fetchRates: async (base = 'USD') => {
-    // Check if circuit breaker is open
-    if (CIRCUIT_BREAKER.isOpen) {
-      const timeElapsed = Date.now() - CIRCUIT_BREAKER.lastFailure;
-      if (timeElapsed < CIRCUIT_BREAKER.resetTimeout) {
-        console.warn(`Circuit breaker open. Using cached rates. Will retry in ${Math.round((CIRCUIT_BREAKER.resetTimeout - timeElapsed) / 1000)}s`);
+    const state = get();
 
-        // Use cached rates if available
-        const cachedRates = EXCHANGE_RATE_CACHE.get(base);
-        if (cachedRates) {
-          set({
-            rates: cachedRates,
-            baseCurrency: base,
-            isLoading: false
-          });
-          return;
-        }
-
-        // If no cached rates, use fallback mechanism
-        set({
-          error: 'API service temporarily unavailable. Using fallback rates.',
-          isLoading: false
-        });
-        return;
-      } else {
-        // Reset circuit breaker after timeout
-        CIRCUIT_BREAKER.isOpen = false;
-        CIRCUIT_BREAKER.failureCount = 0;
-      }
+    // Don't fetch if already loading
+    if (state.isLoading) {
+      console.log('Already fetching rates, skipping duplicate request');
+      return;
     }
 
-    // Check cache first
-    if (EXCHANGE_RATE_CACHE.isValid(base)) {
-      const cachedRates = EXCHANGE_RATE_CACHE.get(base);
-      if (cachedRates) {
-        console.log(`Using cached rates for ${base}`);
-        set({
-          rates: cachedRates,
-          baseCurrency: base,
-          isLoading: false
-        });
-        return;
-      }
-    }
+    // Set loading state
+    set({ isLoading: true, error: null });
 
     try {
-      set({ isLoading: true, error: null });
+      // Normalize base currency
+      const baseCurrency = base.toUpperCase();
+      console.log(`Fetching exchange rates with base currency: ${baseCurrency}`);
 
-      // Try each API source in sequence
-      let response = null;
-      let data = null;
-      let sourceIndex = 0;
-      let success = false;
+      // Try to use a server-side proxy to avoid CORS issues
+      // This will make the request from the server side which should avoid CORS problems
+      const proxyUrl = `/api/proxy/currency?base=${baseCurrency}`;
+      console.log(`Making proxy request to: ${proxyUrl}`);
 
-      while (sourceIndex < API_SOURCES.length && !success) {
-        const source = API_SOURCES[sourceIndex];
-        try {
-          console.log(`Trying API source ${sourceIndex + 1}/${API_SOURCES.length}: ${source}`);
+      try {
+        const response = await fetch(proxyUrl);
 
-          if (source === 'https://api.exchangerate.host/latest') {
-            // Different format for this API
-            response = await fetch(`${source}?base=${base.toUpperCase()}`);
-          } else {
-            response = await fetch(`${source}/currencies/${base.toLowerCase()}.json`);
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data && data.rates && Object.keys(data.rates).length > 0) {
+            // Process the data
+            const normalizedRates: Record<string, number> = {};
+            normalizedRates[baseCurrency.toLowerCase()] = 1;
+
+            Object.entries(data.rates).forEach(([currency, rate]) => {
+              normalizedRates[currency.toLowerCase()] = rate as number;
+
+              // Also populate our cache with these rates
+              const cacheKey = `${baseCurrency.toLowerCase()}-${currency.toLowerCase()}`;
+              frankfurterRateCache.set(cacheKey, {
+                rate: rate as number,
+                timestamp: Date.now()
+              });
+
+              // Also cache the inverse rate
+              const inverseCacheKey = `${currency.toLowerCase()}-${baseCurrency.toLowerCase()}`;
+              frankfurterRateCache.set(inverseCacheKey, {
+                rate: 1 / (rate as number),
+                timestamp: Date.now()
+              });
+            });
+
+            // Validate the rates
+            const validatedRates = validateRates(normalizedRates, baseCurrency.toLowerCase());
+
+            // Update state with new rates
+            set({
+              rates: validatedRates,
+              baseCurrency: baseCurrency.toLowerCase(),
+              lastUpdated: new Date(),
+              isLoading: false,
+              error: null
+            });
+
+            console.log(`Successfully fetched ${Object.keys(validatedRates).length} exchange rates with base ${baseCurrency}`);
+            return;
           }
-
-          if (response.ok) {
-            data = await response.json();
-            success = true;
-          } else {
-            console.warn(`API source ${sourceIndex + 1} failed: ${response.status}`);
-          }
-        } catch (err) {
-          console.warn(`API source ${sourceIndex + 1} error:`, err);
         }
 
-        sourceIndex++;
+        console.warn(`Proxy request failed or returned invalid data: ${response.status}`);
+        // Continue to direct API calls if proxy fails
+      } catch (proxyError) {
+        console.warn('Error using proxy endpoint:', proxyError);
+        // Continue to direct API calls if proxy fails
       }
 
-      if (!success) {
-        // Update circuit breaker
-        CIRCUIT_BREAKER.failureCount++;
-        CIRCUIT_BREAKER.lastFailure = Date.now();
+      // Try direct API calls as fallback
+      // First try Frankfurter API
+      console.log('Trying direct Frankfurter API call...');
+      const frankfurterUrl = `https://api.frankfurter.dev/v1/latest?base=${baseCurrency}`;
 
-        if (CIRCUIT_BREAKER.failureCount >= CIRCUIT_BREAKER.failureThreshold) {
-          CIRCUIT_BREAKER.isOpen = true;
-          console.warn('Circuit breaker opened due to repeated API failures');
+      try {
+        const response = await fetch(frankfurterUrl, {
+          mode: 'cors',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data && data.rates && Object.keys(data.rates).length > 0) {
+            // Process the data
+            const normalizedRates: Record<string, number> = {};
+            normalizedRates[baseCurrency.toLowerCase()] = 1;
+
+            Object.entries(data.rates).forEach(([currency, rate]) => {
+              normalizedRates[currency.toLowerCase()] = rate as number;
+
+              // Also populate our cache with these rates
+              const cacheKey = `${baseCurrency.toLowerCase()}-${currency.toLowerCase()}`;
+              frankfurterRateCache.set(cacheKey, {
+                rate: rate as number,
+                timestamp: Date.now()
+              });
+
+              // Also cache the inverse rate
+              const inverseCacheKey = `${currency.toLowerCase()}-${baseCurrency.toLowerCase()}`;
+              frankfurterRateCache.set(inverseCacheKey, {
+                rate: 1 / (rate as number),
+                timestamp: Date.now()
+              });
+            });
+
+            // Validate the rates
+            const validatedRates = validateRates(normalizedRates, baseCurrency.toLowerCase());
+
+            // Update state with new rates
+            set({
+              rates: validatedRates,
+              baseCurrency: baseCurrency.toLowerCase(),
+              lastUpdated: new Date(),
+              isLoading: false,
+              error: null
+            });
+
+            console.log(`Successfully fetched ${Object.keys(validatedRates).length} exchange rates with base ${baseCurrency}`);
+            return;
+          }
         }
 
-        throw new Error('All API sources failed');
+        console.warn(`Frankfurter API request failed: ${response.status}`);
+        // Continue to alternative APIs
+      } catch (frankfurterError) {
+        console.warn('Error using Frankfurter API:', frankfurterError);
+        // Continue to alternative APIs
       }
 
-      // Reset circuit breaker on success
-      CIRCUIT_BREAKER.failureCount = 0;
+      // Try Open Exchange Rates API
+      console.log('Trying Open Exchange Rates API...');
+      const openExchangeUrl = `https://open.er-api.com/v6/latest/${baseCurrency}`;
 
-      // Process the data based on the source format
-      let rates;
-      if (sourceIndex - 1 === API_SOURCES.indexOf('https://api.exchangerate.host/latest')) {
-        // Format for exchangerate.host
-        if (data && data.rates && typeof data.rates === 'object') {
-          rates = data.rates;
-        } else {
-          throw new Error('Invalid response format from exchangerate.host');
+      try {
+        const response = await fetch(openExchangeUrl, {
+          mode: 'cors',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data && data.rates && Object.keys(data.rates).length > 0) {
+            // Process the data
+            const normalizedRates: Record<string, number> = {};
+            normalizedRates[baseCurrency.toLowerCase()] = 1;
+
+            Object.entries(data.rates).forEach(([currency, rate]) => {
+              normalizedRates[currency.toLowerCase()] = rate as number;
+
+              // Also populate our cache with these rates
+              const cacheKey = `${baseCurrency.toLowerCase()}-${currency.toLowerCase()}`;
+              frankfurterRateCache.set(cacheKey, {
+                rate: rate as number,
+                timestamp: Date.now()
+              });
+
+              // Also cache the inverse rate
+              const inverseCacheKey = `${currency.toLowerCase()}-${baseCurrency.toLowerCase()}`;
+              frankfurterRateCache.set(inverseCacheKey, {
+                rate: 1 / (rate as number),
+                timestamp: Date.now()
+              });
+            });
+
+            // Validate the rates
+            const validatedRates = validateRates(normalizedRates, baseCurrency.toLowerCase());
+
+            // Update state with new rates
+            set({
+              rates: validatedRates,
+              baseCurrency: baseCurrency.toLowerCase(),
+              lastUpdated: new Date(),
+              isLoading: false,
+              error: null
+            });
+
+            console.log(`Successfully fetched ${Object.keys(validatedRates).length} exchange rates from Open Exchange Rates with base ${baseCurrency}`);
+            return;
+          }
         }
+
+        console.warn(`Open Exchange Rates API request failed: ${response.status}`);
+        // Continue to alternative APIs
+      } catch (openExchangeError) {
+        console.warn('Error using Open Exchange Rates API:', openExchangeError);
+        // Continue to alternative APIs
+      }
+
+      // Try ExchangeRate.host API as last resort
+      console.log('Trying ExchangeRate.host API...');
+      const exchangeRateHostUrl = `https://api.exchangerate.host/latest?base=${baseCurrency}`;
+
+      try {
+        const response = await fetch(exchangeRateHostUrl, {
+          mode: 'cors',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data && data.rates && Object.keys(data.rates).length > 0) {
+            // Process the data
+            const normalizedRates: Record<string, number> = {};
+            normalizedRates[baseCurrency.toLowerCase()] = 1;
+
+            Object.entries(data.rates).forEach(([currency, rate]) => {
+              normalizedRates[currency.toLowerCase()] = rate as number;
+
+              // Also populate our cache with these rates
+              const cacheKey = `${baseCurrency.toLowerCase()}-${currency.toLowerCase()}`;
+              frankfurterRateCache.set(cacheKey, {
+                rate: rate as number,
+                timestamp: Date.now()
+              });
+
+              // Also cache the inverse rate
+              const inverseCacheKey = `${currency.toLowerCase()}-${baseCurrency.toLowerCase()}`;
+              frankfurterRateCache.set(inverseCacheKey, {
+                rate: 1 / (rate as number),
+                timestamp: Date.now()
+              });
+            });
+
+            // Validate the rates
+            const validatedRates = validateRates(normalizedRates, baseCurrency.toLowerCase());
+
+            // Update state with new rates
+            set({
+              rates: validatedRates,
+              baseCurrency: baseCurrency.toLowerCase(),
+              lastUpdated: new Date(),
+              isLoading: false,
+              error: null
+            });
+
+            console.log(`Successfully fetched ${Object.keys(validatedRates).length} exchange rates from ExchangeRate.host with base ${baseCurrency}`);
+            return;
+          }
+        }
+
+        console.warn(`ExchangeRate.host API request failed: ${response.status}`);
+        // Fall back to static rates
+      } catch (exchangeRateHostError) {
+        console.warn('Error using ExchangeRate.host API:', exchangeRateHostError);
+        // Fall back to static rates
+      }
+
+      // If all API calls fail, use static fallback rates
+      console.log('All API calls failed, using static fallback rates');
+
+      // Create static fallback rates
+      const fallbackRates: Record<string, number> = {
+        'usd': 1,
+        'eur': 0.92,
+        'gbp': 0.78,
+        'jpy': 150.5,
+        'cad': 1.35,
+        'aud': 1.52,
+        'inr': 83.15,
+        'pkr': 278.5,
+        'aed': 3.67,
+        'sar': 3.75,
+        'myr': 4.65,
+        'sgd': 1.35,
+        'bdt': 110.5,
+        'egp': 30.9,
+        'idr': 15600,
+        'kwd': 0.31,
+        'ngn': 1550,
+        'qar': 3.64,
+        'zar': 18.5
+      };
+
+      // Convert to the requested base currency if not USD
+      const normalizedRates: Record<string, number> = {};
+      const baseLower = base.toLowerCase();
+
+      if (baseLower === 'usd') {
+        // If base is USD, use rates directly
+        Object.assign(normalizedRates, fallbackRates);
+      } else if (fallbackRates[baseLower]) {
+        // If base is in our fallback rates, convert all rates
+        const baseRate = fallbackRates[baseLower];
+
+        // Add base currency with rate 1
+        normalizedRates[baseLower] = 1;
+
+        // Convert all other rates relative to the new base
+        Object.entries(fallbackRates).forEach(([currency, rate]) => {
+          if (currency !== baseLower) {
+            normalizedRates[currency] = rate / baseRate;
+          }
+        });
       } else {
-        // Format for currency-api
-        if (data && data[base.toLowerCase()] && typeof data[base.toLowerCase()] === 'object') {
-          rates = data[base.toLowerCase()];
-        } else {
-          throw new Error('Invalid response format from currency-api');
-        }
+        // If base is not in our fallback rates, just use USD rates
+        Object.assign(normalizedRates, fallbackRates);
+        console.warn(`Cannot convert to base ${base}, using USD as base instead`);
       }
 
-      // Validate the rates
-      const validatedRates = validateRates(rates, base);
-
-      // Update cache
-      EXCHANGE_RATE_CACHE.set(base, validatedRates);
-
-      // Update state
+      // Update state with fallback rates
       set({
-        rates: validatedRates,
-        baseCurrency: base,
-        lastUpdated: new Date(data.date || Date.now()),
-        isLoading: false
-      });
-
-      console.log('Currency rates updated:', {
-        baseCurrency: base,
-        ratesCount: Object.keys(validatedRates).length,
-        timestamp: new Date().toISOString(),
-        source: API_SOURCES[sourceIndex - 1]
+        rates: normalizedRates,
+        baseCurrency: baseLower,
+        lastUpdated: new Date(),
+        isLoading: false,
+        error: 'Using fallback rates due to API errors'
       });
     } catch (error) {
-      // Check if we have cached rates to use as fallback
-      const cachedRates = EXCHANGE_RATE_CACHE.get(base);
-      if (cachedRates) {
-        console.warn('API fetch failed. Using cached rates as fallback.');
-        set({
-          rates: cachedRates,
-          baseCurrency: base,
-          error: 'Using cached rates due to API failure',
-          isLoading: false
+      console.error('Unexpected error fetching exchange rates:', error);
+
+      // Use static fallback rates if all APIs fail
+      console.log('Using static fallback rates due to unexpected error');
+
+      // Create static fallback rates
+      const fallbackRates: Record<string, number> = {
+        'usd': 1,
+        'eur': 0.92,
+        'gbp': 0.78,
+        'jpy': 150.5,
+        'cad': 1.35,
+        'aud': 1.52,
+        'inr': 83.15,
+        'pkr': 278.5,
+        'aed': 3.67,
+        'sar': 3.75,
+        'myr': 4.65,
+        'sgd': 1.35,
+        'bdt': 110.5,
+        'egp': 30.9,
+        'idr': 15600,
+        'kwd': 0.31,
+        'ngn': 1550,
+        'qar': 3.64,
+        'zar': 18.5
+      };
+
+      // Convert to the requested base currency if not USD
+      const normalizedRates: Record<string, number> = {};
+      const baseLower = base.toLowerCase();
+
+      if (baseLower === 'usd') {
+        // If base is USD, use rates directly
+        Object.assign(normalizedRates, fallbackRates);
+      } else if (fallbackRates[baseLower]) {
+        // If base is in our fallback rates, convert all rates
+        const baseRate = fallbackRates[baseLower];
+
+        // Add base currency with rate 1
+        normalizedRates[baseLower] = 1;
+
+        // Convert all other rates relative to the new base
+        Object.entries(fallbackRates).forEach(([currency, rate]) => {
+          if (currency !== baseLower) {
+            normalizedRates[currency] = rate / baseRate;
+          }
         });
-        return;
+      } else {
+        // If base is not in our fallback rates, just use USD rates
+        Object.assign(normalizedRates, fallbackRates);
+        console.warn(`Cannot convert to base ${base}, using USD as base instead`);
       }
 
+      // Update state with fallback rates
       set({
-        error: error instanceof Error ? error.message : 'Failed to fetch exchange rates',
-        isLoading: false
+        rates: normalizedRates,
+        baseCurrency: baseLower,
+        lastUpdated: new Date(),
+        isLoading: false,
+        error: `Using fallback rates due to API error: ${error instanceof Error ? error.message : String(error)}`
       });
-      console.error('Error fetching exchange rates:', error);
     }
   },
 
@@ -627,28 +1043,48 @@ export const useCurrencyStore = create<CurrencyState>((set, get) => ({
     // Check if we have the necessary rates
     if (!rates || Object.keys(rates).length === 0) {
       console.warn('Cannot convert currency: No exchange rates available');
+
+      // Proactively fetch rates for next time
+      fetchAndCacheRate(fromCurrency, toCurrency).catch(() => { });
+
       return getFallbackConversion(amount, fromCurrency, toCurrency);
     }
 
     // Verify if rates exist for both currencies
     if (!rates[fromCurrency]) {
       console.warn(`Cannot convert from ${fromCurrency}: Rate not available`);
+
+      // Proactively fetch rates for next time
+      fetchAndCacheRate(fromCurrency, toCurrency).catch(() => { });
+
       return getFallbackConversion(amount, fromCurrency, toCurrency);
     }
 
     if (!rates[toCurrency]) {
       console.warn(`Cannot convert to ${toCurrency}: Rate not available`);
+
+      // Proactively fetch rates for next time
+      fetchAndCacheRate(fromCurrency, toCurrency).catch(() => { });
+
       return getFallbackConversion(amount, fromCurrency, toCurrency);
     }
 
     // Validate rates are positive numbers
     if (typeof rates[fromCurrency] !== 'number' || rates[fromCurrency] <= 0) {
       console.warn(`Invalid rate for ${fromCurrency}:`, rates[fromCurrency]);
+
+      // Proactively fetch rates for next time
+      fetchAndCacheRate(fromCurrency, toCurrency).catch(() => { });
+
       return getFallbackConversion(amount, fromCurrency, toCurrency);
     }
 
     if (typeof rates[toCurrency] !== 'number' || rates[toCurrency] <= 0) {
       console.warn(`Invalid rate for ${toCurrency}:`, rates[toCurrency]);
+
+      // Proactively fetch rates for next time
+      fetchAndCacheRate(fromCurrency, toCurrency).catch(() => { });
+
       return getFallbackConversion(amount, fromCurrency, toCurrency);
     }
 
@@ -745,4 +1181,78 @@ export const useCurrencyStore = create<CurrencyState>((set, get) => ({
       return getFallbackConversion(amount, from, to);
     }
   }
-})); 
+}));
+
+// Function to pre-populate cache with common currency pairs
+function prePopulateCommonRates() {
+  console.log('Pre-populating cache with common currency pairs...');
+
+  // Define common base currencies
+  const commonBaseCurrencies = ['USD', 'EUR', 'GBP', 'SAR', 'PKR', 'INR'];
+
+  // Define common target currencies
+  const commonTargetCurrencies = ['USD', 'EUR', 'GBP', 'SAR', 'PKR', 'INR', 'AED', 'CAD', 'AUD'];
+
+  // Create a queue of promises to fetch rates
+  const fetchPromises: Promise<any>[] = [];
+
+  // For each base currency, fetch rates for all target currencies
+  commonBaseCurrencies.forEach(base => {
+    // Skip fetching rates for the same currency
+    const targets = commonTargetCurrencies.filter(target => target !== base);
+
+    // Fetch rates for this base currency
+    const promise = fetch(`https://api.frankfurter.dev/v1/latest?base=${base}`)
+      .then(response => {
+        if (!response.ok) {
+          console.warn(`Failed to pre-populate rates for ${base}: ${response.status}`);
+          return null;
+        }
+        return response.json();
+      })
+      .then(data => {
+        if (!data || !data.rates) return;
+
+        // Cache each rate
+        Object.entries(data.rates).forEach(([target, rate]) => {
+          const cacheKey = `${base.toLowerCase()}-${target.toLowerCase()}`;
+          frankfurterRateCache.set(cacheKey, {
+            rate: rate as number,
+            timestamp: Date.now()
+          });
+
+          // Also cache the inverse rate
+          const inverseRate = 1 / (rate as number);
+          const inverseCacheKey = `${target.toLowerCase()}-${base.toLowerCase()}`;
+          frankfurterRateCache.set(inverseCacheKey, {
+            rate: inverseRate,
+            timestamp: Date.now()
+          });
+        });
+
+        console.log(`Pre-populated rates for ${base} with ${Object.keys(data.rates).length} currencies`);
+      })
+      .catch(error => {
+        console.error(`Error pre-populating rates for ${base}:`, error);
+      });
+
+    fetchPromises.push(promise);
+  });
+
+  // Wait for all fetches to complete
+  Promise.all(fetchPromises)
+    .then(() => {
+      console.log('Finished pre-populating currency rate cache');
+    })
+    .catch(error => {
+      console.error('Error during pre-population:', error);
+    });
+}
+
+// Initialize the cache with common currency pairs
+if (typeof window !== 'undefined') {
+  // Only run in browser environment
+  setTimeout(() => {
+    prePopulateCommonRates();
+  }, 1000); // Delay by 1 second to not block initial page load
+} 

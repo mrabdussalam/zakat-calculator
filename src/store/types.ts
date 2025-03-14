@@ -9,6 +9,7 @@ import { StateCreator } from 'zustand'
 import { CryptoSlice, CryptoValues } from './modules/crypto.types'
 import { StockHolding } from '@/lib/assets/stocks'
 import { WeightUnit } from '@/lib/utils/units'
+import { DistributionSlice } from './modules/distribution'
 
 // Re-export types with new names to avoid conflicts
 export type AssetBreakdown = LibAssetBreakdown
@@ -160,7 +161,7 @@ export interface ZakatBreakdown {
   }>
 }
 
-export interface ZakatState extends CashSlice, MetalsSlice, StocksSlice, RetirementSlice, RealEstateSlice, CryptoSlice, NisabSlice {
+export interface ZakatState extends CashSlice, MetalsSlice, StocksSlice, RetirementSlice, RealEstateSlice, CryptoSlice, NisabSlice, DistributionSlice {
   // Core properties
   currency: string
 

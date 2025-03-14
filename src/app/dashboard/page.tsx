@@ -16,6 +16,7 @@ import { useDashboardCurrencyConversion } from '@/hooks/dashboard/useDashboardCu
 import { useDashboardState, DashboardState, DEFAULT_STATE } from '@/hooks/dashboard/useDashboardState'
 import { FeedbackFormModal } from '@/components/ui/FeedbackFormModal'
 import { RefreshIcon } from '@/components/ui/icons'
+import Link from 'next/link'
 
 // Local types not exported from the hook
 interface ConvertedStock {
@@ -488,6 +489,17 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-nb-international text-gray-900 font-medium tracking-tight">Summary</h2>
                   <div className="flex items-center gap-2">
+                    {/* Temporarily commented out until testing is complete
+                    <Link href="/zakat-distribution">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-full"
+                      >
+                        Distribute Zakat
+                      </Button>
+                    </Link>
+                    */}
                     <FeedbackFormModal />
                     <Button
                       onClick={handleReset}

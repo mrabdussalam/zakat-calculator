@@ -309,6 +309,19 @@ export default function HomePage() {
               >
                 Feedback
               </Button>
+              {/* Dot separator between buttons */}
+              <div className="w-1 h-1 rounded-full bg-gray-400"></div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-full"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.open("https://github.com/mrabdussalam/zakat-calculator", "_blank");
+                }}
+              >
+                GitHub
+              </Button>
             </div>
           </motion.div>
         </motion.div>

@@ -6,6 +6,17 @@ import { getCryptoPrice, CryptoAPIError } from '@/lib/api/crypto'
 import { roundCurrency } from '@/lib/utils/currency'
 import { CryptoSlice, CryptoValues, CryptoHolding } from './crypto.types'
 
+// Add environment detection for Replit
+const IS_REPLIT = typeof window !== 'undefined' &&
+  (window.location.hostname.includes('replit') ||
+    window.location.hostname.endsWith('.repl.co'));
+
+// Fallback prices for major cryptocurrencies
+const FALLBACK_PRICES: Record<string, number> = {
+  'BTC': 65000, // Fallback price for BTC
+  'ETH': 3500,  // Fallback price for ETH
+};
+
 // Initial state
 const initialCryptoValues: CryptoValues = {
   coins: [],
@@ -28,11 +39,12 @@ export const createCryptoSlice: StateCreator<
   // Actions
   addCoin: async (symbol: string, quantity: number, currency: string = 'USD') => {
     if (typeof quantity !== 'number' || !isFinite(quantity) || quantity < 0) {
-      console.warn(`Invalid crypto quantity: ${quantity} for ${symbol}`)
+      set({
+        lastError: 'Invalid quantity. Please enter a valid positive number.'
+      })
       return
     }
 
-    // Set loading state to true
     set({ isLoading: true, lastError: null })
 
     try {
@@ -42,19 +54,14 @@ export const createCryptoSlice: StateCreator<
       if (currentPrice === 0 && (symbol.toUpperCase() === 'BTC' || symbol.toUpperCase() === 'ETH')) {
         console.warn(`Received zero price for ${symbol}, using fallback price`);
         // Use fallback prices for major coins if API returns zero
-        const fallbackPrices: Record<string, number> = {
-          'BTC': 65000,
-          'ETH': 3500
-        };
-
-        const marketValue = roundCurrency(quantity * fallbackPrices[symbol.toUpperCase()]);
+        const marketValue = roundCurrency(quantity * FALLBACK_PRICES[symbol.toUpperCase()]);
         const zakatDue = roundCurrency(marketValue * ZAKAT_RATE);
 
         set((state: ZakatState) => {
           const newCoins = [...state.cryptoValues.coins, {
             symbol: symbol.toUpperCase(),
             quantity,
-            currentPrice: fallbackPrices[symbol.toUpperCase()],
+            currentPrice: FALLBACK_PRICES[symbol.toUpperCase()],
             marketValue,
             zakatDue,
             currency,
@@ -110,19 +117,14 @@ export const createCryptoSlice: StateCreator<
       // For major coins, add with fallback price if API fails
       if (symbol.toUpperCase() === 'BTC' || symbol.toUpperCase() === 'ETH') {
         console.log(`Using fallback price for ${symbol} due to API error`);
-        const fallbackPrices: Record<string, number> = {
-          'BTC': 65000,
-          'ETH': 3500
-        };
-
-        const marketValue = roundCurrency(quantity * fallbackPrices[symbol.toUpperCase()]);
+        const marketValue = roundCurrency(quantity * FALLBACK_PRICES[symbol.toUpperCase()]);
         const zakatDue = roundCurrency(marketValue * ZAKAT_RATE);
 
         set((state: ZakatState) => {
           const newCoins = [...state.cryptoValues.coins, {
             symbol: symbol.toUpperCase(),
             quantity,
-            currentPrice: fallbackPrices[symbol.toUpperCase()],
+            currentPrice: FALLBACK_PRICES[symbol.toUpperCase()],
             marketValue,
             zakatDue,
             currency,

@@ -2,6 +2,13 @@ import { NextResponse } from 'next/server'
 import { SYMBOL_TO_ID } from '@/lib/api/crypto'
 
 const COINGECKO_API_URL = 'https://api.coingecko.com/api/v3'
+const COINCAP_API_URL = 'https://api.coincap.io/v2'
+const CRYPTOCOMPARE_API_URL = 'https://min-api.cryptocompare.com/data'
+
+// Add environment detection for Replit
+const IS_REPLIT = typeof window !== 'undefined' &&
+  (window.location.hostname.includes('replit') ||
+    window.location.hostname.endsWith('.repl.co'));
 
 // Helper function to get exchange rate with fallbacks
 async function getExchangeRate(from: string, to: string): Promise<number | null> {
@@ -52,6 +59,111 @@ async function getExchangeRate(from: string, to: string): Promise<number | null>
       return 278.5;
     }
 
+    return null;
+  }
+}
+
+// Map of CoinGecko IDs to CoinCap IDs for major cryptocurrencies
+const COINCAP_ID_MAP: Record<string, string> = {
+  'bitcoin': 'bitcoin',
+  'ethereum': 'ethereum',
+  'tether': 'tether',
+  'binancecoin': 'binance-coin',
+  'ripple': 'xrp',
+  'cardano': 'cardano',
+  'dogecoin': 'dogecoin',
+  'solana': 'solana',
+  'polkadot': 'polkadot',
+  'matic-network': 'polygon'
+};
+
+// Map of CoinGecko IDs to CryptoCompare symbols
+const CRYPTOCOMPARE_SYMBOL_MAP: Record<string, string> = {
+  'bitcoin': 'BTC',
+  'ethereum': 'ETH',
+  'tether': 'USDT',
+  'binancecoin': 'BNB',
+  'ripple': 'XRP',
+  'cardano': 'ADA',
+  'dogecoin': 'DOGE',
+  'solana': 'SOL',
+  'polkadot': 'DOT',
+  'matic-network': 'MATIC'
+};
+
+// Try to fetch from CryptoCompare API
+async function fetchFromCryptoCompare(coinId: string): Promise<number | null> {
+  try {
+    // Convert CoinGecko ID to CryptoCompare symbol
+    const cryptoCompareSymbol = CRYPTOCOMPARE_SYMBOL_MAP[coinId];
+
+    if (!cryptoCompareSymbol) {
+      console.warn(`No CryptoCompare symbol mapping for ${coinId}`);
+      return null;
+    }
+
+    console.log(`Trying CryptoCompare API for ${cryptoCompareSymbol}`);
+
+    const response = await fetch(`${CRYPTOCOMPARE_API_URL}/price?fsym=${cryptoCompareSymbol}&tsyms=USD`, {
+      headers: {
+        'Accept': 'application/json'
+      },
+      cache: 'no-store'
+    });
+
+    if (!response.ok) {
+      console.warn(`CryptoCompare API returned ${response.status} for ${cryptoCompareSymbol}`);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (data && data.USD) {
+      const price = parseFloat(data.USD);
+      console.log(`CryptoCompare price for ${cryptoCompareSymbol}: $${price}`);
+      return price;
+    }
+
+    console.warn(`No price data found in CryptoCompare response for ${cryptoCompareSymbol}`);
+    return null;
+  } catch (error) {
+    console.error(`Error fetching from CryptoCompare for ${coinId}:`, error);
+    return null;
+  }
+}
+
+// Try to fetch from CoinCap API first (especially on Replit)
+async function fetchFromCoinCap(coinId: string): Promise<number | null> {
+  try {
+    // Convert CoinGecko ID to CoinCap ID if available
+    const coincapId = COINCAP_ID_MAP[coinId] || coinId;
+
+    console.log(`Trying CoinCap API for ${coincapId}`);
+
+    const response = await fetch(`${COINCAP_API_URL}/assets/${coincapId}`, {
+      headers: {
+        'Accept': 'application/json'
+      },
+      cache: 'no-store'
+    });
+
+    if (!response.ok) {
+      console.warn(`CoinCap API returned ${response.status} for ${coincapId}`);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (data && data.data && data.data.priceUsd) {
+      const price = parseFloat(data.data.priceUsd);
+      console.log(`CoinCap price for ${coincapId}: $${price}`);
+      return price;
+    }
+
+    console.warn(`No price data found in CoinCap response for ${coincapId}`);
+    return null;
+  } catch (error) {
+    console.error(`Error fetching from CoinCap for ${coinId}:`, error);
     return null;
   }
 }
@@ -127,23 +239,166 @@ export async function GET(request: Request) {
     )
   }
 
+  const upperSymbol = symbol.toUpperCase();
+  const coinId = SYMBOL_TO_ID[upperSymbol];
+
+  if (!coinId) {
+    return NextResponse.json(
+      { error: `Unsupported cryptocurrency symbol: ${symbol}` },
+      { status: 400, headers }
+    )
+  }
+
   try {
-    const upperSymbol = symbol.toUpperCase()
-    const coinId = SYMBOL_TO_ID[upperSymbol]
-
-    if (!coinId) {
-      return NextResponse.json(
-        { error: `Unsupported cryptocurrency symbol: ${symbol}` },
-        { status: 400, headers }
-      )
-    }
-
     console.log(`Fetching price for ${upperSymbol} (${coinId}) in ${requestedCurrency}`);
 
-    // Use the direct CoinGecko function with retries
-    const usdPrice = await fetchFromCoinGecko(coinId);
+    // Variables to track price and source
+    let usdPrice = null;
+    let source = '';
 
-    // Base price is always in USD from CoinGecko
+    // Determine which API to try first based on environment and randomization
+    // This helps distribute requests across different APIs
+    const random = Math.random();
+
+    // On Replit, we want to avoid CoinGecko due to rate limits
+    // Try APIs in different order based on random value
+    if (IS_REPLIT) {
+      // On Replit, try CryptoCompare first 50% of the time, CoinCap first 50% of the time
+      if (random < 0.5) {
+        // Try CryptoCompare first
+        usdPrice = await fetchFromCryptoCompare(coinId);
+        if (usdPrice !== null) {
+          source = 'cryptocompare';
+          console.log(`Successfully fetched price from CryptoCompare: ${usdPrice}`);
+        } else {
+          // Then try CoinCap
+          usdPrice = await fetchFromCoinCap(coinId);
+          if (usdPrice !== null) {
+            source = 'coincap';
+            console.log(`Successfully fetched price from CoinCap: ${usdPrice}`);
+          }
+        }
+      } else {
+        // Try CoinCap first
+        usdPrice = await fetchFromCoinCap(coinId);
+        if (usdPrice !== null) {
+          source = 'coincap';
+          console.log(`Successfully fetched price from CoinCap: ${usdPrice}`);
+        } else {
+          // Then try CryptoCompare
+          usdPrice = await fetchFromCryptoCompare(coinId);
+          if (usdPrice !== null) {
+            source = 'cryptocompare';
+            console.log(`Successfully fetched price from CryptoCompare: ${usdPrice}`);
+          }
+        }
+      }
+
+      // Only try CoinGecko as a last resort on Replit
+      if (usdPrice === null) {
+        try {
+          usdPrice = await fetchFromCoinGecko(coinId);
+          source = 'coingecko';
+          console.log(`Successfully fetched price from CoinGecko: ${usdPrice}`);
+        } catch (error) {
+          console.error(`CoinGecko fallback failed on Replit:`, error);
+        }
+      }
+    } else {
+      // Not on Replit, distribute requests across all three APIs
+      if (random < 0.33) {
+        // Try CoinGecko first
+        try {
+          usdPrice = await fetchFromCoinGecko(coinId);
+          source = 'coingecko';
+          console.log(`Successfully fetched price from CoinGecko: ${usdPrice}`);
+        } catch (error) {
+          console.error(`CoinGecko attempt failed:`, error);
+        }
+
+        // Then try CoinCap
+        if (usdPrice === null) {
+          usdPrice = await fetchFromCoinCap(coinId);
+          if (usdPrice !== null) {
+            source = 'coincap';
+            console.log(`Successfully fetched price from CoinCap: ${usdPrice}`);
+          }
+        }
+
+        // Finally try CryptoCompare
+        if (usdPrice === null) {
+          usdPrice = await fetchFromCryptoCompare(coinId);
+          if (usdPrice !== null) {
+            source = 'cryptocompare';
+            console.log(`Successfully fetched price from CryptoCompare: ${usdPrice}`);
+          }
+        }
+      } else if (random < 0.66) {
+        // Try CoinCap first
+        usdPrice = await fetchFromCoinCap(coinId);
+        if (usdPrice !== null) {
+          source = 'coincap';
+          console.log(`Successfully fetched price from CoinCap: ${usdPrice}`);
+        } else {
+          // Then try CryptoCompare
+          usdPrice = await fetchFromCryptoCompare(coinId);
+          if (usdPrice !== null) {
+            source = 'cryptocompare';
+            console.log(`Successfully fetched price from CryptoCompare: ${usdPrice}`);
+          } else {
+            // Finally try CoinGecko
+            try {
+              usdPrice = await fetchFromCoinGecko(coinId);
+              source = 'coingecko';
+              console.log(`Successfully fetched price from CoinGecko: ${usdPrice}`);
+            } catch (error) {
+              console.error(`CoinGecko fallback failed:`, error);
+            }
+          }
+        }
+      } else {
+        // Try CryptoCompare first
+        usdPrice = await fetchFromCryptoCompare(coinId);
+        if (usdPrice !== null) {
+          source = 'cryptocompare';
+          console.log(`Successfully fetched price from CryptoCompare: ${usdPrice}`);
+        } else {
+          // Then try CoinGecko
+          try {
+            usdPrice = await fetchFromCoinGecko(coinId);
+            source = 'coingecko';
+            console.log(`Successfully fetched price from CoinGecko: ${usdPrice}`);
+          } catch (error) {
+            console.error(`CoinGecko attempt failed:`, error);
+
+            // Finally try CoinCap
+            usdPrice = await fetchFromCoinCap(coinId);
+            if (usdPrice !== null) {
+              source = 'coincap';
+              console.log(`Successfully fetched price from CoinCap: ${usdPrice}`);
+            }
+          }
+        }
+      }
+    }
+
+    // If all APIs fail for major coins, use fallback values
+    if (usdPrice === null) {
+      if (upperSymbol === 'BTC' || upperSymbol === 'ETH') {
+        const fallbackPrices = {
+          'BTC': 65000, // Fallback price for BTC
+          'ETH': 3500,  // Fallback price for ETH
+        };
+
+        usdPrice = fallbackPrices[upperSymbol];
+        source = 'fallback';
+        console.log(`Using fallback price for ${upperSymbol}: ${usdPrice}`);
+      } else {
+        throw new Error(`Failed to fetch price for ${upperSymbol} from any API source`);
+      }
+    }
+
+    // Base price is always in USD from APIs
     let price = usdPrice || 0; // Ensure price is not null
     const sourceCurrency = 'USD';
     let conversionApplied = false;
@@ -168,7 +423,8 @@ export async function GET(request: Request) {
       sourceCurrency: sourceCurrency,
       currency: conversionApplied ? requestedCurrency : sourceCurrency,
       conversionApplied,
-      requestedCurrency
+      source,
+      isFallback: source === 'fallback'
     }, { headers })
 
   } catch (error) {
@@ -183,7 +439,8 @@ export async function GET(request: Request) {
         sourceCurrency: 'USD',
         currency: requestedCurrency,
         conversionApplied: false,
-        isFallback: true
+        isFallback: true,
+        source: 'fallback'
       }, { headers });
     }
 
@@ -195,7 +452,8 @@ export async function GET(request: Request) {
         sourceCurrency: 'USD',
         currency: requestedCurrency,
         conversionApplied: false,
-        isFallback: true
+        isFallback: true,
+        source: 'fallback'
       }, { headers });
     }
 
