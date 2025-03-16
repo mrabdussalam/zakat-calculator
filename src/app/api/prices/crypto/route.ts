@@ -29,7 +29,26 @@ async function getExchangeRate(from: string, to: string): Promise<number | null>
       }
     }
 
-    console.log(`Frankfurter API failed for ${from} to ${to}, using fallbacks`);
+    console.log(`Frankfurter API failed for ${from} to ${to}, trying Open Exchange Rates API`);
+
+    // Try Open Exchange Rates API as a fallback
+    try {
+      // Use our proxy endpoint to avoid exposing API keys
+      const openExchangeResponse = await fetch(`/api/proxy/currency?base=${from}&symbols=${to}`);
+
+      if (openExchangeResponse.ok) {
+        const openExchangeData = await openExchangeResponse.json();
+        if (openExchangeData && openExchangeData.rates && openExchangeData.rates[to.toUpperCase()]) {
+          const rate = openExchangeData.rates[to.toUpperCase()];
+          console.log(`Got real-time exchange rate from Open Exchange Rates for ${from} to ${to}: ${rate}`);
+          return rate;
+        }
+      }
+    } catch (openExchangeError) {
+      console.error(`Open Exchange Rates API failed for ${from} to ${to}:`, openExchangeError);
+    }
+
+    console.log(`All API attempts failed for ${from} to ${to}, using fallback rates`);
 
     // Fallback to hardcoded rates if API fails
     // Special case for USD to SAR (Saudi Riyal)
@@ -42,6 +61,12 @@ async function getExchangeRate(from: string, to: string): Promise<number | null>
     if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'PKR') {
       console.log(`Using fallback rate for USD to PKR: 278.5`);
       return 278.5; // Approximate rate for PKR
+    }
+
+    // Special case for USD to RUB (Russian Ruble) - approximate rate
+    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'RUB') {
+      console.log(`Using fallback rate for USD to RUB: 91.5`);
+      return 91.5; // Approximate rate for RUB
     }
 
     return null;
@@ -57,6 +82,11 @@ async function getExchangeRate(from: string, to: string): Promise<number | null>
     if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'PKR') {
       console.log(`Using fallback rate after error for USD to PKR: 278.5`);
       return 278.5;
+    }
+
+    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'RUB') {
+      console.log(`Using fallback rate after error for USD to RUB: 91.5`);
+      return 91.5;
     }
 
     return null;
