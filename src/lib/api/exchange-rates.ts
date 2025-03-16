@@ -69,7 +69,7 @@ export async function getExchangeRate(from: string, to: string): Promise<number 
         const currencyStore = useCurrencyStore.getState()
         await currencyStore.fetchRates()
         const value = currencyStore.convertAmount(1, from, to)
-        if (value != null){
+        if (value !== null && value !== undefined) {
             console.log(`Currency store exchange rate for ${from} to ${to}: ${value}`)
             setCachedRate(from, to, value)
             return value
@@ -89,6 +89,14 @@ export async function getExchangeRate(from: string, to: string): Promise<number 
         if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'PKR') {
             const rate = 278.5; // Approximate rate for PKR
             console.log(`Using fallback rate for USD to PKR: ${rate}`);
+            setCachedRate(from, to, rate);
+            return rate;
+        }
+
+        // Special case for USD to RUB (Russian Ruble) - approximate rate
+        if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'RUB') {
+            const rate = 91.5; // Approximate rate for RUB
+            console.log(`Using fallback rate for USD to RUB: ${rate}`);
             setCachedRate(from, to, rate);
             return rate;
         }
