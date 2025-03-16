@@ -170,7 +170,7 @@ export default function HomePage() {
             <CurrencySelector />
 
             {/* CTA Button */}
-            <div className="pt-4">
+            <div className="pt-2">
               <a
                 href="#"
                 className="block"
