@@ -17,12 +17,12 @@ export default function CurrencySelectorTest() {
   return (
     <div className="flex flex-col gap-6 p-8 max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold">Currency Selector Test</h1>
-      
+
       <div className="p-4 border rounded-md bg-slate-50">
         <h2 className="font-medium mb-3">Current Selection</h2>
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="w-full sm:w-[240px]">
-            <CurrencySelector 
+            <CurrencySelector
               value={currency}
               onValueChange={handleCurrencyChange}
             />
@@ -32,12 +32,12 @@ export default function CurrencySelectorTest() {
           </div>
         </div>
       </div>
-      
+
       <div className="p-4 border rounded-md bg-slate-50">
         <h2 className="font-medium mb-3">Test UI</h2>
         <div className="flex gap-2 flex-wrap">
-          {['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'].map(code => (
-            <Button 
+          {['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'RUB'].map(code => (
+            <Button
               key={code}
               variant={currency === code ? "default" : "outline"}
               size="sm"
@@ -48,7 +48,7 @@ export default function CurrencySelectorTest() {
           ))}
         </div>
       </div>
-      
+
       <div className="p-4 border rounded-md bg-slate-50">
         <h2 className="font-medium mb-3">Selection History</h2>
         <div className="text-sm">
@@ -65,8 +65,8 @@ export default function CurrencySelectorTest() {
           )}
         </div>
       </div>
-      
-      <Button 
+
+      <Button
         onClick={() => setSelectedCurrencies([])}
         variant="outline"
       >
@@ -74,4 +74,4 @@ export default function CurrencySelectorTest() {
       </Button>
     </div>
   )
-} 
+}
