@@ -53,7 +53,7 @@ export default function AboutPage() {
                 >
                     {/* About Header with Home button */}
                     <motion.div variants={itemVariants} className="flex justify-between items-center">
-                        <h1 className="text-3xl font-nb-international font-medium tracking-tight text-gray-900">
+                        <h1 className="page-title">
                             About
                         </h1>
                         <Link href="/" passHref>

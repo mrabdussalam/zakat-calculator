@@ -1,4 +1,4 @@
-import { Inter } from "next/font/google";
+import { Inter, Syne } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@/components/Analytics";
 import type { Metadata } from "next";
@@ -8,7 +8,6 @@ import { CurrencyProvider } from "@/lib/context/CurrencyContext";
 import { ToastInitializer } from "@/components/ui/toast-initializer";
 import { ClientHydration } from "@/components/ui/ClientHydration";
 import { ClientDebugger } from "@/components/ui/ClientDebugger";
-import localFont from "next/font/local";
 import { HydrationGuard } from '@/components/ui/HydrationGuard'
 import { HydrationStatus } from '@/components/ui/HydrationStatus'
 import { HydrationTester } from '@/components/ui/HydrationTester'
@@ -25,11 +24,20 @@ const inter = Inter({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-inter",
+  weight: ["400", "500", "600", "700"],
+});
+
+const syne = Syne({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-syne",
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 // Log fonts for debugging
 console.log('Font variables:', {
-  inter: inter.variable
+  inter: inter.variable,
+  syne: syne.variable
 });
 
 export const metadata: Metadata = {
@@ -64,7 +72,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} antialiased`}>
+      <body className={`${inter.variable} ${syne.variable} antialiased`}>
         <ClientHydration />
         <HydrationGuard fallback={
           <div className="flex h-screen w-full items-center justify-center">

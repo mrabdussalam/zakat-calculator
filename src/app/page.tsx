@@ -134,7 +134,7 @@ export default function HomePage() {
         >
           {/* Hero Section with About button */}
           <motion.div variants={itemVariants} className="flex justify-between items-center">
-            <h1 className="text-3xl font-nb-international font-medium tracking-tight text-gray-900">
+            <h1 className="page-title">
               Zakat Calculator
             </h1>
             <div className="flex items-center gap-2">
@@ -164,7 +164,6 @@ export default function HomePage() {
           {/* Currency Selection */}
           <motion.div variants={itemVariants} className="space-y-4">
             <div className="space-y-1">
-              <h2 className="text-xl font-medium tracking-tight text-gray-900">Select Your Currency</h2>
               <p className="text-sm text-gray-600">Choose the currency you'll use for calculations</p>
             </div>
 
@@ -284,6 +283,15 @@ export default function HomePage() {
                 className="text-blue-600 text-xs"
               >
                 Asim Zahid
+              </a>
+              ,{" "}
+              <a
+                href="https://github.com/rganeyev"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 text-xs"
+              >
+                Rustam Ganeyev
               </a>
             </p>
           </motion.div>

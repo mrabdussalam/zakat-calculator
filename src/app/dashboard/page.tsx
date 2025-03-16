@@ -307,7 +307,7 @@ export default function DashboardPage() {
               >
                 <div className="p-4 border-b border-gray-100">
                   <div className="flex items-center justify-between">
-                    <h2 className="font-medium text-gray-900">Assets</h2>
+                    <h2 className="section-title">Assets</h2>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -355,7 +355,7 @@ export default function DashboardPage() {
               <div className="h-full flex flex-col">
                 <div className="px-4 py-3 border-b border-gray-100">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-medium text-gray-900">Summary</h2>
+                    <h2 className="section-title">Summary</h2>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -401,7 +401,7 @@ export default function DashboardPage() {
                 className="p-6 flex-none"
               >
                 <h2 className={cn(
-                  "text-2xl font-nb-international text-gray-900 transition-opacity font-medium tracking-tight",
+                  "section-title transition-opacity",
                   isCollapsed ? "opacity-0" : "opacity-100"
                 )}>
                   Assets
@@ -442,7 +442,7 @@ export default function DashboardPage() {
                 className="p-4 sm:p-6 flex-none"
               >
                 <div className="flex items-center gap-3">
-                  <h2 className="text-2xl font-nb-international text-gray-900 font-medium tracking-tight">
+                  <h2 className="section-title">
                     {state.selectedAsset
                       ? CALCULATOR_TITLES[state.selectedAsset as keyof typeof CALCULATOR_TITLES] ||
                       ASSETS.find(a => a.id === state.selectedAsset)?.name
@@ -487,7 +487,7 @@ export default function DashboardPage() {
                 className="p-6 flex-none"
               >
                 <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-nb-international text-gray-900 font-medium tracking-tight">Summary</h2>
+                  <h2 className="section-title">Summary</h2>
                   <div className="flex items-center gap-2">
                     {/* Temporarily commented out until testing is complete
                     <Link href="/zakat-distribution">
