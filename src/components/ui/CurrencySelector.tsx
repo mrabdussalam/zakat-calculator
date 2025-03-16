@@ -144,7 +144,7 @@ export function CurrencySelector({ className, onChange }: CurrencySelectorProps)
   const currencyArray = Object.values(SUPPORTED_CURRENCIES)
 
   // Sort currencies to prioritize specific ones in custom order
-  const priorityOrder = ["USD", "PKR", "GBP", "SAR", "INR"];
+  const priorityOrder = ["USD", "PKR", "GBP", "SAR", "INR", "RUB"];
 
   // Sort the currency array based on priority
   const sortedCurrencyArray = [...currencyArray].sort((a, b) => {
@@ -186,7 +186,7 @@ export function CurrencySelector({ className, onChange }: CurrencySelectorProps)
     const isInitialPageLoad = !localStorage.getItem('has-selected-currency');
 
     // Check if this is a page refresh (rather than user interaction)
-    // This is determined by checking if this currency selection is happening 
+    // This is determined by checking if this currency selection is happening
     // during the initial component mount and matches what was previously stored
     const previouslySavedCurrency = localStorage.getItem('selected-currency');
     const isPageRefresh = !isInitialPageLoad &&
@@ -354,4 +354,4 @@ export function CurrencySelector({ className, onChange }: CurrencySelectorProps)
       </div>
     </div>
   )
-} 
+}
