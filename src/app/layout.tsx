@@ -1,4 +1,4 @@
-import { inter, syne, anglecia, nbInternational } from "@/lib/fonts";
+import { inter, syne, anglecia } from "@/lib/fonts";
 import "./globals.css";
 import { Analytics } from "@/components/Analytics";
 import type { Metadata } from "next";
@@ -24,8 +24,7 @@ const isDevelopment =
 console.log('Font variables:', {
   inter: inter.variable,
   syne: syne.variable,
-  anglecia: anglecia.variable,
-  nbInternational: nbInternational.variable
+  anglecia: anglecia.variable
 });
 
 export const metadata: Metadata = {
@@ -60,7 +59,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} ${syne.variable} ${anglecia.variable} ${nbInternational.variable} antialiased`}>
+      <body className={`${inter.variable} ${syne.variable} ${anglecia.variable} antialiased`}>
         <ClientHydration />
         <HydrationGuard fallback={
           <div className="flex h-screen w-full items-center justify-center">

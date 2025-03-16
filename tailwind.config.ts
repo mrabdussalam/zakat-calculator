@@ -189,7 +189,6 @@ export default {
       },
       fontFamily: {
         sans: ['var(--font-inter)', ...fontFamily.sans],
-        'nb-international': ['var(--font-nb-international)', ...fontFamily.sans],
         'anglecia': ['var(--font-anglecia)', 'serif'],
       },
     },
