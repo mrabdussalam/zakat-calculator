@@ -16,7 +16,8 @@ export const SUPPORTED_CURRENCIES = {
   // Temporarily removed AED until we fix currency conversion issues
   // AED: { code: "AED", locale: "ar-AE", symbol: "د.إ", name: "UAE Dirham" },
   INR: { code: "INR", locale: "en-IN", symbol: "₹", name: "Indian Rupee" },
-  PKR: { code: "PKR", locale: "ur-PK", symbol: "₨", name: "Pakistani Rupee" }
+  PKR: { code: "PKR", locale: "ur-PK", symbol: "₨", name: "Pakistani Rupee" },
+  RUB: {code: "RUB", locale: "ru-RU", symbol: "₽", name: "Russian Ruble"},
 }
 
 export type SupportedCurrency = keyof typeof SUPPORTED_CURRENCIES
@@ -142,4 +143,4 @@ export const isValidCurrencyAmount = (value: number): boolean => {
     isFinite(value) &&
     value >= 0 &&
     value <= Number.MAX_SAFE_INTEGER
-} 
+}

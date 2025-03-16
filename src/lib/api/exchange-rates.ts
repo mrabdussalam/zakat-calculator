@@ -1,3 +1,5 @@
+import { useCurrencyStore } from '@/lib/services/currency'
+
 // Cache for exchange rates
 const rateCache = new Map<string, { rate: number; timestamp: number }>();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -62,8 +64,18 @@ export async function getExchangeRate(from: string, to: string): Promise<number 
             }
         }
 
-        console.log(`Frankfurter API failed for ${from} to ${to}, using fallbacks`);
+        console.log(`Frankfurter API failed for ${from} to ${to}, using currency store`)
+        //fallback using currency store
+        const currencyStore = useCurrencyStore.getState()
+        await currencyStore.fetchRates()
+        const value = currencyStore.convertAmount(1, from, to)
+        if (value !== null && value !== undefined) {
+            console.log(`Currency store exchange rate for ${from} to ${to}: ${value}`)
+            setCachedRate(from, to, value)
+            return value
+        }
 
+        console.log(`Currency store failed for ${from} to ${to}, using fallback rate`)
         // Fallback to hardcoded rates if API fails
         // Special case for USD to SAR (Saudi Riyal)
         if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'SAR') {
@@ -81,9 +93,17 @@ export async function getExchangeRate(from: string, to: string): Promise<number 
             return rate;
         }
 
+        // Special case for USD to RUB (Russian Ruble) - approximate rate
+        if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'RUB') {
+            const rate = 91.5; // Approximate rate for RUB
+            console.log(`Using fallback rate for USD to RUB: ${rate}`);
+            setCachedRate(from, to, rate);
+            return rate;
+        }
+
         return null;
     } catch (error) {
         console.error(`Error fetching exchange rate from ${from} to ${to}:`, error);
         return null;
     }
-} 
+}
