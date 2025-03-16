@@ -17,7 +17,7 @@ export function SectionTitle({
   return (
     <Component
       className={cn("section-title", className)}
-      style={{ fontFamily: "var(--font-nb-international), sans-serif", fontWeight: 500 }}
+      style={{ fontFamily: "var(--font-anglecia), serif", fontWeight: 400, fontStyle: 'italic' }}
     >
       {children}
     </Component>
@@ -32,7 +32,7 @@ export function PageTitle({
   return (
     <Component
       className={cn("page-title", className)}
-      style={{ fontFamily: "var(--font-nb-international), sans-serif", fontWeight: 500 }}
+      style={{ fontFamily: "var(--font-anglecia), serif", fontWeight: 400, fontStyle: 'italic' }}
     >
       {children}
     </Component>

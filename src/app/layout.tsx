@@ -1,4 +1,4 @@
-import { Inter, Syne } from "next/font/google";
+import { inter, syne, anglecia, nbInternational } from "@/lib/fonts";
 import "./globals.css";
 import { Analytics } from "@/components/Analytics";
 import type { Metadata } from "next";
@@ -20,24 +20,12 @@ const isDevelopment =
   process.env.NEXT_PUBLIC_VERCEL_ENV === "development" ||
   process.env.NEXT_PUBLIC_VERCEL_ENV === "preview";
 
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-inter",
-  weight: ["400", "500", "600", "700"],
-});
-
-const syne = Syne({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-syne",
-  weight: ["400", "500", "600", "700", "800"],
-});
-
 // Log fonts for debugging
 console.log('Font variables:', {
   inter: inter.variable,
-  syne: syne.variable
+  syne: syne.variable,
+  anglecia: anglecia.variable,
+  nbInternational: nbInternational.variable
 });
 
 export const metadata: Metadata = {
@@ -72,7 +60,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} ${syne.variable} antialiased`}>
+      <body className={`${inter.variable} ${syne.variable} ${anglecia.variable} ${nbInternational.variable} antialiased`}>
         <ClientHydration />
         <HydrationGuard fallback={
           <div className="flex h-screen w-full items-center justify-center">

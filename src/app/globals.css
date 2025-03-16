@@ -8,6 +8,8 @@
 :root {
   --font-inter: 'Inter', sans-serif;
   --font-syne: 'Syne', sans-serif;
+  --font-anglecia: 'Anglecia Pro Display', serif;
+  --font-nb-international: 'NB International Pro', sans-serif;
 }
 
 body {
@@ -132,18 +134,20 @@ body {
     @apply text-sm text-orange-500;
   }
 
-  /* Section titles with Syne font */
+  /* Section titles with Anglecia font */
   .section-title {
     @apply text-2xl font-medium text-gray-900 tracking-tight;
-    font-family: var(--font-syne), sans-serif !important;
-    font-weight: 600 !important;
+    font-family: var(--font-anglecia), serif !important;
+    font-weight: 400 !important;
+    font-style: italic !important;
     letter-spacing: -0.01em;
   }
 
   .page-title {
     @apply text-2xl font-medium text-gray-900 tracking-tight;
-    font-family: var(--font-syne), sans-serif !important;
-    font-weight: 600 !important;
+    font-family: var(--font-anglecia), serif !important;
+    font-weight: 400 !important;
+    font-style: italic !important;
     letter-spacing: -0.01em;
   }
 }
