@@ -8,7 +8,8 @@ export const ASSET_COLORS = {
   'crypto': '#06B6D4',
   'business-assets': '#10B981',
   'other-financial': '#6366F1',
-  'debt-receivable': '#8B5CF6'
+  'debt-receivable': '#8B5CF6',
+  'debt': '#6366F1'
 } as const
 
 // Asset colors with variants for UI components
@@ -54,6 +55,13 @@ export const ASSET_COLOR_VARIANTS = {
     selectedBg: 'bg-cyan-100',
     selectedIcon: 'text-cyan-600',
     base: 'bg-cyan-600',
+  },
+  'debt': {
+    bg: 'bg-indigo-50',
+    icon: 'text-indigo-600',
+    selectedBg: 'bg-indigo-100',
+    selectedIcon: 'text-indigo-600',
+    base: 'bg-indigo-600',
   }
 } as const
 

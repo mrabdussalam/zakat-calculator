@@ -7,6 +7,7 @@ import { StocksIcon } from "@/components/ui/icons/stocks"
 import { RetirementIcon } from "@/components/ui/icons/retirement"
 import { RealEstateIcon } from "@/components/ui/icons/realestate"
 import { CryptoIcon } from "@/components/ui/icons/crypto"
+import { DebtIcon } from "@/components/ui/icons/debt"
 import { motion } from "framer-motion"
 import { ASSET_COLOR_VARIANTS } from '@/config/colors'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -48,6 +49,12 @@ export const ASSETS = [
     name: 'Cryptocurrency',
     description: 'Digital assets',
     icon: CryptoIcon,
+  },
+  {
+    id: 'debt',
+    name: 'Debt & Liabilities',
+    description: 'Receivables & liabilities',
+    icon: DebtIcon,
   },
 ] as const
 

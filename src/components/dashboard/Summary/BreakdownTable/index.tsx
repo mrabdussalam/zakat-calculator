@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { formatCurrency } from "@/lib/utils"
 import { AssetBreakdownWithHawl } from "../types"
 import { TableHeader } from "./TableHeader"
@@ -30,7 +30,8 @@ export function BreakdownTable({
     stocks: false,
     realEstate: false,
     retirement: false,
-    crypto: false
+    crypto: false,
+    debt: false
   })
 
   // Toggle section expansion
@@ -48,6 +49,13 @@ export function BreakdownTable({
     zakatDue: 0,
     items: {}
   }
+
+  // Calculate the sum of absolute values for percentage calculations
+  const sumOfAbsoluteValues = useMemo(() => {
+    return Object.values(assetBreakdowns).reduce((sum, asset) => {
+      return sum + Math.abs(asset.total || 0);
+    }, 0);
+  }, [assetBreakdowns]);
 
   return (
     <div className="flex-1 mt-8">
@@ -70,6 +78,7 @@ export function BreakdownTable({
                   totalAssets={totalAssets}
                   isExpanded={expandedSections.cash}
                   onToggle={() => toggleSection('cash')}
+                  sumOfAbsoluteValues={sumOfAbsoluteValues}
                 />
 
                 {/* Precious Metals */}
@@ -83,6 +92,7 @@ export function BreakdownTable({
                   totalAssets={totalAssets}
                   isExpanded={expandedSections.metals}
                   onToggle={() => toggleSection('metals')}
+                  sumOfAbsoluteValues={sumOfAbsoluteValues}
                 />
 
                 {/* Stocks & Investments */}
@@ -96,6 +106,7 @@ export function BreakdownTable({
                   totalAssets={totalAssets}
                   isExpanded={expandedSections.stocks}
                   onToggle={() => toggleSection('stocks')}
+                  sumOfAbsoluteValues={sumOfAbsoluteValues}
                 />
 
                 {/* Retirement */}
@@ -109,6 +120,7 @@ export function BreakdownTable({
                   totalAssets={totalAssets}
                   isExpanded={expandedSections.retirement}
                   onToggle={() => toggleSection('retirement')}
+                  sumOfAbsoluteValues={sumOfAbsoluteValues}
                 />
 
                 {/* Real Estate */}
@@ -122,6 +134,7 @@ export function BreakdownTable({
                   totalAssets={totalAssets}
                   isExpanded={expandedSections.realEstate}
                   onToggle={() => toggleSection('realEstate')}
+                  sumOfAbsoluteValues={sumOfAbsoluteValues}
                 />
 
                 {/* Cryptocurrency */}
@@ -135,6 +148,21 @@ export function BreakdownTable({
                   totalAssets={totalAssets}
                   isExpanded={expandedSections.crypto}
                   onToggle={() => toggleSection('crypto')}
+                  sumOfAbsoluteValues={sumOfAbsoluteValues}
+                />
+
+                {/* Debt & Liabilities */}
+                <AssetRow
+                  title="Debt & Liabilities"
+                  total={assetBreakdowns.debt?.total || 0}
+                  breakdown={assetBreakdowns.debt?.breakdown || emptyBreakdown}
+                  hawlMet={assetBreakdowns.debt?.hawlMet || false}
+                  currency={currency}
+                  assetType="debt"
+                  totalAssets={totalAssets}
+                  isExpanded={expandedSections.debt}
+                  onToggle={() => toggleSection('debt')}
+                  sumOfAbsoluteValues={sumOfAbsoluteValues}
                 />
               </div>
             </ScrollArea>
@@ -143,7 +171,7 @@ export function BreakdownTable({
 
         <TotalRow
           totalAssets={totalAssets}
-          zakatableValue={breakdown.zakatable}
+          zakatable={breakdown.zakatable}
           zakatDue={breakdown.zakatDue}
           currency={currency}
         />
