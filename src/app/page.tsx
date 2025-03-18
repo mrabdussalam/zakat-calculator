@@ -48,11 +48,39 @@ export default function HomePage() {
 
   // Listen for currency selection changes
   useEffect(() => {
-    const savedCurrency = localStorage.getItem('selected-currency') || 'USD'
-    setSelectedCurrency(savedCurrency)
+    // First check localStorage for selected currency
+    const selectedCurrency = localStorage.getItem('selected-currency');
+
+    // Then get currency from Zustand store
+    const zakatStore = useZakatStore.getState();
+    const storeCurrency = zakatStore?.currency;
+
+    console.log('Homepage initialization:', {
+      selectedCurrency,
+      storeCurrency,
+      currentState: selectedCurrency
+    });
+
+    // Priority: 1. localStorage selected-currency, 2. Zustand store currency, 3. Default 'USD'
+    if (selectedCurrency) {
+      setSelectedCurrency(selectedCurrency.toUpperCase());
+      console.log('Homepage: Initialized with currency from localStorage:', selectedCurrency);
+
+      // Ensure the store is also updated
+      if (zakatStore && typeof zakatStore.setCurrency === 'function' && storeCurrency !== selectedCurrency) {
+        console.log('Homepage: Synchronizing store with localStorage currency:', selectedCurrency);
+        zakatStore.setCurrency(selectedCurrency);
+      }
+    } else if (storeCurrency) {
+      setSelectedCurrency(storeCurrency.toUpperCase());
+      console.log('Homepage: Initialized with currency from store:', storeCurrency);
+    }
 
     const handleCurrencyChange = (event: CustomEvent) => {
-      setSelectedCurrency(event.detail.to)
+      if (event.detail && event.detail.to) {
+        setSelectedCurrency(event.detail.to.toUpperCase());
+        console.log('Homepage: Updated currency from event:', event.detail.to);
+      }
     }
 
     window.addEventListener('currency-changed', handleCurrencyChange as EventListener)
@@ -101,25 +129,30 @@ export default function HomePage() {
     e.preventDefault()
     setIsLoading(true)
 
+    // Ensure the currency is uppercase
+    const validCurrency = selectedCurrency.toUpperCase();
+
+    // Save to localStorage first
+    try {
+      localStorage.setItem('selected-currency', validCurrency);
+      localStorage.setItem('zakat-currency', validCurrency);
+      console.log('Homepage: Saved currency to localStorage before navigation:', validCurrency);
+    } catch (error) {
+      console.error('Homepage: Failed to save currency to localStorage:', error);
+    }
+
     // Get the zakatStore instance
     const zakatStore = useZakatStore.getState()
 
-    // Perform a hard reset with the new currency
-    if (zakatStore && typeof zakatStore.resetWithCurrencyChange === 'function') {
-      console.log('Performing hard reset with currency change to:', selectedCurrency)
-      zakatStore.resetWithCurrencyChange(selectedCurrency)
-    } else {
-      console.warn('resetWithCurrencyChange function not available, using fallback')
-      // Fallback: Store the currency selection in localStorage for the dashboard to use
-      localStorage.setItem('zakatState', JSON.stringify({
-        currency: selectedCurrency,
-        setupCompleted: true
-      }))
+    // Ensure the currency is set in the store
+    if (zakatStore && typeof zakatStore.setCurrency === 'function') {
+      console.log('Homepage: Ensuring currency is set in store before navigation:', validCurrency);
+      zakatStore.setCurrency(validCurrency);
     }
 
-    // Small delay to show loading state
+    // Small delay to show loading state and ensure storage is updated
     setTimeout(() => {
-      window.location.href = '/dashboard?t=' + Date.now()
+      window.location.href = '/dashboard?t=' + Date.now() + '&currency=' + validCurrency;
     }, 800)
   }
 

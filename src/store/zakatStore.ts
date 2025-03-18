@@ -11,10 +11,64 @@ import { createCryptoSlice } from './modules/crypto'
 import { createDistributionSlice } from './modules/distribution'
 import { createDebtSlice } from './modules/debt'
 import { DEFAULT_HAWL_STATUS } from './constants'
+import { SUPPORTED_CURRENCIES } from '@/lib/utils/currency'
+
+// Add this constant for currency management
+const CURRENCY_STORAGE_KEY = 'zakat-currency';
+
+// Add this helper function for currency validation
+const validateCurrencyCode = (currencyCode: string): string => {
+  // First check if it's a valid 3-letter code
+  const isValidFormat = typeof currencyCode === 'string' &&
+    /^[A-Z]{3}$/.test(currencyCode.toUpperCase());
+
+  // Then check if it's in our supported currencies
+  const isSupported = isValidFormat &&
+    Object.keys(SUPPORTED_CURRENCIES).includes(currencyCode.toUpperCase());
+
+  // Return the validated code or USD as fallback
+  return isSupported ? currencyCode.toUpperCase() : 'USD';
+};
+
+// Add this helper function to get the initial currency
+const getInitialCurrency = (): string => {
+  try {
+    // First check the 'selected-currency' key which is used by the UI components
+    const selectedCurrency = localStorage.getItem('selected-currency');
+    if (selectedCurrency) {
+      const validatedCurrency = validateCurrencyCode(selectedCurrency);
+      console.log(`Using selected currency from UI: ${selectedCurrency} → ${validatedCurrency}`);
+
+      // Ensure it's also saved to our canonical storage key for consistency
+      try {
+        localStorage.setItem(CURRENCY_STORAGE_KEY, validatedCurrency);
+      } catch (error) {
+        console.error('Failed to synchronize currency in localStorage:', error);
+      }
+
+      return validatedCurrency;
+    }
+
+    // Then try our canonical storage key
+    const savedCurrency = localStorage.getItem(CURRENCY_STORAGE_KEY);
+    if (savedCurrency) {
+      const validatedCurrency = validateCurrencyCode(savedCurrency);
+      console.log(`Using saved currency from store: ${savedCurrency} → ${validatedCurrency}`);
+      return validatedCurrency;
+    }
+
+    // Fallback to USD
+    console.log('No saved currency found, using default: USD');
+    return 'USD';
+  } catch (error) {
+    console.error('Error getting initial currency:', error);
+    return 'USD';
+  }
+};
 
 // Initial state
 const initialState: Partial<ZakatState> = {
-  currency: 'USD', // Default currency
+  currency: getInitialCurrency(), // Use the helper function
   metalsValues: {
     gold_regular: 0,
     gold_regular_purity: '24K',
@@ -298,35 +352,43 @@ export const useZakatStore = create<ZakatState>()(
 
         // Set currency and update related data
         setCurrency: (newCurrency) => {
-          console.log('Setting currency to:', newCurrency);
+          const validatedCurrency = validateCurrencyCode(newCurrency);
+          console.log(`Setting currency: ${newCurrency} → ${validatedCurrency} (validated)`);
 
           const currentState = get();
           const currentCurrency = currentState.currency;
 
           // Skip if the currency is the same
-          if (newCurrency === currentCurrency) {
-            console.log('Currency already set to', newCurrency);
+          if (validatedCurrency === currentCurrency) {
+            console.log('Currency already set to', validatedCurrency);
             return;
           }
 
           // Update the currency in the store
-          set({ currency: newCurrency });
+          set({ currency: validatedCurrency });
+
+          // Ensure the currency is set in localStorage (single source of truth)
+          try {
+            localStorage.setItem(CURRENCY_STORAGE_KEY, validatedCurrency);
+            console.log(`Currency saved to localStorage: ${validatedCurrency}`);
+          } catch (error) {
+            console.error('Failed to store currency in localStorage:', error);
+          }
 
           // Update metal prices for the new currency
           try {
             // Check if we need to update metal prices (if they exist)
             if (currentState.metalPrices) {
-              console.log('Updating metal prices for new currency:', newCurrency);
-              get().updateMetalPricesForNewCurrency(newCurrency);
+              console.log('Updating metal prices for new currency:', validatedCurrency);
+              get().updateMetalPricesForNewCurrency(validatedCurrency);
             }
 
-            // ENHANCEMENT: Force immediate nisab update instead of waiting
-            console.log('Forcing immediate nisab update for new currency:', newCurrency);
+            // Force immediate nisab update
+            console.log('Forcing immediate nisab update for new currency:', validatedCurrency);
 
-            // First, attempt to invalidate any cached nisab data to force recalculation
+            // Invalidate cached nisab data to force recalculation
             set(state => ({
               ...state,
-              // Setting to undefined forces a fresh calculation
               nisabData: undefined
             }));
 
@@ -334,58 +396,33 @@ export const useZakatStore = create<ZakatState>()(
             if (typeof currentState.forceRefreshNisabForCurrency === 'function') {
               // Use setTimeout to ensure this happens after the state update
               setTimeout(() => {
-                console.log('Triggering nisab refresh for new currency:', newCurrency);
-                get().forceRefreshNisabForCurrency(newCurrency)
+                console.log('Triggering nisab refresh for new currency:', validatedCurrency);
+                get().forceRefreshNisabForCurrency(validatedCurrency)
                   .then(() => {
-                    console.log('Nisab data refreshed successfully for:', newCurrency);
+                    console.log('Nisab data refreshed successfully for:', validatedCurrency);
 
                     // Force a recalculation of all calculator totals to update UI
-                    // This ensures all components re-render with new currency values
                     if (typeof get().getNisabStatus === 'function') {
                       get().getNisabStatus();
                     }
 
-                    // ENHANCEMENT: Force UI refresh for all calculators
-                    // Create a synthetic state update to trigger component re-renders
-                    // without adding new properties
-                    const currentState = get();
-                    // Temporarily modify and restore a property to force state update
-                    // without adding new properties
-                    const originalCurrency = currentState.currency;
-
-                    // First update with temporary value
-                    set({ currency: `${originalCurrency}_refresh` });
-
-                    // Then immediately restore to trigger subscribers
-                    setTimeout(() => {
-                      set({ currency: originalCurrency });
-                    }, 0);
+                    // Dispatch a currency-changed event for other parts of the app
+                    const event = new CustomEvent('currency-changed', {
+                      detail: {
+                        from: currentCurrency,
+                        to: validatedCurrency,
+                        timestamp: Date.now()
+                      }
+                    });
+                    window.dispatchEvent(event);
                   })
-                  .catch(err => console.error('Error during immediate nisab refresh:', err instanceof Error ? err.message : String(err)));
+                  .catch(error => {
+                    console.error('Failed to refresh nisab data:', error);
+                  });
               }, 0);
             }
-
-            // Dispatch currency change event
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('currency-changed', {
-                detail: {
-                  oldCurrency: currentCurrency,
-                  newCurrency: newCurrency,
-                  timestamp: Date.now(),
-                  immediate: true  // Flag indicating this should trigger immediate UI updates
-                }
-              }));
-
-              // ENHANCEMENT: Dispatch a specific event for calculators to force refresh
-              window.dispatchEvent(new CustomEvent('calculator-values-refresh', {
-                detail: {
-                  currency: newCurrency,
-                  timestamp: Date.now()
-                }
-              }));
-            }
           } catch (error) {
-            console.error('Error handling currency change:', error instanceof Error ? error.message : String(error));
+            console.error('Error updating currency-related data:', error);
           }
         },
 
@@ -576,74 +613,48 @@ export const useZakatStore = create<ZakatState>()(
 
         // Reset with currency change - completely resets state but preserves the currency
         resetWithCurrencyChange: (newCurrency) => {
-          console.log('Resetting application state with new currency:', newCurrency);
+          console.log('Performing full reset with currency change');
 
           try {
-            // First, preserve the currency but reset everything else
+            const validatedCurrency = validateCurrencyCode(newCurrency);
+            console.log(`Currency for reset: ${newCurrency} → ${validatedCurrency} (validated)`);
+
             const prevState = get();
 
-            // Create a specific handler for metal prices
-            const updateMetalPricesForCurrency = async () => {
-              try {
-                // Use our existing implementation
-                get().updateMetalPricesForNewCurrency(newCurrency);
-                return true;
-              } catch (error) {
-                console.error('Error updating metal prices for currency change:', error instanceof Error ? error.message : String(error));
-                return false;
-              }
-            };
+            // First, save the current currency to compare later
+            const prevCurrency = prevState.currency;
 
-            // Now we need to handle resetting the state
-            // We want to reset everything and just set the new currency
+            // Perform the reset
+            get().reset();
 
-            // Now reset
-            set((state) => ({
-              ...initialState,
-              currency: newCurrency,
-              // Always clear nisab data on currency change
-              nisabData: undefined
-            }));
+            // Then set the new currency
+            set({ currency: validatedCurrency });
 
-            // Make sure the Hawl status is reset too
-            set({
-              cashHawlMet: DEFAULT_HAWL_STATUS.cash,
-              metalsHawlMet: DEFAULT_HAWL_STATUS.metals,
-              stockHawlMet: DEFAULT_HAWL_STATUS.stocks,
-              retirementHawlMet: DEFAULT_HAWL_STATUS.retirement,
-              realEstateHawlMet: DEFAULT_HAWL_STATUS.real_estate,
-              cryptoHawlMet: DEFAULT_HAWL_STATUS.crypto,
-              debtHawlMet: DEFAULT_HAWL_STATUS.debt
-            });
-
-            // Also reset the slices
-            cashSlice.resetCashValues?.();
-            metalsSlice.resetMetalsValues?.();
-            stocksSlice.resetStockValues?.();
-            retirementSlice.resetRetirement?.();
-            realEstateSlice.resetRealEstateValues?.();
-            cryptoSlice.resetCryptoValues?.();
-            debtSlice.resetDebtValues?.();
-
-            // Set the new currency in localStorage
+            // Update localStorage with the new currency (single source of truth)
             try {
-              localStorage.setItem('zakat-currency', newCurrency);
+              localStorage.setItem(CURRENCY_STORAGE_KEY, validatedCurrency);
+              console.log(`Currency saved to localStorage after reset: ${validatedCurrency}`);
             } catch (error) {
-              console.error('Failed to store currency in localStorage:', error instanceof Error ? error.message : String(error));
+              console.error('Failed to store currency in localStorage after reset:', error);
             }
 
             // Update metal prices immediately and in the background
-            updateMetalPricesForCurrency();
+            get().updateMetalPricesForNewCurrency(validatedCurrency);
 
             // Dispatch a currency-changed event for other parts of the app
             const event = new CustomEvent('currency-changed', {
-              detail: { from: prevState.metalPrices.currency, to: newCurrency }
+              detail: {
+                from: prevCurrency,
+                to: validatedCurrency,
+                isReset: true,
+                timestamp: Date.now()
+              }
             });
             window.dispatchEvent(event);
 
             return true;
           } catch (error) {
-            console.error('Failed to reset with currency change:', error instanceof Error ? error.message : String(error));
+            console.error('Failed to reset with currency change:', error);
             return false;
           }
         },

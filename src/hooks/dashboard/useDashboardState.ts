@@ -96,11 +96,23 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
     console.log('🟢 Initializing dashboard state on client')
 
     try {
+      // Get currency from Zustand store (single source of truth)
+      let storeCurrency = DEFAULT_STATE.currency;
+      try {
+        const zakatStore = useZakatStore.getState();
+        if (zakatStore && zakatStore.currency) {
+          storeCurrency = zakatStore.currency;
+          console.log('🟢 Using currency from Zustand store:', storeCurrency);
+        }
+      } catch (error) {
+        console.error('Failed to get currency from Zustand store:', error);
+      }
+
       // Check what's in localStorage currently
       const allKeys = Object.keys(localStorage)
       console.log('🟢 Current localStorage keys:', allKeys)
 
-      // First, try to load the complete state from localStorage
+      // Then, try to load the complete state from localStorage
       const saved = localStorage.getItem('zakatState')
       console.log('🟢 Found saved state in localStorage:', !!saved)
 
@@ -133,12 +145,9 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
               setupCompleted: true
             });
 
-            // Check if we have a user currency preference (highest priority)
-            const userCurrencyPreference = localStorage.getItem('selected-currency')
-            if (userCurrencyPreference) {
-              restoredState.currency = userCurrencyPreference
-              console.log('🟢 Applied user currency preference to restored state:', userCurrencyPreference)
-            }
+            // Always use the currency from the Zustand store (single source of truth)
+            restoredState.currency = storeCurrency;
+            console.log('🟢 Applied store currency to restored state:', storeCurrency);
 
             // Set prevCurrency to match the current state to prevent unwanted conversions
             prevCurrency.current = restoredState.currency
