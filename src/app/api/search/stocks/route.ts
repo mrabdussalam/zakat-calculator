@@ -7,16 +7,26 @@ const RATE_LIMIT = new Map<string, number>()
 const RATE_LIMIT_WINDOW = 60000 // 1 minute
 const MAX_REQUESTS = 10 // Maximum requests per minute
 
+interface Quote {
+  quoteType: string;
+  symbol: string;
+  shortname?: string;
+  longname?: string;
+  exchange?: string;
+  fullExchangeName?: string;
+  score?: number;
+}
+
 function isRateLimited(ip: string): boolean {
   const now = Date.now()
   const lastRequest = RATE_LIMIT.get(ip) || 0
-  
+
   // Clear old entries
   if (now - lastRequest > RATE_LIMIT_WINDOW) {
     RATE_LIMIT.delete(ip)
     return false
   }
-  
+
   const requestCount = RATE_LIMIT.get(ip) || 0
   return requestCount > MAX_REQUESTS
 }
@@ -52,7 +62,7 @@ export async function GET(request: Request) {
 
     const apiUrl = `${BASE_URL}?q=${encodeURIComponent(query)}&quotesCount=10&newsCount=0&enableFuzzyQuery=false&quotesQueryId=tss_match_phrase_query`
     console.log('Searching stocks:', query)
-    
+
     const response = await fetch(apiUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko)',
@@ -79,20 +89,20 @@ export async function GET(request: Request) {
 
     // Extract and format the results
     const results = (data.quotes || [])
-      .filter((quote: any) => {
+      .filter((quote: Quote) => {
         // Only include equity and ETF quotes with valid symbols
-        return (quote.quoteType === 'EQUITY' || quote.quoteType === 'ETF') && 
-               quote.symbol && 
-               !quote.symbol.includes('^') // Exclude indices
+        return (quote.quoteType === 'EQUITY' || quote.quoteType === 'ETF') &&
+          quote.symbol &&
+          !quote.symbol.includes('^') // Exclude indices
       })
-      .map((quote: any) => ({
+      .map((quote: Quote) => ({
         symbol: quote.symbol,
         name: quote.shortname || quote.longname || quote.symbol,
         exchange: quote.exchange || quote.fullExchangeName || '',
         type: quote.quoteType,
         score: quote.score
       }))
-      .sort((a: any, b: any) => (b.score || 0) - (a.score || 0)) // Sort by relevance score
+      .sort((a: { score?: number }, b: { score?: number }) => (b.score || 0) - (a.score || 0)) // Sort by relevance score
 
     // Return the response with CORS and cache headers
     return new NextResponse(JSON.stringify(results), {
@@ -109,7 +119,7 @@ export async function GET(request: Request) {
     console.error('Stock Search API Error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error searching stocks' },
-      { 
+      {
         status: 500,
         headers: {
           'Access-Control-Allow-Origin': '*',

@@ -542,7 +542,7 @@ export function CashCalculator({
     // Check if hydration already happened
     if (typeof window !== 'undefined') {
       // Safe way to check for custom property without TypeScript errors
-      const win = window as any;
+      const win = window as (typeof window & { hasDispatchedHydrationEvent?: boolean });
       if (win.hasDispatchedHydrationEvent) {
         handleHydrationComplete();
       }
@@ -551,7 +551,7 @@ export function CashCalculator({
     return () => {
       window.removeEventListener('store-hydration-complete', handleHydrationComplete)
     }
-  }, [cashValues, setCashHawlMet, onHawlUpdate, onUpdateValues])
+  }, [cashValues, onHawlUpdate, onUpdateValues])
 
   // Optimize currency change event listeners
   useEffect(() => {

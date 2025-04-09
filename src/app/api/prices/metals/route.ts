@@ -435,6 +435,11 @@ async function fetchFromGoldprice(currency: string): Promise<{ gold: number | nu
   }
 }
 
+interface MetalPrice {
+  metal: string;
+  price: number;
+}
+
 // Try to fetch from Metals API
 async function fetchFromMetalsAPI(currency: string): Promise<{ gold: number | null, silver: number | null }> {
   try {
@@ -449,8 +454,8 @@ async function fetchFromMetalsAPI(currency: string): Promise<{ gold: number | nu
     }
 
     const data = await response.json();
-    const goldData = data.find((m: any) => m.metal === 'gold');
-    const silverData = data.find((m: any) => m.metal === 'silver');
+    const goldData = data.find((m: MetalPrice) => m.metal === 'gold');
+    const silverData = data.find((m: MetalPrice) => m.metal === 'silver');
 
     if (!goldData || !silverData) {
       console.warn(`Invalid data structure in Metals API response`);
@@ -895,4 +900,4 @@ export async function GET(request: Request): Promise<Response> {
       error: 'Failed to fetch prices and no cache available'
     });
   }
-} 
+}

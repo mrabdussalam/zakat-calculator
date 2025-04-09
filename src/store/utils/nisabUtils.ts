@@ -68,7 +68,19 @@ export function calculateNisabThreshold(goldPrice: number, silverPrice: number):
 }
 
 // Create a local cache of successful nisab fetches to use when API fails
-const nisabLocalCache: { data: any, lastUpdated: number } = { data: null, lastUpdated: 0 };
+interface NisabData {
+  nisabThreshold: number;
+  silverPrice: number;
+  timestamp: string;
+  source: string;
+  currency: string;
+  metalPrices?: {
+    gold: number;
+    silver: number;
+  };
+}
+
+const nisabLocalCache: { data: NisabData | null, lastUpdated: number } = { data: null, lastUpdated: 0 };
 
 // Common exchange rates to be used as a last-resort fallback
 // These values should be updated periodically to stay reasonably accurate
@@ -159,8 +171,7 @@ export async function fetchNisabData(currency: string, forceRefresh = false) {
     return getOfflineFallbackNisabData({ currency });
   }
 
-  // Helper function for retries
-  const fetchWithRetry = async (retryCount = 0): Promise<any> => {
+  const fetchWithRetry = async (retryCount = 0): Promise<NisabData> => {
     try {
       // REPLIT environment special handling for offline
       if (IS_REPLIT && retryCount > 0) {
@@ -254,7 +265,7 @@ export async function fetchNisabData(currency: string, forceRefresh = false) {
           timestamp: data.timestamp || new Date().toISOString(),
           source: 'api-cache',
           currency: data.currency,
-          metalPrices
+          metalPrices: metalPrices || undefined
         };
         nisabLocalCache.lastUpdated = Date.now();
       }
@@ -265,7 +276,7 @@ export async function fetchNisabData(currency: string, forceRefresh = false) {
         timestamp: data.timestamp || new Date().toISOString(),
         source: data.source || 'api',
         currency: data.currency,
-        metalPrices
+        metalPrices: metalPrices || undefined
       };
 
     } catch (error: any) {

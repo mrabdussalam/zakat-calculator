@@ -140,14 +140,19 @@ export const hydratePersistedData = (persistedState: any, initialState: any): an
           }
         } else if (Array.isArray(baseState[key]) && Array.isArray(persistedState[key])) {
           // For arrays, use the persisted array but validate items
-          mergedState[key] = persistedState[key].map((item: any) => {
-            // If array contains objects, ensure they have required properties
-            if (typeof item === 'object' && item !== null) {
-              const templateItem = baseState[key][0] || {};
-              return { ...templateItem, ...item };
-            }
-            return item;
-          });
+          if (Array.isArray(baseState[key])) {
+            mergedState[key] = persistedState[key].map((item: any) => {
+              // If array contains objects, ensure they have required properties
+              if (typeof item === 'object' && item !== null) {
+                const templateItem = baseState[key][0] || {};
+                return { ...templateItem, ...item };
+              }
+              return item;
+            });
+          } else {
+            console.warn(`Expected an array for key ${key}, but got ${typeof baseState[key]}`);
+            mergedState[key] = persistedState[key];
+          }
         } else {
           // For primitive values, use persisted value with type checking
           const expectedType = typeof baseState[key];
@@ -641,7 +646,7 @@ export const useZakatStore = create<ZakatState>()(
         resetAllCalculators: () => {
           // Check if this is during initial page load
           const isInitialPageLoad = typeof window !== 'undefined' &&
-            // @ts-ignore - custom property added to window
+            // @ts-expect-error - custom property added to window
             window.isInitialPageLoad === true;
 
           // Check if this is a page refresh rather than an explicit user action
