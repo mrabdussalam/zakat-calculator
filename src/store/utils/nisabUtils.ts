@@ -1,6 +1,7 @@
 import { NISAB } from '../constants'
 // Import the currency conversion utility
 import { convertCurrency } from '../../app/api/utils/currency'
+import { NisabData } from '../types';
 
 // Add environment detection for Replit
 const IS_REPLIT = typeof window !== 'undefined' &&
@@ -68,18 +69,6 @@ export function calculateNisabThreshold(goldPrice: number, silverPrice: number):
 }
 
 // Create a local cache of successful nisab fetches to use when API fails
-interface NisabData {
-  nisabThreshold: number;
-  silverPrice: number;
-  timestamp: string;
-  source: string;
-  currency: string;
-  metalPrices?: {
-    gold: number;
-    silver: number;
-  };
-}
-
 const nisabLocalCache: { data: NisabData | null, lastUpdated: number } = { data: null, lastUpdated: 0 };
 
 // Common exchange rates to be used as a last-resort fallback
@@ -333,7 +322,7 @@ export async function fetchNisabData(currency: string, forceRefresh = false) {
 }
 
 // Get fallback nisab data when API is unavailable
-export async function getOfflineFallbackNisabData(state: any, customCurrency?: string) {
+export async function getOfflineFallbackNisabData(state: any, customCurrency?: string): Promise<NisabData> {
   const currency = customCurrency || state.currency || state.metalPrices?.currency || 'USD';
   const fallbackCurrency = OFFLINE_FALLBACK_PRICES.currency; // 'USD'
 

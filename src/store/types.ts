@@ -23,6 +23,18 @@ export interface HawlStatus {
   crypto: boolean
 }
 
+export interface NisabData {
+  nisabThreshold: number;
+  silverPrice: number;
+  timestamp: string;
+  source: string;
+  currency: string;
+  metalPrices?: {
+    gold: number;
+    silver: number;
+  };
+}
+
 // Metal Types
 export interface MetalPrices {
   gold: number
