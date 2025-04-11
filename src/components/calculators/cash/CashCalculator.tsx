@@ -34,6 +34,7 @@ import {
   EventHandlerProps,
   FormatHelpers
 } from './types'
+import { ExtendedWindow } from '@/types'
 
 const CASH_KEYS: CashKey[] = [
   'cash_on_hand',
@@ -520,13 +521,9 @@ export function CashCalculator({
               checking_account: cashValues.checking_account || 0,
               savings_account: cashValues.savings_account || 0,
               digital_wallets: cashValues.digital_wallets || 0,
-              foreign_currency: cashValues.foreign_currency || 0
+              foreign_currency: cashValues.foreign_currency || 0,
+              foreign_currency_entries: cashValues.foreign_currency_entries || []
             };
-
-            // Add foreign currency entries separately to avoid type issues
-            if (cashValues.foreign_currency_entries) {
-              (typeSafeUpdate as any).foreign_currency_entries = cashValues.foreign_currency_entries;
-            }
 
             onUpdateValues(typeSafeUpdate);
           }
@@ -542,7 +539,7 @@ export function CashCalculator({
     // Check if hydration already happened
     if (typeof window !== 'undefined') {
       // Safe way to check for custom property without TypeScript errors
-      const win = window as (typeof window & { hasDispatchedHydrationEvent?: boolean });
+      const win = window as ExtendedWindow;
       if (win.hasDispatchedHydrationEvent) {
         handleHydrationComplete();
       }
@@ -551,7 +548,7 @@ export function CashCalculator({
     return () => {
       window.removeEventListener('store-hydration-complete', handleHydrationComplete)
     }
-  }, [cashValues, onHawlUpdate, onUpdateValues])
+  }, [cashValues, onHawlUpdate, onUpdateValues, cashHawlMet, setCashHawlMet])
 
   // Optimize currency change event listeners
   useEffect(() => {
@@ -571,7 +568,7 @@ export function CashCalculator({
       window.removeEventListener('calculator-values-refresh', currencyChangeHandler);
       window.removeEventListener('currency-display-refresh', displayRefreshHandler);
     };
-  }, [handleCurrencyChange, handleDisplayOnlyRefresh]);
+  }, [handleCurrencyChange, handleDisplayOnlyRefresh, cashHawlMet, setCashHawlMet]);
 
   // Fetch rates when currency changes with retry mechanism
   useEffect(() => {
@@ -638,7 +635,7 @@ export function CashCalculator({
       // Check if this is still during initial page load
       if (typeof window !== 'undefined') {
         // Safe way to check for custom property without TypeScript errors
-        const win = window as any;
+        const win = window as typeof window & { isInitialPageLoad?: boolean };
         if (win.isInitialPageLoad) {
           console.log('CashCalculator: Ignoring reset during initial page load');
           return;

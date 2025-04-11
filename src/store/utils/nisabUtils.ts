@@ -268,17 +268,18 @@ export async function fetchNisabData(currency: string, forceRefresh = false) {
         metalPrices: metalPrices || undefined
       };
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Increment consecutive failures counter
       consecutiveFailures++;
 
       // Handle retries for network errors
       if (retryCount < MAX_RETRIES) {
         const isNetworkError =
-          error.name === 'TypeError' ||
-          error.name === 'AbortError' ||
-          error.message.includes('API endpoint not found') ||
-          error.message.includes('Failed to fetch');
+          (error instanceof Error) && (
+            (error.name === 'TypeError') ||
+            error.name === 'AbortError' ||
+            error.message.includes('API endpoint not found') ||
+            error.message.includes('Failed to fetch'));
 
         if (isNetworkError) {
           console.warn(`Network error fetching nisab data, retrying (${retryCount + 1}/${MAX_RETRIES})...`);

@@ -21,6 +21,7 @@ import { retirement } from '@/lib/assets/retirement'
 import { AssetValidation } from '@/lib/validation/assetValidation'
 import { toast } from '@/components/ui/toast'
 import { CalculatorNav } from '@/components/ui/calculator-nav'
+import { ExtendedWindow } from '@/types'
 
 interface AccountDetails {
   balance: number
@@ -175,7 +176,7 @@ export function RetirementCalculator({
     // Check if hydration already happened
     if (typeof window !== 'undefined') {
       // Safe way to check for custom property without TypeScript errors
-      const win = window as any;
+      const win = window as ExtendedWindow;
       if (win.hasDispatchedHydrationEvent) {
         handleHydrationComplete();
       }

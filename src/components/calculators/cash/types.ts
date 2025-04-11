@@ -4,7 +4,11 @@ import { ForeignCurrencyEntry } from '@/store/types'
 export interface CashCalculatorProps {
   currency: string
   onCalculatorChange: (calculator: string) => void
-  onUpdateValues: (values: Record<string, number>) => void
+  onUpdateValues: (values: Record<string, number | Array<{
+    amount: number
+    currency: string
+    rawInput?: string
+  }>>) => void
   onHawlUpdate: (hawlMet: boolean) => void
   onOpenSummary?: () => void
   initialValues?: Record<string, number>
@@ -65,7 +69,7 @@ export interface EventHandlerProps {
   onUpdateValues: (values: Record<string, number>) => void
   setInputValues: React.Dispatch<React.SetStateAction<InputValues>>
   cashHawlMet: boolean
-  cashValues: any
+  cashValues: Record<string, number | Array<{ amount: number; currency: string }>>
   storeState: {
     getTotalCash: () => number
     getTotalZakatableCash: () => number
@@ -78,7 +82,7 @@ export interface EventHandlerProps {
 export interface InputValidationProps {
   inputValue: string
   categoryId: string
-  setCashValue: (key: any, value: number) => void
+  setCashValue: (key: string, value: number) => void
   setInputValues: React.Dispatch<React.SetStateAction<InputValues>>
   setRawInputValues: React.Dispatch<React.SetStateAction<RawInputValues>>
 }

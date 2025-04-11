@@ -23,6 +23,7 @@ import { DividendEarningsTab } from './tabs/DividendEarningsTab'
 import { CalculatorSummary } from '@/components/ui/calculator-summary'
 import { getAssetType } from '@/lib/assets/registry'
 import { CalculatorNav } from '@/components/ui/calculator-nav'
+import { ExtendedWindow } from '@/types'
 
 interface StockCalculatorProps {
   currency: string
@@ -148,7 +149,7 @@ export function StockCalculator({
     // Check if hydration already happened
     if (typeof window !== 'undefined') {
       // Safe way to check for custom property without TypeScript errors
-      const win = window as any;
+      const win = window as ExtendedWindow;
       if (win.hasDispatchedHydrationEvent) {
         handleHydrationComplete();
       }

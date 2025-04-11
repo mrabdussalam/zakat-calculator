@@ -32,6 +32,7 @@ import { debounce } from 'lodash'
 import { CheckIcon } from '@radix-ui/react-icons'
 import { BrokerInfo } from '@/components/ui/broker-info'
 import { InfoIcon as LucideInfoIcon } from 'lucide-react'
+import { ExtendedWindow } from '@/types'
 
 // Constants for validation
 const MAX_SHARE_VALUE = 999999999999
@@ -334,7 +335,7 @@ export function PassiveInvestmentsTab({
     // Check if hydration already happened
     if (typeof window !== 'undefined') {
       // Safe way to check for custom property without TypeScript errors
-      const win = window as any
+      const win = window as ExtendedWindow;
       if (win.hasDispatchedHydrationEvent) {
         handleHydrationComplete()
       }

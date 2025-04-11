@@ -10,6 +10,7 @@ import { RentalPropertyTab } from './tabs/RentalPropertyTab'
 import { PrimaryResidenceTab } from './tabs/PrimaryResidenceTab'
 import { PropertyForSaleTab } from './tabs/PropertyForSaleTab'
 import { VacantLandTab } from './tabs/VacantLandTab'
+import { ExtendedWindow } from '@/types'
 
 type RealEstateErrors = Record<string, string | undefined>
 
@@ -126,7 +127,8 @@ export function RealEstateCalculator({
     // Check if hydration already happened
     if (typeof window !== 'undefined') {
       // Safe way to check for custom property without TypeScript errors
-      const win = window as any;
+
+      const win = window as ExtendedWindow;
       if (win.hasDispatchedHydrationEvent) {
         handleHydrationComplete();
       }
