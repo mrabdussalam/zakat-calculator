@@ -16,7 +16,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           "placeholder:text-gray-500",
           "focus:outline-none focus:ring-[0.5px] focus:ring-inset focus:ring-blue-500 focus:border-blue-500",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          "transition-[border,box-shadow] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]",
+          "transition-[border,box-shadow] duration-200 ease-in-out",
           "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
           "[&:-webkit-autofill]:!bg-white [&:-webkit-autofill]:!bg-clip-padding",
           "[&:-webkit-autofill]:!text-gray-900 [&:-webkit-autofill]:!shadow-[0_0_0_30px_white_inset]",

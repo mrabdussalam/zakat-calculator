@@ -31,7 +31,7 @@ function AnimatedNumber({ value, currency = 'USD' }: { value: number, currency?:
   return (
     <motion.span
       initial={false}
-      animate={{ 
+      animate={{
         scale: value === 0 ? 1 : [1, 1.005, 1]
       }}
       transition={{ duration: 0.15 }}
@@ -56,6 +56,9 @@ interface TotalHeaderProps {
 }
 
 export function TotalHeader({ totalAssets, breakdown, nisabStatus, currency }: TotalHeaderProps) {
+  // Determine if Zakat is actually due based on the calculated amount
+  const isZakatDue = breakdown.combined.zakatDue > 0;
+
   return (
     <div className="flex flex-col gap-4 bg-white rounded-lg">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -64,7 +67,7 @@ export function TotalHeader({ totalAssets, breakdown, nisabStatus, currency }: T
           <div className="text-xl sm:text-2xl font-medium">
             <motion.span
               initial={false}
-              animate={{ 
+              animate={{
                 scale: totalAssets === 0 ? 1 : [1, 1.005, 1]
               }}
               transition={{ duration: 0.15 }}
@@ -80,7 +83,7 @@ export function TotalHeader({ totalAssets, breakdown, nisabStatus, currency }: T
             <div className="text-xl sm:text-2xl font-medium">
               <motion.span
                 initial={false}
-                animate={{ 
+                animate={{
                   scale: breakdown.combined.zakatDue === 0 ? 1 : [1, 1.005, 1]
                 }}
                 transition={{ duration: 0.15 }}
@@ -90,7 +93,7 @@ export function TotalHeader({ totalAssets, breakdown, nisabStatus, currency }: T
               </motion.span>
             </div>
             <div className="text-xs sm:text-sm text-gray-500">
-              {!nisabStatus.meetsNisab ? 'No Zakat due (Below Nisab)' : '2.5% of eligible assets'}
+              {!isZakatDue ? 'No Zakat due (Below Nisab or no zakatable assets)' : '2.5% of eligible assets'}
             </div>
           </div>
         </div>

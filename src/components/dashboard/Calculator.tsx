@@ -6,6 +6,7 @@ import { StockCalculator } from '@/components/calculators/stocks/StockCalculator
 import { RetirementCalculator } from '@/components/calculators/retirement/RetirementCalculator'
 import { RealEstateCalculator } from '@/components/calculators/realestate/RealEstateCalculator'
 import { CryptoCalculator } from '@/components/calculators/crypto/CryptoCalculator'
+import { DebtCalculator } from '@/components/calculators/debt'
 import { memo, useCallback, useEffect, useState } from 'react'
 import { useZakatStore } from '@/store/zakatStore'
 import { formatCurrency, cn } from '@/lib/utils'
@@ -77,6 +78,7 @@ const StockCalculatorMemo = memo(StockCalculator) as React.FC<CommonCalculatorPr
 const RetirementCalculatorMemo = memo(RetirementCalculator) as React.FC<CommonCalculatorProps>
 const RealEstateCalculatorMemo = memo(RealEstateCalculator) as React.FC<CommonCalculatorProps>
 const CryptoCalculatorMemo = memo(CryptoCalculator) as React.FC<CommonCalculatorProps>
+const DebtCalculatorMemo = memo(DebtCalculator) as React.FC<CommonCalculatorProps>
 
 // Animated number component
 function AnimatedNumber({ value, currency = 'USD' }: { value: number, currency?: string }) {
@@ -407,6 +409,8 @@ export function Calculator({
         return <RealEstateCalculatorMemo {...commonProps} />
       case 'crypto':
         return <CryptoCalculatorMemo {...commonProps} />
+      case 'debt':
+        return <DebtCalculatorMemo {...commonProps} />
       default:
         return (
           <div className="text-gray-500 text-sm">

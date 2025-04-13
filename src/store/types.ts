@@ -10,6 +10,7 @@ import { CryptoSlice, CryptoValues } from './modules/crypto.types'
 import { StockHolding } from '@/lib/assets/stocks'
 import { WeightUnit } from '@/lib/utils/units'
 import { DistributionSlice } from './modules/distribution'
+import { DebtSlice } from './modules/debt.types'
 
 // Re-export types with new names to avoid conflicts
 export type AssetBreakdown = LibAssetBreakdown
@@ -21,6 +22,7 @@ export interface HawlStatus {
   retirement: boolean
   real_estate: boolean
   crypto: boolean
+  debt: boolean
 }
 
 export interface NisabData {
@@ -173,7 +175,26 @@ export interface ZakatBreakdown {
   }>
 }
 
-export interface ZakatState extends CashSlice, MetalsSlice, StocksSlice, RetirementSlice, RealEstateSlice, CryptoSlice, NisabSlice, DistributionSlice {
+// Debt Types
+export interface DebtValues {
+  // Receivables (money owed to you)
+  receivables: number;
+  receivables_entries?: Array<{
+    description: string;
+    amount: number;
+  }>;
+
+  // Liabilities (money you owe)
+  short_term_liabilities: number; // Due within 12 months
+  long_term_liabilities_annual: number; // Annual payment for long-term debts
+  liabilities_entries?: Array<{
+    description: string;
+    amount: number;
+    is_short_term: boolean;
+  }>;
+}
+
+export interface ZakatState extends CashSlice, MetalsSlice, StocksSlice, RetirementSlice, RealEstateSlice, CryptoSlice, NisabSlice, DistributionSlice, DebtSlice {
   // Core properties
   currency: string
 

@@ -55,6 +55,8 @@ const adaptBreakdown = (
 }
 
 export function Summary({ currency }: { currency: string }) {
+  const store = useZakatStore() as any;
+
   const {
     getTotalCash,
     getTotalStocks,
@@ -78,13 +80,16 @@ export function Summary({ currency }: { currency: string }) {
     cryptoValues,
     cryptoHawlMet,
     getTotalCrypto,
-    getTotalZakatableCrypto,
     getCryptoBreakdown,
-    reset,
+    debtValues,
+    debtHawlMet,
+    getDebtBreakdown,
     getStocksBreakdown,
     metalsPreferences,
-    getMetalsTotal
-  } = useZakatStore()
+    getMetalsTotal,
+    getTotalLiabilities,
+    getTotalReceivables
+  } = store;
 
   const breakdown = getBreakdown()
   const nisabStatus = getNisabStatus()
@@ -144,10 +149,12 @@ export function Summary({ currency }: { currency: string }) {
   const cryptoBreakdown = getCryptoBreakdown()
   const cashBreakdown = getCashBreakdown()
   const retirementBreakdown = getRetirementBreakdown()
+  const totalLiabilities = getTotalLiabilities ? getTotalLiabilities() : 0
+  const totalReceivables = getTotalReceivables ? getTotalReceivables() : 0
+  const debtBreakdown = getDebtBreakdown()
 
-  // Calculate total assets
-  const totalAssets = totalMetals + totalCash + totalStocks +
-    retirementBreakdown.total + realEstateBreakdown.total + totalCrypto
+  // Use the totalValue from the combined breakdown
+  const totalAssets = breakdown.combined.totalValue
 
   // Prepare asset breakdowns with consistent format
   const assetBreakdowns: Record<string, AssetBreakdownWithHawl> = {
@@ -184,6 +191,11 @@ export function Summary({ currency }: { currency: string }) {
       total: totalCrypto,
       hawlMet: cryptoHawlMet,
       breakdown: adaptBreakdown(cryptoBreakdown, currency)
+    },
+    debt: {
+      total: debtBreakdown.total,
+      breakdown: adaptBreakdown(debtBreakdown, currency),
+      hawlMet: debtHawlMet
     }
   }
 
@@ -210,7 +222,8 @@ export function Summary({ currency }: { currency: string }) {
             stocks: totalStocks,
             retirement: retirementBreakdown.total,
             'real-estate': realEstateBreakdown.total,
-            crypto: totalCrypto
+            crypto: totalCrypto,
+            debt: debtBreakdown.total
           }}
           totalAssets={totalAssets}
         />

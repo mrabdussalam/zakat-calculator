@@ -17,6 +17,7 @@ import { useDashboardState, DashboardState, DEFAULT_STATE } from '@/hooks/dashbo
 import { FeedbackFormModal } from '@/components/ui/FeedbackFormModal'
 import { RefreshIcon } from '@/components/ui/icons'
 import Link from 'next/link'
+import { SUPPORTED_CURRENCIES } from '@/lib/utils/currency'
 
 // Local types not exported from the hook
 interface ConvertedStock {
@@ -47,7 +48,8 @@ export default function DashboardPage() {
     handleHawlUpdate,
     handleNisabUpdate,
     handleReset,
-    isEligible
+    isEligible,
+    setState
   } = useDashboardState()
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -122,22 +124,81 @@ export default function DashboardPage() {
     // Get the current state from the Zakat store
     const zakatStore = useZakatStore.getState();
 
+    // Check URL for currency parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlCurrency = urlParams.get('currency');
+
+    // Check localStorage for currency
+    const localCurrency = localStorage.getItem('selected-currency') ||
+      localStorage.getItem('zakat-currency');
+
+    console.log('Dashboard currency check:', {
+      urlCurrency,
+      localCurrency,
+      dashboardCurrency: state.currency,
+      zakatStoreCurrency: zakatStore.currency,
+      metalPricesCurrency: zakatStore.metalPrices?.currency
+    });
+
+    // Priority: 1. URL currency, 2. localStorage currency, 3. Zustand store currency
+    let targetCurrency = zakatStore.currency;
+
+    if (urlCurrency && Object.keys(SUPPORTED_CURRENCIES).includes(urlCurrency.toUpperCase())) {
+      targetCurrency = urlCurrency.toUpperCase();
+      console.log('Dashboard: Using currency from URL:', targetCurrency);
+    } else if (localCurrency && Object.keys(SUPPORTED_CURRENCIES).includes(localCurrency.toUpperCase())) {
+      targetCurrency = localCurrency.toUpperCase();
+      console.log('Dashboard: Using currency from localStorage:', targetCurrency);
+    }
+
+    // If the target currency doesn't match the store currency, update it
+    if (targetCurrency !== zakatStore.currency) {
+      console.log('Dashboard: Currency mismatch detected, updating store:', {
+        from: zakatStore.currency,
+        to: targetCurrency
+      });
+
+      // Update the Zustand store
+      if (typeof zakatStore.setCurrency === 'function') {
+        zakatStore.setCurrency(targetCurrency);
+      }
+    }
+
+    // If the dashboard currency doesn't match the target currency, update it
+    if (state.currency !== targetCurrency) {
+      console.log('Dashboard: Currency mismatch detected, updating dashboard state:', {
+        from: state.currency,
+        to: targetCurrency
+      });
+
+      // Update the dashboard state with the target currency
+      setState(prev => ({
+        ...prev,
+        currency: targetCurrency
+      }));
+    }
+
     // Check if metalPrices exists and has a currency
     if (zakatStore.metalPrices && zakatStore.metalPrices.currency) {
-      // If the currency doesn't match the dashboard currency
-      if (zakatStore.metalPrices.currency !== state.currency) {
-        console.warn('Currency inconsistency detected in Dashboard:', {
-          dashboardCurrency: state.currency,
+      // If the currency doesn't match the store currency
+      if (zakatStore.metalPrices.currency !== zakatStore.currency) {
+        console.warn('Currency inconsistency detected in metal prices:', {
+          storeCurrency: zakatStore.currency,
           metalPricesCurrency: zakatStore.metalPrices.currency
         });
 
         // If we're not in the middle of a conversion
         if (!isConvertingCurrency) {
-          console.log('Attempting emergency currency fix in Dashboard');
+          console.log('Attempting to fix metal prices currency');
+
+          // Update the metal prices with the store currency
+          if (typeof zakatStore.updateMetalPricesForNewCurrency === 'function') {
+            zakatStore.updateMetalPricesForNewCurrency(zakatStore.currency);
+          }
         }
       }
     }
-  }, [isHydrated, state.currency, isConvertingCurrency]);
+  }, [isHydrated, state.currency, isConvertingCurrency, setState]);
 
   // Animation variants
   const containerVariants = {
@@ -227,10 +288,26 @@ export default function DashboardPage() {
   return (
     <TooltipProvider>
       {isConvertingCurrency && (
-        <div className="fixed inset-0 bg-black/20 z-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
-            <p className="text-sm text-gray-600">Converting values to {state.currency}...</p>
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl shadow-xl flex flex-col items-center max-w-xs w-full">
+            <div className="relative mb-3">
+              {/* Currency icon */}
+              <div className="text-2xl font-semibold text-gray-800 mb-3 flex items-center justify-center">
+                <span className="mr-1">{state.currency}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+
+              {/* Custom loader */}
+              <div className="flex justify-center items-center space-x-1">
+                <div className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
+                <div className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+                <div className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0.3s" }}></div>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 text-center">Converting your assets to {state.currency}...</p>
+            <p className="text-xs text-gray-400 mt-2">This may take a moment</p>
           </div>
         </div>
       )}
