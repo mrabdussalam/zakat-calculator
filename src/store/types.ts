@@ -6,7 +6,7 @@ import { RetirementSlice } from './modules/retirement'
 import { RealEstateSlice } from './modules/realEstate'
 import { AssetBreakdown as LibAssetBreakdown, CompanyFinancials } from '@/lib/assets/types'
 import { StateCreator } from 'zustand'
-import { CryptoSlice, CryptoValues } from './modules/crypto.types'
+import { CryptoSlice, CryptoValues as ImportedCryptoValues } from './modules/crypto.types'
 import { StockHolding } from '@/lib/assets/stocks'
 import { WeightUnit } from '@/lib/utils/units'
 import { DistributionSlice } from './modules/distribution'
@@ -14,6 +14,7 @@ import { DebtSlice } from './modules/debt.types'
 
 // Re-export types with new names to avoid conflicts
 export type AssetBreakdown = LibAssetBreakdown
+export type CryptoValues = ImportedCryptoValues
 
 export interface HawlStatus {
   cash: boolean
