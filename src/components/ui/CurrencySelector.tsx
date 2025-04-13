@@ -178,127 +178,93 @@ export function CurrencySelector({ className, onChange }: CurrencySelectorProps)
   }
 
   const handleValueChange = (newValue: string) => {
-    console.log(`Currency selection: ${value} -> ${newValue}`)
+    console.log(`CurrencySelector: Selection changed ${value} → ${newValue}`);
 
-    if (newValue === value) return
+    if (newValue === value) return;
 
-    // Track if this is the first-ever selection on page load
-    const isInitialPageLoad = !localStorage.getItem('has-selected-currency');
-
-    // Check if this is a page refresh (rather than user interaction)
-    // This is determined by checking if this currency selection is happening
-    // during the initial component mount and matches what was previously stored
-    const previouslySavedCurrency = localStorage.getItem('selected-currency');
-    const isPageRefresh = !isInitialPageLoad &&
-      previouslySavedCurrency === newValue &&
-      !document.hasFocus(); // Additional check: page likely refreshed if not focused
-
-    // Mark that we've now selected a currency at least once
-    try {
-      localStorage.setItem('has-selected-currency', 'true');
-    } catch (error) {
-      console.error('Failed to set currency selection flag:', error);
-    }
-
-    setValue(newValue)
+    // Update local state
+    setValue(newValue);
 
     // Call the onChange handler if provided
     if (onChange) {
-      onChange(newValue)
+      onChange(newValue);
     }
 
-    // If this is the initial page load or a browser refresh, just set the value without resetting
-    if (isInitialPageLoad || isPageRefresh) {
-      console.log('Initial currency selection or page refresh - skipping reset:', newValue);
-
-      // Store the selected currency
-      try {
-        localStorage.setItem('selected-currency', newValue)
-      } catch (error) {
-        console.error('Failed to save currency preference:', error)
-      }
-
-      // Update the store's currency but don't trigger a full reset
-      try {
-        const zakatStore = useZakatStore.getState()
-        if (zakatStore && typeof zakatStore.setCurrency === 'function') {
-          // Ensure we fetch exchange rates for the new currency
-          const currencyStore = useCurrencyStore.getState();
-          currencyStore.fetchRates(newValue)
-            .then(() => {
-              console.log('Successfully fetched exchange rates for', newValue);
-              zakatStore.setCurrency(newValue);
-            })
-            .catch((error: Error) => {
-              console.error('Failed to fetch exchange rates:', error);
-              // Still set the currency even if rate fetch fails
-              zakatStore.setCurrency(newValue);
-            });
-        }
-      } catch (error) {
-        console.error('Failed to set currency in store:', error)
-      }
-
+    // Get the Zustand store
+    const zakatStore = useZakatStore.getState();
+    if (!zakatStore || typeof zakatStore.setCurrency !== 'function') {
+      console.error('CurrencySelector: Zustand store not available');
       return;
     }
 
-    // For user-initiated currency selections, perform a regular currency change
-    // Try to get the Zustand store to perform a hard reset
-    try {
-      const zakatStore = useZakatStore.getState()
-      if (zakatStore && typeof zakatStore.resetWithCurrencyChange === 'function') {
-        console.log('Performing hard reset with currency change from selector to:', newValue)
+    // Check if this is a user-initiated change that should trigger a reset
+    const isUserInitiatedChange = document.hasFocus();
 
-        // Ensure we fetch exchange rates for the new currency before resetting
-        const currencyStore = useCurrencyStore.getState();
-        currencyStore.fetchRates(newValue)
-          .then(() => {
-            console.log('Successfully fetched exchange rates before reset');
-            zakatStore.resetWithCurrencyChange(newValue);
-          })
-          .catch((error: Error) => {
-            console.error('Failed to fetch exchange rates before reset:', error);
-            // Still perform the reset even if rate fetch fails
-            zakatStore.resetWithCurrencyChange(newValue);
-          });
+    if (isUserInitiatedChange) {
+      // For user-initiated changes, perform a full reset with the new currency
+      console.log('CurrencySelector: User-initiated change, performing reset with:', newValue);
 
-        // Don't dispatch an event or set localStorage directly since resetWithCurrencyChange does it
-        return
+      if (typeof zakatStore.resetWithCurrencyChange === 'function') {
+        zakatStore.resetWithCurrencyChange(newValue);
+      } else {
+        // Fallback to just setting the currency
+        zakatStore.setCurrency(newValue);
       }
-    } catch (error) {
-      console.error('Failed to use resetWithCurrencyChange, falling back to event dispatch:', error)
-    }
-
-    // Fallback: Dispatch a currency change event for the app to handle
-    const event = new CustomEvent('currency-changed', {
-      detail: {
-        from: value,
-        to: newValue,
-        shouldForceReload: true,
-        isInitialLoad: isInitialPageLoad
-      }
-    })
-    window.dispatchEvent(event)
-
-    // Also store the selected currency
-    try {
-      localStorage.setItem('selected-currency', newValue)
-    } catch (error) {
-      console.error('Failed to save currency preference:', error)
+    } else {
+      // For programmatic changes (like initialization), just set the currency
+      console.log('CurrencySelector: Programmatic change, setting currency:', newValue);
+      zakatStore.setCurrency(newValue);
     }
   }
 
   // Load saved currency on mount
   React.useEffect(() => {
     try {
-      const savedCurrency = localStorage.getItem('selected-currency')
-      if (savedCurrency && Object.keys(SUPPORTED_CURRENCIES).includes(savedCurrency)) {
-        setValue(savedCurrency)
+      // First check localStorage for selected currency
+      const selectedCurrency = localStorage.getItem('selected-currency');
+
+      // Then get currency from Zustand store
+      const zakatStore = useZakatStore.getState();
+      const storeCurrency = zakatStore?.currency;
+
+      console.log('CurrencySelector initialization:', {
+        selectedCurrency,
+        storeCurrency,
+        currentValue: value
+      });
+
+      // Priority: 1. localStorage selected-currency, 2. Zustand store currency, 3. Current value
+      if (selectedCurrency && Object.keys(SUPPORTED_CURRENCIES).includes(selectedCurrency.toUpperCase())) {
+        setValue(selectedCurrency.toUpperCase());
+        console.log('CurrencySelector: Initialized with currency from localStorage:', selectedCurrency);
+
+        // Ensure the store is also updated
+        if (zakatStore && typeof zakatStore.setCurrency === 'function' && storeCurrency !== selectedCurrency) {
+          console.log('Synchronizing store with localStorage currency:', selectedCurrency);
+          zakatStore.setCurrency(selectedCurrency);
+        }
+      } else if (storeCurrency && Object.keys(SUPPORTED_CURRENCIES).includes(storeCurrency.toUpperCase())) {
+        setValue(storeCurrency.toUpperCase());
+        console.log('CurrencySelector: Initialized with currency from store:', storeCurrency);
       }
     } catch (error) {
-      console.error('Failed to load currency preference:', error)
+      console.error('Failed to load currency from store:', error);
     }
-  }, [])
+
+    // Listen for currency changes from other components
+    const handleCurrencyChange = (event: CustomEvent) => {
+      if (event.detail && event.detail.to) {
+        setValue(event.detail.to);
+        console.log('CurrencySelector: Updated from external event:', event.detail.to);
+      }
+    };
+
+    window.addEventListener('currency-changed', handleCurrencyChange as EventListener);
+
+    return () => {
+      window.removeEventListener('currency-changed', handleCurrencyChange as EventListener);
+    };
+  }, []);
 
   return (
     <div className={cn("w-full", className)}>

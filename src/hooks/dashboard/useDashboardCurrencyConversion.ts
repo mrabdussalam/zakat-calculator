@@ -35,11 +35,23 @@ export function useDashboardCurrencyConversion({
 
       // Important: Save the previous currency for conversion reference
       const fromCurrency = prevCurrency.current;
+      console.log(`Currency conversion: ${fromCurrency} → ${currency}`);
+
+      // Get the Zustand store
+      const zakatStore = useZakatStore.getState();
+
+      // Ensure the store currency matches the dashboard currency
+      if (zakatStore && typeof zakatStore.setCurrency === 'function' && zakatStore.currency !== currency) {
+        console.log('Synchronizing Zustand store currency with dashboard:', currency);
+        zakatStore.setCurrency(currency);
+      }
+
+      // Get the currency store for conversion rates
+      const currencyStore = useCurrencyStore.getState();
 
       const convertCurrency = async () => {
         try {
           // 1. Fetch currency exchange rates - ALWAYS do this to ensure we have the latest rates
-          const currencyStore = useCurrencyStore.getState();
           await currencyStore.fetchRates(currency);
 
           // 2. Create a function to convert values that's idempotent 

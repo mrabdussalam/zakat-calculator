@@ -12,7 +12,8 @@ const CALCULATOR_NAMES = {
   'stocks': 'Stocks & Investments',
   'retirement': 'Retirement Accounts',
   'real-estate': 'Real Estate',
-  'crypto': 'Cryptocurrencies'
+  'crypto': 'Cryptocurrencies',
+  'debt': 'Debt & Liabilities'
 } as const
 
 // Asset types in order
@@ -22,7 +23,8 @@ const CALCULATOR_ORDER = [
   'stocks',
   'retirement',
   'real-estate',
-  'crypto'
+  'crypto',
+  'debt'
 ] as const
 
 interface NavButtonProps {

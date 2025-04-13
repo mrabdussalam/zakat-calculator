@@ -22,7 +22,8 @@ export const DEFAULT_STATE: DashboardState = {
     retirement: {},
     'real-estate': {},
     crypto: {},
-    'debt-receivable': {}
+    'debt-receivable': {},
+    debt: {}
   },
   hawlMet: {
     cash: true,
@@ -31,7 +32,8 @@ export const DEFAULT_STATE: DashboardState = {
     retirement: true,
     'real-estate': true,
     crypto: true,
-    'debt-receivable': true
+    'debt-receivable': true,
+    debt: true
   },
   currency: 'USD',
   setupCompleted: true
@@ -55,6 +57,7 @@ function ensureCompleteState(state: Partial<DashboardState>): DashboardState {
       'real-estate': {},
       crypto: {},
       'debt-receivable': {},
+      debt: {},
       ...state.assetValues,
     },
     hawlMet: {
@@ -64,7 +67,7 @@ function ensureCompleteState(state: Partial<DashboardState>): DashboardState {
   };
 
   // Ensure each asset type object exists
-  const assetTypes = ['cash', 'precious-metals', 'stocks', 'retirement', 'real-estate', 'crypto', 'debt-receivable'];
+  const assetTypes = ['cash', 'precious-metals', 'stocks', 'retirement', 'real-estate', 'crypto', 'debt-receivable', 'debt'];
   assetTypes.forEach(type => {
     if (!completeState.assetValues[type]) {
       completeState.assetValues[type] = {};
@@ -93,11 +96,23 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
     console.log('🟢 Initializing dashboard state on client')
 
     try {
+      // Get currency from Zustand store (single source of truth)
+      let storeCurrency = DEFAULT_STATE.currency;
+      try {
+        const zakatStore = useZakatStore.getState();
+        if (zakatStore && zakatStore.currency) {
+          storeCurrency = zakatStore.currency;
+          console.log('🟢 Using currency from Zustand store:', storeCurrency);
+        }
+      } catch (error) {
+        console.error('Failed to get currency from Zustand store:', error);
+      }
+
       // Check what's in localStorage currently
       const allKeys = Object.keys(localStorage)
       console.log('🟢 Current localStorage keys:', allKeys)
 
-      // First, try to load the complete state from localStorage
+      // Then, try to load the complete state from localStorage
       const saved = localStorage.getItem('zakatState')
       console.log('🟢 Found saved state in localStorage:', !!saved)
 
@@ -130,12 +145,9 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
               setupCompleted: true
             });
 
-            // Check if we have a user currency preference (highest priority)
-            const userCurrencyPreference = localStorage.getItem('selected-currency')
-            if (userCurrencyPreference) {
-              restoredState.currency = userCurrencyPreference
-              console.log('🟢 Applied user currency preference to restored state:', userCurrencyPreference)
-            }
+            // Always use the currency from the Zustand store (single source of truth)
+            restoredState.currency = storeCurrency;
+            console.log('🟢 Applied store currency to restored state:', storeCurrency);
 
             // Set prevCurrency to match the current state to prevent unwanted conversions
             prevCurrency.current = restoredState.currency
@@ -405,7 +417,7 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
         }
       }
 
-      // Import hawl status
+      // Update hawl status
       const updatedHawlMet = { ...state.hawlMet }
       updatedHawlMet.cash = zakatStore.cashHawlMet
       updatedHawlMet['precious-metals'] = zakatStore.metalsHawlMet
@@ -413,6 +425,17 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
       updatedHawlMet.retirement = zakatStore.retirementHawlMet
       updatedHawlMet['real-estate'] = zakatStore.realEstateHawlMet
       updatedHawlMet.crypto = zakatStore.cryptoHawlMet
+      updatedHawlMet.debt = zakatStore.debtHawlMet
+
+      // Import debt values
+      if (zakatStore.debtValues) {
+        updatedAssetValues.debt = Object.entries(zakatStore.debtValues)
+          .filter(([key, value]) => typeof value === 'number' && key !== 'receivables_entries' && key !== 'liabilities_entries')
+          .reduce((acc, [key, value]) => ({
+            ...acc,
+            [key]: value
+          }), {})
+      }
 
       // Check if we have any values to update
       const hasZustandValues = Object.values(updatedAssetValues).some(assetType =>
@@ -524,7 +547,8 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
         retirement: state.assetValues?.retirement || {},
         'real-estate': state.assetValues?.['real-estate'] || {},
         crypto: state.assetValues?.crypto || {},
-        'debt-receivable': state.assetValues?.['debt-receivable'] || {}
+        'debt-receivable': state.assetValues?.['debt-receivable'] || {},
+        debt: state.assetValues?.debt || {}
       }
 
       // Create a serializable version of the state with complete structure
@@ -582,16 +606,21 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
     if (!isHydrated || !state.selectedAsset) return // Don't update state before hydration or if no asset selected
 
     setState(prev => {
-      // Create a fresh copy of asset values
+      // Create a copy of asset values, preserving existing values
       const updatedAssetValues = {
         ...prev.assetValues,
-        [state.selectedAsset!]: {} as Record<string, number> // Clear previous values for this asset type with proper typing
+        [state.selectedAsset!]: {
+          ...prev.assetValues[state.selectedAsset!], // Preserve existing values
+        }
       }
 
-      // Only add non-zero values
+      // Add or update with new values
       Object.entries(newValues).forEach(([key, value]) => {
-        if (typeof value === 'number' && value !== 0 && state.selectedAsset) {
-          updatedAssetValues[state.selectedAsset][key] = value
+        if (typeof value === 'number' && state.selectedAsset) {
+          // Only update if value is non-zero or explicitly set to zero
+          if (value !== 0 || key in newValues) {
+            updatedAssetValues[state.selectedAsset][key] = value
+          }
         }
       })
 

@@ -8,7 +8,8 @@ export const ASSET_COLORS = {
   'crypto': '#06B6D4', // Cyan
   'business-assets': '#10B981', // Emerald
   'other-financial': '#6366F1', // Indigo
-  'debt-receivable': '#8B5CF6' // Violet
+  'debt-receivable': '#8B5CF6', // Violet
+  'debt': '#6366F1' // Indigo
 } as const
 
 // Asset type to display name mapping
@@ -21,11 +22,6 @@ export const ASSET_DISPLAY_NAMES = {
   'crypto': 'Crypto',
   'business-assets': 'Business Assets',
   'other-financial': 'Other Financial',
-  'debt-receivable': 'Debt Receivable'
-} as const
-
-// Add safe percentage calculation helper
-export const calculatePercentage = (value: number, total: number): string => {
-  if (total === 0 || value === 0) return '0.0'
-  return ((value / total) * 100).toFixed(1)
-} 
+  'debt-receivable': 'Debt Receivable',
+  'debt': 'Debt & Receivables'
+} as const 

@@ -55,9 +55,15 @@ async function getExchangeRate(from: string, to: string): Promise<number | null>
 async function fetchFromYahooFinance(symbol: string): Promise<number | null> {
   try {
     console.log(`Trying Yahoo Finance API for ${symbol}`);
+
+    // Create an AbortController to handle timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
     const response = await fetch(
       `${YAHOO_FINANCE_API_URL}/${encodeURIComponent(symbol)}?interval=1d&range=1d&includePrePost=false`,
       {
+        signal: controller.signal,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko)',
           'Accept': 'application/json',
@@ -66,6 +72,9 @@ async function fetchFromYahooFinance(symbol: string): Promise<number | null> {
         }
       }
     );
+
+    // Clear the timeout
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.warn(`Yahoo Finance API returned ${response.status} for ${symbol}`);
@@ -107,7 +116,12 @@ async function fetchFromYahooFinance(symbol: string): Promise<number | null> {
     console.warn(`No valid price found in Yahoo Finance response for ${symbol}`);
     return null;
   } catch (error) {
-    console.error(`Error fetching from Yahoo Finance for ${symbol}:`, error);
+    // More specific error handling
+    if (error && typeof error === 'object' && 'name' in error && error.name === 'AbortError') {
+      console.error(`Timeout when fetching from Yahoo Finance for ${symbol}`);
+    } else {
+      console.error(`Error fetching from Yahoo Finance for ${symbol}:`, error);
+    }
     return null;
   }
 }
@@ -116,9 +130,24 @@ async function fetchFromYahooFinance(symbol: string): Promise<number | null> {
 async function fetchFromAlphaVantage(symbol: string): Promise<number | null> {
   try {
     console.log(`Trying Alpha Vantage API for ${symbol}`);
+
+    // Create an AbortController to handle timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
     const response = await fetch(
-      `${ALPHA_VANTAGE_API_URL}?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${process.env.ALPHA_VANTAGE_API_KEY}`
+      `${ALPHA_VANTAGE_API_URL}?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${process.env.ALPHA_VANTAGE_API_KEY}`,
+      {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      }
     );
+
+    // Clear the timeout
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.warn(`Alpha Vantage API returned ${response.status} for ${symbol}`);
@@ -136,7 +165,12 @@ async function fetchFromAlphaVantage(symbol: string): Promise<number | null> {
     console.warn(`No valid price found in Alpha Vantage response for ${symbol}`);
     return null;
   } catch (error) {
-    console.error(`Error fetching from Alpha Vantage for ${symbol}:`, error);
+    // More specific error handling
+    if (error && typeof error === 'object' && 'name' in error && error.name === 'AbortError') {
+      console.error(`Timeout when fetching from Alpha Vantage for ${symbol}`);
+    } else {
+      console.error(`Error fetching from Alpha Vantage for ${symbol}:`, error);
+    }
     return null;
   }
 }
@@ -145,9 +179,24 @@ async function fetchFromAlphaVantage(symbol: string): Promise<number | null> {
 async function fetchFromIEXCloud(symbol: string): Promise<number | null> {
   try {
     console.log(`Trying IEX Cloud API for ${symbol}`);
+
+    // Create an AbortController to handle timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
     const response = await fetch(
-      `${IEX_CLOUD_API_URL}/stock/${symbol}/quote?token=${process.env.IEX_CLOUD_API_KEY}`
+      `${IEX_CLOUD_API_URL}/stock/${symbol}/quote?token=${process.env.IEX_CLOUD_API_KEY}`,
+      {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      }
     );
+
+    // Clear the timeout
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.warn(`IEX Cloud API returned ${response.status} for ${symbol}`);
@@ -165,7 +214,21 @@ async function fetchFromIEXCloud(symbol: string): Promise<number | null> {
     console.warn(`No valid price found in IEX Cloud response for ${symbol}`);
     return null;
   } catch (error) {
-    console.error(`Error fetching from IEX Cloud for ${symbol}:`, error);
+    // More specific error handling
+    if (error && typeof error === 'object' && 'name' in error && error.name === 'AbortError') {
+      console.error(`Timeout when fetching from IEX Cloud for ${symbol}`);
+    } else if (
+      error &&
+      typeof error === 'object' &&
+      error instanceof TypeError &&
+      'message' in error &&
+      typeof error.message === 'string' &&
+      error.message.includes('fetch failed')
+    ) {
+      console.error(`Network error when fetching from IEX Cloud for ${symbol}`);
+    } else {
+      console.error(`Error fetching from IEX Cloud for ${symbol}:`, error);
+    }
     return null;
   }
 }

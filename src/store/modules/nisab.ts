@@ -534,8 +534,26 @@ export const createNisabSlice: StateCreator<
       ? state.getTotalZakatableCrypto()
       : 0;
 
+    // Add debt receivables to total value calculation
+    const totalDebtReceivables = typeof state.getTotalReceivables === 'function'
+      ? state.getTotalReceivables()
+      : 0;
+
+    // Get total liabilities
+    const totalLiabilities = typeof state.getTotalLiabilities === 'function'
+      ? state.getTotalLiabilities()
+      : 0;
+
+    // Get debt net impact (can be positive or negative)
+    const debtNetImpact = typeof state.getNetDebtImpact === 'function'
+      ? state.getNetDebtImpact()
+      : 0;
+
+    // For NISAB calculation, we include receivables and subtract liabilities
+    // This is because NISAB is based on net assets
+
     // Sum all the assets for total value, ensuring we only add numbers
-    const totalValue = totalCash + totalMetals + totalStocks + totalRetirement + totalRealEstate + totalCrypto;
+    const totalValue = totalCash + totalMetals + totalStocks + totalRetirement + totalRealEstate + totalCrypto + totalDebtReceivables - totalLiabilities;
 
     // Determine if meets nisab
     const meetsNisab = totalValue >= nisabData.nisabThreshold;

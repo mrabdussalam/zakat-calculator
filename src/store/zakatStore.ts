@@ -9,11 +9,66 @@ import { createRetirementSlice } from './modules/retirement'
 import { createRealEstateSlice } from './modules/realEstate'
 import { createCryptoSlice } from './modules/crypto'
 import { createDistributionSlice } from './modules/distribution'
+import { createDebtSlice } from './modules/debt'
 import { DEFAULT_HAWL_STATUS } from './constants'
+import { SUPPORTED_CURRENCIES } from '@/lib/utils/currency'
+
+// Add this constant for currency management
+const CURRENCY_STORAGE_KEY = 'zakat-currency';
+
+// Add this helper function for currency validation
+const validateCurrencyCode = (currencyCode: string): string => {
+  // First check if it's a valid 3-letter code
+  const isValidFormat = typeof currencyCode === 'string' &&
+    /^[A-Z]{3}$/.test(currencyCode.toUpperCase());
+
+  // Then check if it's in our supported currencies
+  const isSupported = isValidFormat &&
+    Object.keys(SUPPORTED_CURRENCIES).includes(currencyCode.toUpperCase());
+
+  // Return the validated code or USD as fallback
+  return isSupported ? currencyCode.toUpperCase() : 'USD';
+};
+
+// Add this helper function to get the initial currency
+const getInitialCurrency = (): string => {
+  try {
+    // First check the 'selected-currency' key which is used by the UI components
+    const selectedCurrency = localStorage.getItem('selected-currency');
+    if (selectedCurrency) {
+      const validatedCurrency = validateCurrencyCode(selectedCurrency);
+      console.log(`Using selected currency from UI: ${selectedCurrency} → ${validatedCurrency}`);
+
+      // Ensure it's also saved to our canonical storage key for consistency
+      try {
+        localStorage.setItem(CURRENCY_STORAGE_KEY, validatedCurrency);
+      } catch (error) {
+        console.error('Failed to synchronize currency in localStorage:', error);
+      }
+
+      return validatedCurrency;
+    }
+
+    // Then try our canonical storage key
+    const savedCurrency = localStorage.getItem(CURRENCY_STORAGE_KEY);
+    if (savedCurrency) {
+      const validatedCurrency = validateCurrencyCode(savedCurrency);
+      console.log(`Using saved currency from store: ${savedCurrency} → ${validatedCurrency}`);
+      return validatedCurrency;
+    }
+
+    // Fallback to USD
+    console.log('No saved currency found, using default: USD');
+    return 'USD';
+  } catch (error) {
+    console.error('Error getting initial currency:', error);
+    return 'USD';
+  }
+};
 
 // Initial state
 const initialState: Partial<ZakatState> = {
-  currency: 'USD', // Default currency
+  currency: getInitialCurrency(), // Use the helper function
   metalsValues: {
     gold_regular: 0,
     gold_regular_purity: '24K',
@@ -74,12 +129,20 @@ const initialState: Partial<ZakatState> = {
     total_value: 0,
     zakatable_value: 0
   },
+  debtValues: {
+    receivables: 0,
+    short_term_liabilities: 0,
+    long_term_liabilities_annual: 0,
+    receivables_entries: [],
+    liabilities_entries: []
+  },
   cashHawlMet: DEFAULT_HAWL_STATUS.cash,
   metalsHawlMet: DEFAULT_HAWL_STATUS.metals,
   stockHawlMet: DEFAULT_HAWL_STATUS.stocks,
   retirementHawlMet: DEFAULT_HAWL_STATUS.retirement,
   realEstateHawlMet: DEFAULT_HAWL_STATUS.real_estate,
-  cryptoHawlMet: DEFAULT_HAWL_STATUS.crypto
+  cryptoHawlMet: DEFAULT_HAWL_STATUS.crypto,
+  debtHawlMet: DEFAULT_HAWL_STATUS.debt
 }
 
 // Enhanced hydration function with better error handling and validation
@@ -197,6 +260,7 @@ export const useZakatStore = create<ZakatState>()(
       const cryptoSlice = createCryptoSlice(set, get, store)
       const nisabSlice = createNisabSlice(set, get, store)
       const distributionSlice = createDistributionSlice(set, get, store)
+      const debtSlice = createDebtSlice(set, get, store)
 
       return {
         ...initialState,
@@ -208,6 +272,7 @@ export const useZakatStore = create<ZakatState>()(
         ...cryptoSlice,
         ...nisabSlice,
         ...distributionSlice,
+        ...debtSlice,
 
         // Reset all slices
         reset: () => {
@@ -292,35 +357,43 @@ export const useZakatStore = create<ZakatState>()(
 
         // Set currency and update related data
         setCurrency: (newCurrency) => {
-          console.log('Setting currency to:', newCurrency);
+          const validatedCurrency = validateCurrencyCode(newCurrency);
+          console.log(`Setting currency: ${newCurrency} → ${validatedCurrency} (validated)`);
 
           const currentState = get();
           const currentCurrency = currentState.currency;
 
           // Skip if the currency is the same
-          if (newCurrency === currentCurrency) {
-            console.log('Currency already set to', newCurrency);
+          if (validatedCurrency === currentCurrency) {
+            console.log('Currency already set to', validatedCurrency);
             return;
           }
 
           // Update the currency in the store
-          set({ currency: newCurrency });
+          set({ currency: validatedCurrency });
+
+          // Ensure the currency is set in localStorage (single source of truth)
+          try {
+            localStorage.setItem(CURRENCY_STORAGE_KEY, validatedCurrency);
+            console.log(`Currency saved to localStorage: ${validatedCurrency}`);
+          } catch (error) {
+            console.error('Failed to store currency in localStorage:', error);
+          }
 
           // Update metal prices for the new currency
           try {
             // Check if we need to update metal prices (if they exist)
             if (currentState.metalPrices) {
-              console.log('Updating metal prices for new currency:', newCurrency);
-              get().updateMetalPricesForNewCurrency(newCurrency);
+              console.log('Updating metal prices for new currency:', validatedCurrency);
+              get().updateMetalPricesForNewCurrency(validatedCurrency);
             }
 
-            // ENHANCEMENT: Force immediate nisab update instead of waiting
-            console.log('Forcing immediate nisab update for new currency:', newCurrency);
+            // Force immediate nisab update
+            console.log('Forcing immediate nisab update for new currency:', validatedCurrency);
 
-            // First, attempt to invalidate any cached nisab data to force recalculation
+            // Invalidate cached nisab data to force recalculation
             set(state => ({
               ...state,
-              // Setting to undefined forces a fresh calculation
               nisabData: undefined
             }));
 
@@ -328,58 +401,33 @@ export const useZakatStore = create<ZakatState>()(
             if (typeof currentState.forceRefreshNisabForCurrency === 'function') {
               // Use setTimeout to ensure this happens after the state update
               setTimeout(() => {
-                console.log('Triggering nisab refresh for new currency:', newCurrency);
-                get().forceRefreshNisabForCurrency(newCurrency)
+                console.log('Triggering nisab refresh for new currency:', validatedCurrency);
+                get().forceRefreshNisabForCurrency(validatedCurrency)
                   .then(() => {
-                    console.log('Nisab data refreshed successfully for:', newCurrency);
+                    console.log('Nisab data refreshed successfully for:', validatedCurrency);
 
                     // Force a recalculation of all calculator totals to update UI
-                    // This ensures all components re-render with new currency values
                     if (typeof get().getNisabStatus === 'function') {
                       get().getNisabStatus();
                     }
 
-                    // ENHANCEMENT: Force UI refresh for all calculators
-                    // Create a synthetic state update to trigger component re-renders
-                    // without adding new properties
-                    const currentState = get();
-                    // Temporarily modify and restore a property to force state update
-                    // without adding new properties
-                    const originalCurrency = currentState.currency;
-
-                    // First update with temporary value
-                    set({ currency: `${originalCurrency}_refresh` });
-
-                    // Then immediately restore to trigger subscribers
-                    setTimeout(() => {
-                      set({ currency: originalCurrency });
-                    }, 0);
+                    // Dispatch a currency-changed event for other parts of the app
+                    const event = new CustomEvent('currency-changed', {
+                      detail: {
+                        from: currentCurrency,
+                        to: validatedCurrency,
+                        timestamp: Date.now()
+                      }
+                    });
+                    window.dispatchEvent(event);
                   })
-                  .catch(err => console.error('Error during immediate nisab refresh:', err instanceof Error ? err.message : String(err)));
+                  .catch(error => {
+                    console.error('Failed to refresh nisab data:', error);
+                  });
               }, 0);
             }
-
-            // Dispatch currency change event
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('currency-changed', {
-                detail: {
-                  oldCurrency: currentCurrency,
-                  newCurrency: newCurrency,
-                  timestamp: Date.now(),
-                  immediate: true  // Flag indicating this should trigger immediate UI updates
-                }
-              }));
-
-              // ENHANCEMENT: Dispatch a specific event for calculators to force refresh
-              window.dispatchEvent(new CustomEvent('calculator-values-refresh', {
-                detail: {
-                  currency: newCurrency,
-                  timestamp: Date.now()
-                }
-              }));
-            }
           } catch (error) {
-            console.error('Error handling currency change:', error instanceof Error ? error.message : String(error));
+            console.error('Error updating currency-related data:', error);
           }
         },
 
@@ -570,72 +618,48 @@ export const useZakatStore = create<ZakatState>()(
 
         // Reset with currency change - completely resets state but preserves the currency
         resetWithCurrencyChange: (newCurrency) => {
-          console.log('Resetting application state with new currency:', newCurrency);
+          console.log('Performing full reset with currency change');
 
           try {
-            // First, preserve the currency but reset everything else
+            const validatedCurrency = validateCurrencyCode(newCurrency);
+            console.log(`Currency for reset: ${newCurrency} → ${validatedCurrency} (validated)`);
+
             const prevState = get();
 
-            // Create a specific handler for metal prices
-            const updateMetalPricesForCurrency = async () => {
-              try {
-                // Use our existing implementation
-                get().updateMetalPricesForNewCurrency(newCurrency);
-                return true;
-              } catch (error) {
-                console.error('Error updating metal prices for currency change:', error instanceof Error ? error.message : String(error));
-                return false;
-              }
-            };
+            // First, save the current currency to compare later
+            const prevCurrency = prevState.currency;
 
-            // Now we need to handle resetting the state
-            // We want to reset everything and just set the new currency
+            // Perform the reset
+            get().reset();
 
-            // Now reset
-            set((state) => ({
-              ...initialState,
-              currency: newCurrency,
-              // Always clear nisab data on currency change
-              nisabData: undefined
-            }));
+            // Then set the new currency
+            set({ currency: validatedCurrency });
 
-            // Make sure the Hawl status is reset too
-            set({
-              cashHawlMet: DEFAULT_HAWL_STATUS.cash,
-              metalsHawlMet: DEFAULT_HAWL_STATUS.metals,
-              stockHawlMet: DEFAULT_HAWL_STATUS.stocks,
-              retirementHawlMet: DEFAULT_HAWL_STATUS.retirement,
-              realEstateHawlMet: DEFAULT_HAWL_STATUS.real_estate,
-              cryptoHawlMet: DEFAULT_HAWL_STATUS.crypto
-            });
-
-            // Also reset the slices
-            cashSlice.resetCashValues?.();
-            metalsSlice.resetMetalsValues?.();
-            stocksSlice.resetStockValues?.();
-            retirementSlice.resetRetirement?.();
-            realEstateSlice.resetRealEstateValues?.();
-            cryptoSlice.resetCryptoValues?.();
-
-            // Set the new currency in localStorage
+            // Update localStorage with the new currency (single source of truth)
             try {
-              localStorage.setItem('zakat-currency', newCurrency);
+              localStorage.setItem(CURRENCY_STORAGE_KEY, validatedCurrency);
+              console.log(`Currency saved to localStorage after reset: ${validatedCurrency}`);
             } catch (error) {
-              console.error('Failed to store currency in localStorage:', error instanceof Error ? error.message : String(error));
+              console.error('Failed to store currency in localStorage after reset:', error);
             }
 
             // Update metal prices immediately and in the background
-            updateMetalPricesForCurrency();
+            get().updateMetalPricesForNewCurrency(validatedCurrency);
 
             // Dispatch a currency-changed event for other parts of the app
             const event = new CustomEvent('currency-changed', {
-              detail: { from: prevState.metalPrices.currency, to: newCurrency }
+              detail: {
+                from: prevCurrency,
+                to: validatedCurrency,
+                isReset: true,
+                timestamp: Date.now()
+              }
             });
             window.dispatchEvent(event);
 
             return true;
           } catch (error) {
-            console.error('Failed to reset with currency change:', error instanceof Error ? error.message : String(error));
+            console.error('Failed to reset with currency change:', error);
             return false;
           }
         },
@@ -735,6 +759,14 @@ export const useZakatStore = create<ZakatState>()(
               roth_ira: 0,
               pension: 0,
               other_retirement: 0
+            },
+            // Reset debt values
+            debtValues: {
+              receivables: 0,
+              short_term_liabilities: 0,
+              long_term_liabilities_annual: 0,
+              receivables_entries: [],
+              liabilities_entries: []
             }
           }));
 
@@ -756,33 +788,64 @@ export const useZakatStore = create<ZakatState>()(
         // Get complete breakdown
         getBreakdown: () => {
           const state = get()
+
+          // Get debt impact (can be positive or negative)
+          const debtNetImpact = state.getNetDebtImpact ? state.getNetDebtImpact() : 0
+          const totalLiabilities = state.getTotalLiabilities ? state.getTotalLiabilities() : 0
+          const totalReceivables = state.getTotalReceivables ? state.getTotalReceivables() : 0
+
+          // Calculate total asset value (including receivables and subtracting liabilities)
           const totalValue =
             state.getTotalCash() +
             state.getMetalsTotal() +
             state.getTotalStocks() +
             state.getRetirementTotal() +
             state.getRealEstateTotal() +
-            state.getTotalCrypto()
+            state.getTotalCrypto() +
+            totalReceivables -
+            totalLiabilities
 
-          const zakatableValue =
-            state.getTotalZakatableCash() +
-            state.getMetalsZakatable() +
-            state.getTotalZakatableStocks() +
-            state.getRetirementZakatable() +
-            state.getRealEstateZakatable() +
-            state.getTotalZakatableCrypto()
+          // Get all the individual breakdowns first
+          const cashBreakdown = state.getCashBreakdown()
+          const metalsBreakdown = state.getMetalsBreakdown()
+          const stocksBreakdown = state.getStocksBreakdown()
+          const retirementBreakdown = state.getRetirementBreakdown()
+          const realEstateBreakdown = state.getRealEstateBreakdown()
+          const cryptoBreakdown = state.getCryptoBreakdown()
+          const debtBreakdown = state.getDebtBreakdown()
+
+          // Calculate zakatable amount by summing individual zakatable amounts
+          // Note: debtBreakdown.zakatable already handles the hawl check and only includes
+          // receivables if netImpact is positive
+          let calculatedZakatableValue = totalValue > 0 ? (
+            cashBreakdown.zakatable +
+            metalsBreakdown.zakatable +
+            stocksBreakdown.zakatable +
+            retirementBreakdown.zakatable +
+            realEstateBreakdown.zakatable +
+            cryptoBreakdown.zakatable +
+            debtBreakdown.zakatable
+          ) : 0
+
+          // Ensure zakatable amount is never greater than total assets
+          // This handles cases where liabilities reduce total assets below the sum of zakatable amounts
+          const zakatableValue = Math.min(calculatedZakatableValue, Math.max(0, totalValue))
+
+          // Calculate zakat due
+          const zakatDue = zakatableValue * 0.025
 
           return {
-            cash: state.getCashBreakdown(),
-            metals: state.getMetalsBreakdown(),
-            stocks: state.getStocksBreakdown(),
-            retirement: state.getRetirementBreakdown(),
-            realEstate: state.getRealEstateBreakdown(),
-            crypto: state.getCryptoBreakdown(),
+            cash: cashBreakdown,
+            metals: metalsBreakdown,
+            stocks: stocksBreakdown,
+            retirement: retirementBreakdown,
+            realEstate: realEstateBreakdown,
+            crypto: cryptoBreakdown,
+            debt: debtBreakdown,
             combined: {
               totalValue,
               zakatableValue,
-              zakatDue: zakatableValue * 0.025,
+              zakatDue,
               meetsNisab: state.getNisabStatus()
             }
           }
@@ -824,7 +887,8 @@ export const useZakatStore = create<ZakatState>()(
                 allocations: state.allocations,
                 distributionMode: state.distributionMode,
                 // Exclude nisab data from manual persistence
-                currency: state.currency
+                currency: state.currency,
+                debtValues: state.debtValues
               };
 
               // Manually save to localStorage
