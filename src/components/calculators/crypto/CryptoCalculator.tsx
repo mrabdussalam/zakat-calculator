@@ -89,7 +89,7 @@ export function CryptoCalculator({
     // Check if hydration already happened
     if (typeof window !== 'undefined') {
       // Safe way to check for custom property without TypeScript errors
-      const win = window as any;
+      const win = window as typeof window & { zakatStoreHydrationComplete?: boolean };
       if (win.zakatStoreHydrationComplete) {
         handleHydrationComplete();
       }
@@ -119,7 +119,7 @@ export function CryptoCalculator({
       // Check if this is still during initial page load
       if (typeof window !== 'undefined') {
         // Safe way to check for custom property without TypeScript errors
-        const win = window as any;
+        const win = window as typeof window & { isInitialPageLoad?: boolean };
         if (win.isInitialPageLoad) {
           console.log('CryptoCalculator: Ignoring reset during initial page load');
           return;

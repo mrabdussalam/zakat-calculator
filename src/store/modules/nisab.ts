@@ -1,65 +1,8 @@
 import { StateCreator } from 'zustand'
-import { ZakatState } from '../types'
+import { NisabData, ZakatState } from '../types'
 import { NISAB } from '../constants'
 import { MetalPrices } from './metals.types'
-// Since we've created the utils file but TypeScript doesn't recognize it yet,
-// let's define the utility function interfaces here for now
-interface NisabUtils {
-  calculateNisabThreshold: (goldPrice: number, silverPrice: number) => number;
-  fetchNisabData: (currency: string, forceRefresh?: boolean) => Promise<{
-    nisabThreshold: number;
-    silverPrice: number;
-    timestamp: string;
-    source: string;
-    currency: string;
-    metalPrices?: {
-      gold: number;
-      silver: number;
-    };
-  }>;
-  getOfflineFallbackNisabData: (state: any, customCurrency?: string) => {
-    threshold: number;
-    silverPrice: number;
-    lastUpdated: string;
-    source: string;
-    currency: string;
-  };
-}
-
-// Import the utils module - we'll create an error handling mechanism if it fails
-let nisabUtils: NisabUtils;
-try {
-  // Try to import the module
-  nisabUtils = require('../utils/nisabUtils');
-} catch (error) {
-  // Fallback implementations if the module is not available
-  console.error('Failed to import nisabUtils module, using fallback implementations');
-
-  nisabUtils = {
-    calculateNisabThreshold: (goldPrice: number, silverPrice: number) => {
-      const goldNisabThreshold = goldPrice * NISAB.GOLD.GRAMS;
-      const silverNisabThreshold = silverPrice * NISAB.SILVER.GRAMS;
-      return Math.min(goldNisabThreshold, silverNisabThreshold);
-    },
-    fetchNisabData: async (currency: string) => ({
-      nisabThreshold: 0,
-      silverPrice: 0,
-      timestamp: new Date().toISOString(),
-      source: 'fallback',
-      currency
-    }),
-    getOfflineFallbackNisabData: (state: any, customCurrency?: string) => ({
-      threshold: 0,
-      silverPrice: 0,
-      lastUpdated: new Date().toISOString(),
-      source: 'fallback',
-      currency: customCurrency || 'USD'
-    })
-  };
-}
-
-// Destructure the utility functions
-const { calculateNisabThreshold, fetchNisabData, getOfflineFallbackNisabData } = nisabUtils;
+import { getOfflineFallbackNisabData, calculateNisabThreshold, fetchNisabData } from '../utils/nisabUtils'
 
 // Add a debounce mechanism to prevent multiple rapid fetch calls
 let lastFetchTimestamp = 0;
@@ -84,13 +27,7 @@ const SKIP_API_CALLS_IN_DEVELOPMENT = true;
 
 export interface NisabSlice {
   // State
-  nisabData?: {
-    threshold: number
-    silverPrice: number
-    lastUpdated: string
-    source: string
-    currency: string
-  }
+  nisabData?: NisabData
   isFetchingNisab: boolean
   fetchError?: string
 
@@ -143,9 +80,9 @@ export const createNisabSlice: StateCreator<
 
     // Create the nisab data object
     const calculatedData = {
-      threshold: threshold,
+      nisabThreshold: threshold,
       silverPrice: prices.silver,
-      lastUpdated: prices.lastUpdated instanceof Date
+      timestamp: prices.lastUpdated instanceof Date
         ? prices.lastUpdated.toISOString()
         : typeof prices.lastUpdated === 'string'
           ? prices.lastUpdated
@@ -171,7 +108,7 @@ export const createNisabSlice: StateCreator<
         detail: {
           currency: prices.currency,
           source: 'direct-update',
-          threshold: calculatedData.threshold,
+          threshold: calculatedData.nisabThreshold,
           immediate: true
         }
       }));
@@ -203,9 +140,9 @@ export const createNisabSlice: StateCreator<
         state.metalPrices.silver > 0) {
 
         const calculatedData = {
-          threshold: calculateNisabThreshold(state.metalPrices.gold, state.metalPrices.silver),
+          nisabThreshold: calculateNisabThreshold(state.metalPrices.gold, state.metalPrices.silver),
           silverPrice: state.metalPrices.silver,
-          lastUpdated: state.metalPrices.lastUpdated instanceof Date
+          timestamp: state.metalPrices.lastUpdated instanceof Date
             ? state.metalPrices.lastUpdated.toISOString()
             : typeof state.metalPrices.lastUpdated === 'string'
               ? state.metalPrices.lastUpdated
@@ -223,7 +160,7 @@ export const createNisabSlice: StateCreator<
             detail: {
               currency: currency,
               source: 'calculated',
-              threshold: calculatedData.threshold
+              threshold: calculatedData.nisabThreshold
             }
           }));
         }
@@ -237,9 +174,9 @@ export const createNisabSlice: StateCreator<
       // Update the store with the fetched data
       set({
         nisabData: {
-          threshold: result.nisabThreshold,
+          nisabThreshold: result.nisabThreshold,
           silverPrice: result.silverPrice,
-          lastUpdated: result.timestamp,
+          timestamp: result.timestamp,
           source: result.source,
           currency: result.currency
         },
@@ -261,7 +198,7 @@ export const createNisabSlice: StateCreator<
       console.error('Failed to fetch nisab data:', error instanceof Error ? error.message : String(error));
 
       // Get fallback data
-      const fallbackData = getOfflineFallbackNisabData(get());
+      const fallbackData = await getOfflineFallbackNisabData(get());
 
       set({
         nisabData: fallbackData,
@@ -334,9 +271,9 @@ export const createNisabSlice: StateCreator<
               // Update the store with the calculated data
               set({
                 nisabData: {
-                  threshold: result.nisabValue,
+                  nisabThreshold: result.nisabValue,
                   silverPrice: currentPrices.silver,
-                  lastUpdated: new Date().toISOString(),
+                  timestamp: new Date().toISOString(),
                   source: `${actualCurrency.toLowerCase()}-special-refresh`,
                   currency: actualCurrency
                 },
@@ -383,9 +320,9 @@ export const createNisabSlice: StateCreator<
         const threshold = calculateNisabThreshold(state.metalPrices.gold, state.metalPrices.silver);
 
         const calculatedData = {
-          threshold: threshold,
+          nisabThreshold: threshold,
           silverPrice: state.metalPrices.silver,
-          lastUpdated: state.metalPrices.lastUpdated instanceof Date
+          timestamp: state.metalPrices.lastUpdated instanceof Date
             ? state.metalPrices.lastUpdated.toISOString()
             : typeof state.metalPrices.lastUpdated === 'string'
               ? state.metalPrices.lastUpdated
@@ -410,7 +347,7 @@ export const createNisabSlice: StateCreator<
             detail: {
               currency: actualCurrency,
               source: 'calculated',
-              threshold: calculatedData.threshold,
+              threshold: calculatedData.nisabThreshold,
               immediate: true // Flag to indicate this is an immediate update
             }
           }));
@@ -447,9 +384,9 @@ export const createNisabSlice: StateCreator<
         // Update the store with the fetched data
         set({
           nisabData: {
-            threshold: result.nisabThreshold,
+            nisabThreshold: result.nisabThreshold,
             silverPrice: result.silverPrice,
-            lastUpdated: result.timestamp,
+            timestamp: result.timestamp,
             source: result.source,
             currency: result.currency
           },
@@ -501,9 +438,9 @@ export const createNisabSlice: StateCreator<
 
         // Create a fallback result
         const fallbackData = {
-          threshold: nisabThreshold,
+          nisabThreshold: nisabThreshold,
           silverPrice: silverPrice,
-          lastUpdated: new Date().toISOString(),
+          timestamp: new Date().toISOString(),
           source: 'fallback-calculation',
           currency: actualCurrency
         };
@@ -601,7 +538,7 @@ export const createNisabSlice: StateCreator<
     const totalValue = totalCash + totalMetals + totalStocks + totalRetirement + totalRealEstate + totalCrypto;
 
     // Determine if meets nisab
-    const meetsNisab = totalValue >= nisabData.threshold;
+    const meetsNisab = totalValue >= nisabData.nisabThreshold;
 
     // Calculate gold and silver thresholds
     const goldPrice = state.metalPrices?.gold || 0;
@@ -613,7 +550,7 @@ export const createNisabSlice: StateCreator<
     return {
       meetsNisab,
       totalValue,
-      nisabValue: nisabData.threshold,
+      nisabValue: nisabData.nisabThreshold,
       thresholds: {
         gold: goldThreshold,
         silver: silverThreshold

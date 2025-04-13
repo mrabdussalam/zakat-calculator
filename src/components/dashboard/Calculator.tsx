@@ -18,6 +18,7 @@ import {
   TooltipContent
 } from '@/components/ui/tooltip'
 import { trackEvent, AnalyticsEvents } from '@/lib/analytics'
+import { ExtendedWindow } from '@/types'
 
 // Animation variants for the slide effect
 const slideAnimation = {
@@ -242,12 +243,9 @@ export function Calculator({
     // Listen for the custom hydration event
     window.addEventListener('store-hydration-complete', handleHydrationComplete)
 
-    // Check if hydration already happened
-    if (typeof window !== 'undefined' && 'hasDispatchedHydrationEvent' in window) {
-      // @ts-ignore - This is set by StoreHydration component
-      if (window.hasDispatchedHydrationEvent) {
-        handleHydrationComplete()
-      }
+    const win = window as ExtendedWindow;
+    if (win.hasDispatchedHydrationEvent) {
+      handleHydrationComplete()
     }
 
     return () => {

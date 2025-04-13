@@ -9,7 +9,24 @@ const SILVER_GRAMS_NISAB = 595;
 
 // Add cache mechanism for API requests
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour cache
-const cachedResponses: Record<string, any> = {};
+
+
+interface ResponseData {
+  nisabThreshold: number,
+  thresholds: {
+    gold: number,
+    silver: number
+  },
+  currency: string,
+  timestamp: string,
+  metadata: NisabMetadata
+}
+
+interface Response {
+  data: ResponseData;
+  timestamp: number;
+}
+const cachedResponses: Record<string, Response> = {};
 
 // Define fallback values for when metal price API fails
 const FALLBACK_GOLD_PRICE = 93.98; // USD per gram
@@ -349,4 +366,4 @@ export async function GET(request: Request) {
       errorReason: 'general_error'
     });
   }
-} 
+}

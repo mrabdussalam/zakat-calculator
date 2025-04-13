@@ -10,4 +10,8 @@ export interface ZakatResult {
   eligible: boolean
   amount: number
   breakdown: AssetBreakdown[]
-} 
+}
+
+export interface ExtendedWindow extends Window {
+  hasDispatchedHydrationEvent?: boolean;
+}

@@ -186,7 +186,7 @@ export default function TestMetalsPurityPage() {
     // Effect to fetch prices on initial load
     useEffect(() => {
         fetchAllPrices();
-    }, []);
+    }, [fetchAllPrices]);
 
     // Effect to update store prices when currency changes
     useEffect(() => {

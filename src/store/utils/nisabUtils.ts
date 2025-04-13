@@ -1,6 +1,7 @@
 import { NISAB } from '../constants'
 // Import the currency conversion utility
 import { convertCurrency } from '../../app/api/utils/currency'
+import { NisabData } from '../types';
 
 // Add environment detection for Replit
 const IS_REPLIT = typeof window !== 'undefined' &&
@@ -68,7 +69,7 @@ export function calculateNisabThreshold(goldPrice: number, silverPrice: number):
 }
 
 // Create a local cache of successful nisab fetches to use when API fails
-const nisabLocalCache: { data: any, lastUpdated: number } = { data: null, lastUpdated: 0 };
+const nisabLocalCache: { data: NisabData | null, lastUpdated: number } = { data: null, lastUpdated: 0 };
 
 // Common exchange rates to be used as a last-resort fallback
 // These values should be updated periodically to stay reasonably accurate
@@ -159,8 +160,7 @@ export async function fetchNisabData(currency: string, forceRefresh = false) {
     return getOfflineFallbackNisabData({ currency });
   }
 
-  // Helper function for retries
-  const fetchWithRetry = async (retryCount = 0): Promise<any> => {
+  const fetchWithRetry = async (retryCount = 0): Promise<NisabData> => {
     try {
       // REPLIT environment special handling for offline
       if (IS_REPLIT && retryCount > 0) {
@@ -254,7 +254,7 @@ export async function fetchNisabData(currency: string, forceRefresh = false) {
           timestamp: data.timestamp || new Date().toISOString(),
           source: 'api-cache',
           currency: data.currency,
-          metalPrices
+          metalPrices: metalPrices || undefined
         };
         nisabLocalCache.lastUpdated = Date.now();
       }
@@ -265,20 +265,21 @@ export async function fetchNisabData(currency: string, forceRefresh = false) {
         timestamp: data.timestamp || new Date().toISOString(),
         source: data.source || 'api',
         currency: data.currency,
-        metalPrices
+        metalPrices: metalPrices || undefined
       };
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Increment consecutive failures counter
       consecutiveFailures++;
 
       // Handle retries for network errors
       if (retryCount < MAX_RETRIES) {
         const isNetworkError =
-          error.name === 'TypeError' ||
-          error.name === 'AbortError' ||
-          error.message.includes('API endpoint not found') ||
-          error.message.includes('Failed to fetch');
+          (error instanceof Error) && (
+            (error.name === 'TypeError') ||
+            error.name === 'AbortError' ||
+            error.message.includes('API endpoint not found') ||
+            error.message.includes('Failed to fetch'));
 
         if (isNetworkError) {
           console.warn(`Network error fetching nisab data, retrying (${retryCount + 1}/${MAX_RETRIES})...`);
@@ -322,7 +323,7 @@ export async function fetchNisabData(currency: string, forceRefresh = false) {
 }
 
 // Get fallback nisab data when API is unavailable
-export async function getOfflineFallbackNisabData(state: any, customCurrency?: string) {
+export async function getOfflineFallbackNisabData(state: any, customCurrency?: string): Promise<NisabData> {
   const currency = customCurrency || state.currency || state.metalPrices?.currency || 'USD';
   const fallbackCurrency = OFFLINE_FALLBACK_PRICES.currency; // 'USD'
 
