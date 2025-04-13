@@ -1,4 +1,4 @@
-import { AssetIconType } from '@/components/ui/icons/icon-types'
+import { AssetType } from '@/types'
 
 export interface AssetMetadata {
   // Common metadata
@@ -43,7 +43,7 @@ export interface AssetMetadata {
 
 export interface Asset {
   id: string
-  type: AssetIconType
+  type: AssetType | 'other'
   name: string
   value: number
   currency: string

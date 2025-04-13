@@ -6,7 +6,11 @@ export interface CashValues {
   savings_account: number
   digital_wallets: number
   foreign_currency: number
-  [key: string]: number
+  foreign_currency_entries?: Array<{
+    amount: number
+    currency: string
+    rawInput?: string
+  }>
 }
 
 export interface MetalPrices {
@@ -190,7 +194,7 @@ export interface ActiveStock {
 export interface StockValues {
   // Active Trading Section
   activeStocks: ActiveStock[]
-  
+
   // Passive Investments Section
   passiveInvestments?: {
     investments: Array<{
@@ -211,7 +215,7 @@ export interface StockValues {
       yourShares: number
     }
   }
-  
+
   // Legacy/Other Stock Values
   active_shares: number
   active_price_per_share: number

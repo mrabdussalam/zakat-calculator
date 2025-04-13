@@ -13,7 +13,7 @@ const validateNonNegative = (values: CashValues): boolean => {
 }
 
 /**
- * Validates that all values are numerical
+ * Validates that all values are numerical and foreign currency entries have valid structure
  */
 const validateNumericalType = (values: CashValues): boolean => {
   return Object.entries(values).every(([key, value]) => {
@@ -25,7 +25,8 @@ const validateNumericalType = (values: CashValues): boolean => {
       return Array.isArray(value) && value.every(entry =>
         typeof entry === 'object' &&
         typeof entry.amount === 'number' &&
-        typeof entry.currency === 'string'
+        typeof entry.currency === 'string' &&
+        entry.currency.trim().length > 0 // Ensure currency is not empty
       )
     }
 
