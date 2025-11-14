@@ -5,6 +5,7 @@ import { DEFAULT_HAWL_STATUS } from '../constants'
 import { getCryptoPrice, CryptoAPIError } from '@/lib/api/crypto'
 import { roundCurrency } from '@/lib/utils/currency'
 import { CryptoSlice, CryptoValues, CryptoHolding } from './crypto.types'
+import { getFallbackRate } from '@/lib/constants/currency'
 
 // Add environment detection for Replit
 const IS_REPLIT = typeof window !== 'undefined' &&
@@ -272,22 +273,8 @@ export const createCryptoSlice: StateCreator<
       return;
     }
 
-    // Use basic conversion function if advanced currency conversion not available
+    // Use shared fallback rate conversion function
     const convertValue = (value: number, fromCurr: string, toCurr: string): number => {
-      // Simple conversion rates for common currencies
-      const rates: Record<string, number> = {
-        'USD-SAR': 3.75,  // 1 USD = 3.75 SAR
-        'SAR-USD': 1 / 3.75,
-        'USD-PKR': 278.5, // 1 USD = 278.5 PKR
-        'PKR-USD': 1 / 278.5,
-        'USD-GBP': 0.78,  // 1 USD = 0.78 GBP
-        'GBP-USD': 1 / 0.78,
-        'USD-EUR': 0.92,  // 1 USD = 0.92 EUR
-        'EUR-USD': 1 / 0.92,
-        'USD-AED': 3.67,  // 1 USD = 3.67 AED
-        'AED-USD': 1 / 3.67
-      };
-
       console.log(`Crypto conversion: ${value} ${fromCurr} → ${toCurr}`);
 
       // If same currency, no conversion needed
@@ -296,29 +283,16 @@ export const createCryptoSlice: StateCreator<
         return value;
       }
 
-      // Try to find conversion rate
-      const rateKey = `${fromCurr}-${toCurr}`;
-      const rate = rates[rateKey];
+      // Use shared fallback rate function
+      const rate = getFallbackRate(fromCurr, toCurr);
 
-      if (rate) {
+      if (rate !== null) {
         const result = value * rate;
-        console.log(`Direct conversion ${fromCurr} to ${toCurr}: ${value} * ${rate} = ${result}`);
+        console.log(`Conversion ${fromCurr} to ${toCurr}: ${value} * ${rate} = ${result}`);
         return result;
       }
 
-      // If no direct conversion found, try to convert through USD
-      if (fromCurr !== 'USD' && toCurr !== 'USD') {
-        const fromToUSD = rates[`${fromCurr}-USD`] || (1 / rates[`USD-${fromCurr}`]);
-        const usdToTarget = rates[`USD-${toCurr}`] || (1 / rates[`${toCurr}-USD`]);
-
-        if (fromToUSD && usdToTarget) {
-          const result = value * fromToUSD * usdToTarget;
-          console.log(`Indirect conversion via USD: ${value} ${fromCurr} → ${value * fromToUSD} USD → ${result} ${toCurr}`);
-          return result;
-        }
-      }
-
-      // If all else fails, return original value
+      // If conversion not possible, return original value with warning
       console.warn(`No conversion rate found for ${fromCurr} to ${toCurr}, using original value`);
       return value;
     };

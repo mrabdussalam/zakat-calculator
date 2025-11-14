@@ -3,35 +3,13 @@
  * Used by both API routes to avoid server-to-server HTTP calls
  */
 
+import { FALLBACK_RATES, getFallbackRate } from '@/lib/constants/currency';
+
 interface ExchangeRateResponse {
   base: string;
   date: string;
   rates: Record<string, number>;
 }
-
-// Fallback rates for common currency pairs
-const FALLBACK_RATES: Record<string, number> = {
-  'USD': 1,
-  'EUR': 0.92,
-  'GBP': 0.78,
-  'JPY': 150.5,
-  'CAD': 1.35,
-  'AUD': 1.52,
-  'INR': 83.15,
-  'PKR': 278.5,
-  'AED': 3.67,
-  'SAR': 3.75,
-  'MYR': 4.65,
-  'SGD': 1.35,
-  'BDT': 110.5,
-  'EGP': 30.9,
-  'IDR': 15600,
-  'KWD': 0.31,
-  'NGN': 1550,
-  'QAR': 3.64,
-  'ZAR': 18.5,
-  'RUB': 91.5
-};
 
 /**
  * Fetch exchange rates from external APIs with multiple fallbacks
@@ -168,10 +146,10 @@ export async function getExchangeRate(from: string, to: string): Promise<number 
     }
 
     // If specific symbol not found, try using fallback calculation
-    if (FALLBACK_RATES[fromUpper.toUpperCase()] && FALLBACK_RATES[toUpper.toUpperCase()]) {
-      const rate = FALLBACK_RATES[toUpper.toUpperCase()] / FALLBACK_RATES[fromUpper.toUpperCase()];
-      console.log(`[ExchangeRateService] Using fallback rate for ${fromUpper} to ${toUpper}: ${rate}`);
-      return rate;
+    const fallbackRate = getFallbackRate(fromUpper, toUpper);
+    if (fallbackRate !== null) {
+      console.log(`[ExchangeRateService] Using fallback rate for ${fromUpper} to ${toUpper}: ${fallbackRate}`);
+      return fallbackRate;
     }
 
     console.warn(`[ExchangeRateService] Could not get exchange rate for ${fromUpper} to ${toUpper}`);
@@ -180,9 +158,10 @@ export async function getExchangeRate(from: string, to: string): Promise<number 
     console.error(`[ExchangeRateService] Error getting exchange rate from ${fromUpper} to ${toUpper}:`, error);
 
     // Try fallback calculation on error
-    if (FALLBACK_RATES[fromUpper.toUpperCase()] && FALLBACK_RATES[toUpper.toUpperCase()]) {
-      const rate = FALLBACK_RATES[toUpper.toUpperCase()] / FALLBACK_RATES[fromUpper.toUpperCase()];
-      return rate;
+    const fallbackRate = getFallbackRate(fromUpper, toUpper);
+    if (fallbackRate !== null) {
+      console.log(`[ExchangeRateService] Using fallback rate after error for ${fromUpper} to ${toUpper}: ${fallbackRate}`);
+      return fallbackRate;
     }
 
     return null;
