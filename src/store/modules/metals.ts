@@ -106,6 +106,8 @@ export const createMetalsSlice: StateCreator<
 
   setMetalPrices: (prices: Partial<MetalPrices>) => {
     const currentPrices = get().metalPrices;
+    const currencyChanged = prices.currency && prices.currency !== currentPrices.currency;
+
     const updatedPrices = {
       ...currentPrices,
       ...prices,
@@ -124,14 +126,20 @@ export const createMetalsSlice: StateCreator<
         gold: updatedPrices.gold,
         silver: updatedPrices.silver,
         currency: updatedPrices.currency
-      }
+      },
+      currencyChanged
     });
 
     // Update the prices in the store
     set({ metalPrices: updatedPrices });
 
-    // Clear the calculation cache when prices change
+    // CRITICAL: Clear calculation cache when prices OR currency changes
+    // This prevents cached calculations from being returned in the wrong currency
     clearMetalsCalculationCache();
+
+    if (currencyChanged) {
+      console.log('Currency changed in metal prices - cache cleared to prevent wrong currency calculations');
+    }
 
     // IMPORTANT: Immediately update nisab data with the new metal prices
     // This ensures nisab threshold updates instantly with the metal prices

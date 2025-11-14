@@ -130,12 +130,16 @@ export function useForeignCurrency({
         // Try to convert using real-time rates first
         const converted = convertAmount(entry.amount || 0, entry.currency, validCurrency);
         if (!isNaN(converted) && isFinite(converted)) {
-          // Store successful conversion rate for fallback
-          const rate = converted / (entry.amount || 1); // Avoid division by zero
-          setFallbackRates(prev => ({
-            ...prev,
-            [`${entry.currency}_${validCurrency}`]: rate
-          }));
+          // Store successful conversion rate for fallback (only if amount is non-zero)
+          if (entry.amount && entry.amount !== 0) {
+            const rate = converted / entry.amount;
+            if (isFinite(rate) && !isNaN(rate) && rate > 0) {
+              setFallbackRates(prev => ({
+                ...prev,
+                [`${entry.currency}_${validCurrency}`]: rate
+              }));
+            }
+          }
           return total + converted;
         }
 
@@ -157,16 +161,20 @@ export function useForeignCurrency({
           return total + convertedAmount;
         }
 
-        // Last resort fallback - use the unconverted amount
+        // Last resort - conversion failed completely
         hasWarning = true;
         conversionErrors.push(`${entry.currency} to ${validCurrency}`);
-        console.warn(`No conversion available for ${entry.amount} ${entry.currency} to ${validCurrency} - using original amount`);
-        return total + (entry.amount || 0);
+        console.error(`CRITICAL: No conversion available for ${entry.amount} ${entry.currency} to ${validCurrency}`);
+        console.error(`This will result in incorrect zakat calculations. Entry will be excluded from total.`);
+        // Return total without adding this entry (exclude it rather than add wrong value)
+        return total;
       } catch (error) {
         console.error(`Error converting ${entry.currency} to ${validCurrency}:`, error instanceof Error ? error.message : String(error));
         hasWarning = true;
         conversionErrors.push(`${entry.currency} to ${validCurrency}`);
-        return total + (entry.amount || 0);
+        console.error(`CRITICAL: Conversion error will result in incorrect calculations. Entry excluded from total.`);
+        // Return total without adding this entry (exclude it rather than add wrong value)
+        return total;
       }
     }, 0);
 
@@ -174,11 +182,11 @@ export function useForeignCurrency({
     if (hasWarning) {
       if (conversionErrors.length > 0) {
         setConversionWarning(
-          `Unable to convert: ${conversionErrors.join(', ')}. Using approximate values.`
+          `CRITICAL: Unable to convert ${conversionErrors.join(', ')}. These entries are EXCLUDED from calculations. Please check your entries or try again later.`
         );
       } else {
         setConversionWarning(
-          "Some currencies couldn't be converted with current rates. Using cached rates instead."
+          "WARNING: Some currencies couldn't be converted with current rates. Using cached rates instead."
         );
       }
     } else {

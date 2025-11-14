@@ -244,12 +244,29 @@ export function calculateNisabThresholds(
         });
     }
 
+    // Validate prices before calculation to prevent NaN/Infinity results
+    if (!isValidPrice(goldPriceInTargetCurrency)) {
+        console.error('Invalid gold price detected before calculation:', goldPriceInTargetCurrency);
+        throw new Error(`Invalid gold price: ${goldPriceInTargetCurrency}. Price must be a positive finite number.`);
+    }
+
+    if (!isValidPrice(silverPriceInTargetCurrency)) {
+        console.error('Invalid silver price detected before calculation:', silverPriceInTargetCurrency);
+        throw new Error(`Invalid silver price: ${silverPriceInTargetCurrency}. Price must be a positive finite number.`);
+    }
+
     // Calculate nisab thresholds using the weights and prices
     const goldGrams = NISAB.GOLD.GRAMS; // 85g
     const silverGrams = NISAB.SILVER.GRAMS; // 595g
 
     const goldThreshold = goldPriceInTargetCurrency * goldGrams;
     const silverThreshold = silverPriceInTargetCurrency * silverGrams;
+
+    // Validate calculated thresholds
+    if (!isValidPrice(goldThreshold) || !isValidPrice(silverThreshold)) {
+        console.error('Invalid threshold calculated:', { goldThreshold, silverThreshold });
+        throw new Error(`Invalid nisab thresholds calculated. Gold: ${goldThreshold}, Silver: ${silverThreshold}`);
+    }
 
     // The nisab value is the lower of the two thresholds
     const nisabValue = Math.min(goldThreshold, silverThreshold);

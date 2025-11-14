@@ -83,7 +83,10 @@ const initialState: Partial<ZakatState> = {
 }
 
 // Enhanced hydration function with better error handling and validation
-export const hydratePersistedData = (persistedState: any, initialState: any): any => {
+export const hydratePersistedData = (
+  persistedState: Partial<ZakatState> | null | undefined,
+  initialState: Partial<ZakatState>
+): Partial<ZakatState> => {
   // Safety check for null or undefined persisted state
   if (!persistedState) {
     console.log('No persisted state found, using initial state');
@@ -92,7 +95,7 @@ export const hydratePersistedData = (persistedState: any, initialState: any): an
 
   try {
     // Create a deep copy of the initial state to avoid mutations
-    const baseState = JSON.parse(JSON.stringify(initialState));
+    const baseState = JSON.parse(JSON.stringify(initialState)) as Partial<ZakatState>;
 
     // Log hydration for debugging
     console.log('Hydrating persisted state', {
@@ -107,7 +110,7 @@ export const hydratePersistedData = (persistedState: any, initialState: any): an
     }
 
     // Create the merged state with type safety
-    const mergedState: any = { ...baseState };
+    const mergedState: Partial<ZakatState> = { ...baseState };
 
     // Process each top-level key in the initial state
     Object.keys(baseState).forEach(key => {
@@ -141,14 +144,14 @@ export const hydratePersistedData = (persistedState: any, initialState: any): an
         } else if (Array.isArray(baseState[key]) && Array.isArray(persistedState[key])) {
           // For arrays, use the persisted array but validate items
           if (Array.isArray(baseState[key])) {
-            mergedState[key] = persistedState[key].map((item: any) => {
+            mergedState[key] = (persistedState[key] as unknown[]).map((item: unknown) => {
               // If array contains objects, ensure they have required properties
               if (typeof item === 'object' && item !== null) {
-                const templateItem = baseState[key][0] || {};
-                return { ...templateItem, ...item };
+                const templateItem = (baseState[key] as unknown[])[0] || {};
+                return { ...templateItem, ...(item as Record<string, unknown>) };
               }
               return item;
-            });
+            }) as typeof baseState[typeof key];
           } else {
             console.warn(`Expected an array for key ${key}, but got ${typeof baseState[key]}`);
             mergedState[key] = persistedState[key];
@@ -226,13 +229,13 @@ export const useZakatStore = create<ZakatState>()(
             currency: currency || initialState.currency
           });
 
-          // Then, call individual reset functions with small delays to ensure they're processed
-          setTimeout(() => cashSlice.resetCashValues?.(), 10)
-          setTimeout(() => metalsSlice.resetMetalsValues?.(), 20)
-          setTimeout(() => stocksSlice.resetStockValues?.(), 30)
-          setTimeout(() => retirementSlice.resetRetirement?.(), 40)
-          setTimeout(() => realEstateSlice.resetRealEstateValues?.(), 50)
-          setTimeout(() => cryptoSlice.resetCryptoValues?.(), 60)
+          // Call individual reset functions synchronously
+          cashSlice.resetCashValues?.()
+          metalsSlice.resetMetalsValues?.()
+          stocksSlice.resetStockValues?.()
+          retirementSlice.resetRetirement?.()
+          realEstateSlice.resetRealEstateValues?.()
+          cryptoSlice.resetCryptoValues?.()
 
           // Update localStorage properly without removing the structure
           try {
@@ -291,7 +294,7 @@ export const useZakatStore = create<ZakatState>()(
         },
 
         // Set currency and update related data
-        setCurrency: (newCurrency) => {
+        setCurrency: async (newCurrency) => {
           console.log('Setting currency to:', newCurrency);
 
           const currentState = get();
@@ -308,55 +311,30 @@ export const useZakatStore = create<ZakatState>()(
 
           // Update metal prices for the new currency
           try {
-            // Check if we need to update metal prices (if they exist)
+            // Invalidate cached nisab data to force recalculation
+            set({ nisabData: undefined });
+
+            // Update metal prices if they exist
             if (currentState.metalPrices) {
               console.log('Updating metal prices for new currency:', newCurrency);
               get().updateMetalPricesForNewCurrency(newCurrency);
             }
 
-            // ENHANCEMENT: Force immediate nisab update instead of waiting
+            // Force immediate nisab update for new currency
             console.log('Forcing immediate nisab update for new currency:', newCurrency);
 
-            // First, attempt to invalidate any cached nisab data to force recalculation
-            set(state => ({
-              ...state,
-              // Setting to undefined forces a fresh calculation
-              nisabData: undefined
-            }));
-
-            // Then immediately request new nisab data
             if (typeof currentState.forceRefreshNisabForCurrency === 'function') {
-              // Use setTimeout to ensure this happens after the state update
-              setTimeout(() => {
-                console.log('Triggering nisab refresh for new currency:', newCurrency);
-                get().forceRefreshNisabForCurrency(newCurrency)
-                  .then(() => {
-                    console.log('Nisab data refreshed successfully for:', newCurrency);
+              try {
+                const success = await get().forceRefreshNisabForCurrency(newCurrency);
+                console.log('Nisab data refresh result:', success ? 'success' : 'failed');
 
-                    // Force a recalculation of all calculator totals to update UI
-                    // This ensures all components re-render with new currency values
-                    if (typeof get().getNisabStatus === 'function') {
-                      get().getNisabStatus();
-                    }
-
-                    // ENHANCEMENT: Force UI refresh for all calculators
-                    // Create a synthetic state update to trigger component re-renders
-                    // without adding new properties
-                    const currentState = get();
-                    // Temporarily modify and restore a property to force state update
-                    // without adding new properties
-                    const originalCurrency = currentState.currency;
-
-                    // First update with temporary value
-                    set({ currency: `${originalCurrency}_refresh` });
-
-                    // Then immediately restore to trigger subscribers
-                    setTimeout(() => {
-                      set({ currency: originalCurrency });
-                    }, 0);
-                  })
-                  .catch(err => console.error('Error during immediate nisab refresh:', err instanceof Error ? err.message : String(err)));
-              }, 0);
+                // Recalculate nisab status after refresh
+                if (success && typeof get().getNisabStatus === 'function') {
+                  get().getNisabStatus();
+                }
+              } catch (err) {
+                console.error('Error during nisab refresh:', err instanceof Error ? err.message : String(err));
+              }
             }
 
             // Dispatch currency change event
@@ -366,11 +344,11 @@ export const useZakatStore = create<ZakatState>()(
                   oldCurrency: currentCurrency,
                   newCurrency: newCurrency,
                   timestamp: Date.now(),
-                  immediate: true  // Flag indicating this should trigger immediate UI updates
+                  immediate: true
                 }
               }));
 
-              // ENHANCEMENT: Dispatch a specific event for calculators to force refresh
+              // Dispatch calculator refresh event
               window.dispatchEvent(new CustomEvent('calculator-values-refresh', {
                 detail: {
                   currency: newCurrency,

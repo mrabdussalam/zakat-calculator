@@ -281,12 +281,30 @@ export async function GET(request: Request) {
     // Check if currency conversion failed
     const conversionFailed = data.conversionFailed || false;
 
-    // Calculate both gold and silver nisab thresholds
+    // Validate metal prices before calculation to prevent caching invalid data
     const goldPrice = data.gold;
     const silverPrice = data.silver;
 
+    // CRITICAL: Validate prices are valid numbers
+    if (typeof goldPrice !== 'number' || !isFinite(goldPrice) || goldPrice <= 0) {
+      console.error('Invalid gold price received:', goldPrice);
+      throw new Error(`Invalid gold price: ${goldPrice}. Cannot cache invalid data.`);
+    }
+
+    if (typeof silverPrice !== 'number' || !isFinite(silverPrice) || silverPrice <= 0) {
+      console.error('Invalid silver price received:', silverPrice);
+      throw new Error(`Invalid silver price: ${silverPrice}. Cannot cache invalid data.`);
+    }
+
+    // Calculate both gold and silver nisab thresholds
     const goldNisabThreshold = goldPrice * GOLD_GRAMS_NISAB;
     const silverNisabThreshold = silverPrice * SILVER_GRAMS_NISAB;
+
+    // Validate calculated thresholds
+    if (!isFinite(goldNisabThreshold) || !isFinite(silverNisabThreshold)) {
+      console.error('Invalid threshold calculated:', { goldNisabThreshold, silverNisabThreshold });
+      throw new Error(`Invalid nisab thresholds calculated. Cannot cache invalid data.`);
+    }
 
     console.log(`Nisab API: Calculated gold-based threshold: ${goldNisabThreshold} ${actualCurrency}`);
     console.log(`Nisab API: Calculated silver-based threshold: ${silverNisabThreshold} ${actualCurrency}`);
