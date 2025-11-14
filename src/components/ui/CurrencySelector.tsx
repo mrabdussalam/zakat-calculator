@@ -249,7 +249,7 @@ export function CurrencySelector({ className, onChange }: CurrencySelectorProps)
         from: value,
         to: newValue,
         shouldForceReload: true,
-        isInitialLoad: isInitialPageLoad
+        isInitialLoad: false
       }
     })
     window.dispatchEvent(event)
