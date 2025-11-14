@@ -18,35 +18,54 @@ async function getExchangeRate(from: string, to: string): Promise<number | null>
   }
 
   try {
-    // Always try to get exchange rate from Frankfurter API first
-    const response = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=${to}`);
+    // Use the proxy API to get exchange rates (avoids direct API calls and provides fallback)
+    const response = await fetch(`/api/proxy/currency?base=${from}&symbols=${to}`, {
+      signal: AbortSignal.timeout(10000) // 10 second timeout
+    });
 
     if (response.ok) {
       const data = await response.json();
       if (data && data.rates && data.rates[to.toUpperCase()]) {
-        console.log(`Got real-time exchange rate for ${from} to ${to}: ${data.rates[to.toUpperCase()]}`);
+        console.log(`Got exchange rate for ${from} to ${to}: ${data.rates[to.toUpperCase()]}`);
         return data.rates[to.toUpperCase()];
       }
     }
 
-    console.log(`Frankfurter API failed for ${from} to ${to}, using fallbacks`);
+    console.log(`Proxy API failed for ${from} to ${to}, using hardcoded fallbacks`);
 
     // Fallback to hardcoded rates if API fails
-    // Special case for USD to SAR (Saudi Riyal)
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'SAR') {
-      console.log(`Using fallback rate for USD to SAR: 3.75`);
-      return 3.75; // Fixed rate for SAR
-    }
+    const FALLBACK_RATES: Record<string, number> = {
+      'USD': 1,
+      'EUR': 0.92,
+      'GBP': 0.78,
+      'SAR': 3.75,
+      'PKR': 278.5,
+      'AED': 3.67,
+      'INR': 83.15,
+      'RUB': 91.5
+    };
 
-    // Special case for USD to PKR (Pakistani Rupee) - approximate rate
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'PKR') {
-      console.log(`Using fallback rate for USD to PKR: 278.5`);
-      return 278.5; // Approximate rate for PKR
+    const fromUpper = from.toUpperCase();
+    const toUpper = to.toUpperCase();
+
+    if (FALLBACK_RATES[fromUpper] && FALLBACK_RATES[toUpper]) {
+      const rate = FALLBACK_RATES[toUpper] / FALLBACK_RATES[fromUpper];
+      console.log(`Using fallback rate for ${from} to ${to}: ${rate}`);
+      return rate;
     }
 
     return null;
   } catch (error) {
     console.error(`Error fetching exchange rate from ${from} to ${to}:`, error);
+
+    // Return hardcoded fallback rates on error
+    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'SAR') {
+      return 3.75;
+    }
+    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'PKR') {
+      return 278.5;
+    }
+
     return null;
   }
 }

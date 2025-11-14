@@ -18,75 +18,63 @@ async function getExchangeRate(from: string, to: string): Promise<number | null>
   }
 
   try {
-    // Always try to get exchange rate from Frankfurter API first
-    const response = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=${to}`);
+    // Use the proxy API to get exchange rates (provides fallback mechanisms)
+    const response = await fetch(`/api/proxy/currency?base=${from}&symbols=${to}`, {
+      signal: AbortSignal.timeout(10000) // 10 second timeout
+    });
 
     if (response.ok) {
       const data = await response.json();
       if (data && data.rates && data.rates[to.toUpperCase()]) {
-        console.log(`Got real-time exchange rate for ${from} to ${to}: ${data.rates[to.toUpperCase()]}`);
+        console.log(`Got exchange rate for ${from} to ${to}: ${data.rates[to.toUpperCase()]}`);
         return data.rates[to.toUpperCase()];
       }
     }
 
-    console.log(`Frankfurter API failed for ${from} to ${to}, trying Open Exchange Rates API`);
-
-    // Try Open Exchange Rates API as a fallback
-    try {
-      // Use our proxy endpoint to avoid exposing API keys
-      const openExchangeResponse = await fetch(`/api/proxy/currency?base=${from}&symbols=${to}`);
-
-      if (openExchangeResponse.ok) {
-        const openExchangeData = await openExchangeResponse.json();
-        if (openExchangeData && openExchangeData.rates && openExchangeData.rates[to.toUpperCase()]) {
-          const rate = openExchangeData.rates[to.toUpperCase()];
-          console.log(`Got real-time exchange rate from Open Exchange Rates for ${from} to ${to}: ${rate}`);
-          return rate;
-        }
-      }
-    } catch (openExchangeError) {
-      console.error(`Open Exchange Rates API failed for ${from} to ${to}:`, openExchangeError);
-    }
-
-    console.log(`All API attempts failed for ${from} to ${to}, using fallback rates`);
+    console.log(`Proxy API failed for ${from} to ${to}, using hardcoded fallbacks`);
 
     // Fallback to hardcoded rates if API fails
-    // Special case for USD to SAR (Saudi Riyal)
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'SAR') {
-      console.log(`Using fallback rate for USD to SAR: 3.75`);
-      return 3.75; // Fixed rate for SAR
-    }
+    const FALLBACK_RATES: Record<string, number> = {
+      'USD': 1,
+      'EUR': 0.92,
+      'GBP': 0.78,
+      'SAR': 3.75,
+      'PKR': 278.5,
+      'AED': 3.67,
+      'INR': 83.15,
+      'RUB': 91.5
+    };
 
-    // Special case for USD to PKR (Pakistani Rupee) - approximate rate
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'PKR') {
-      console.log(`Using fallback rate for USD to PKR: 278.5`);
-      return 278.5; // Approximate rate for PKR
-    }
+    const fromUpper = from.toUpperCase();
+    const toUpper = to.toUpperCase();
 
-    // Special case for USD to RUB (Russian Ruble) - approximate rate
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'RUB') {
-      console.log(`Using fallback rate for USD to RUB: 91.5`);
-      return 91.5; // Approximate rate for RUB
+    if (FALLBACK_RATES[fromUpper] && FALLBACK_RATES[toUpper]) {
+      const rate = FALLBACK_RATES[toUpper] / FALLBACK_RATES[fromUpper];
+      console.log(`Using fallback rate for ${from} to ${to}: ${rate}`);
+      return rate;
     }
 
     return null;
   } catch (error) {
     console.error(`Error fetching exchange rate from ${from} to ${to}:`, error);
 
-    // Fallback to hardcoded rates if error occurs
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'SAR') {
-      console.log(`Using fallback rate after error for USD to SAR: 3.75`);
-      return 3.75;
-    }
+    // Return hardcoded fallback rates on error
+    const FALLBACK_RATES: Record<string, number> = {
+      'USD': 1,
+      'EUR': 0.92,
+      'GBP': 0.78,
+      'SAR': 3.75,
+      'PKR': 278.5,
+      'AED': 3.67,
+      'INR': 83.15,
+      'RUB': 91.5
+    };
 
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'PKR') {
-      console.log(`Using fallback rate after error for USD to PKR: 278.5`);
-      return 278.5;
-    }
+    const fromUpper = from.toUpperCase();
+    const toUpper = to.toUpperCase();
 
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'RUB') {
-      console.log(`Using fallback rate after error for USD to RUB: 91.5`);
-      return 91.5;
+    if (FALLBACK_RATES[fromUpper] && FALLBACK_RATES[toUpper]) {
+      return FALLBACK_RATES[toUpper] / FALLBACK_RATES[fromUpper];
     }
 
     return null;
