@@ -1,5 +1,15 @@
 import { useCurrencyStore } from '@/lib/services/currency'
 
+// Detect if we're on the server or client
+const isServer = typeof window === 'undefined';
+
+// Dynamically import the shared service only on server
+let exchangeRateService: typeof import('@/lib/services/exchangeRateService') | null = null;
+if (isServer) {
+    // Use dynamic import to avoid bundling server code in client
+    exchangeRateService = require('@/lib/services/exchangeRateService');
+}
+
 // Cache for exchange rates
 const rateCache = new Map<string, { rate: number; timestamp: number }>();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -37,7 +47,7 @@ export function clearExchangeRateCache(): void {
     rateCache.clear();
 }
 
-// Helper function to fetch with timeout
+// Helper function to fetch with timeout (client-side only)
 async function fetchWithTimeout(url: string, timeout: number = API_TIMEOUT): Promise<Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -115,51 +125,66 @@ export async function getExchangeRate(from: string, to: string): Promise<number 
             return cachedRate;
         }
 
-        // Try to get exchange rate from server-side proxy API
-        // This avoids CORS issues by making the request server-side
-        try {
-            console.log(`Fetching exchange rate via proxy API for ${fromUpper} to ${toUpper}`);
-            const proxyUrl = `/api/proxy/currency?base=${fromUpper}&symbols=${toUpper}`;
-            const response = await fetchWithTimeout(proxyUrl);
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data && data.rates && data.rates[toUpper]) {
-                    const rate = data.rates[toUpper];
-                    console.log(`Got exchange rate from proxy API for ${fromUpper} to ${toUpper}: ${rate}`);
+        // SERVER-SIDE: Use the shared exchange rate service directly
+        if (isServer && exchangeRateService) {
+            try {
+                console.log(`[Server] Using shared exchange rate service for ${fromUpper} to ${toUpper}`);
+                const rate = await exchangeRateService.getExchangeRate(fromUpper, toUpper);
+                if (rate !== null) {
                     setCachedRate(fromUpper, toUpper, rate);
                     return rate;
                 }
-            } else {
-                console.warn(`Proxy API returned status ${response.status} for ${fromUpper} to ${toUpper}`);
+            } catch (serviceError) {
+                console.warn(`[Server] Exchange rate service error for ${fromUpper} to ${toUpper}:`, serviceError instanceof Error ? serviceError.message : 'Unknown error');
             }
-        } catch (proxyError) {
-            console.warn(`Proxy API error for ${fromUpper} to ${toUpper}:`, proxyError instanceof Error ? proxyError.message : 'Unknown error');
         }
 
-        // Fallback: Use currency store
-        console.log(`Proxy API failed for ${fromUpper} to ${toUpper}, using currency store`);
-        try {
-            const currencyStore = useCurrencyStore.getState();
+        // CLIENT-SIDE: Try to get exchange rate from proxy API
+        if (!isServer) {
+            try {
+                console.log(`[Client] Fetching exchange rate via proxy API for ${fromUpper} to ${toUpper}`);
+                const proxyUrl = `/api/proxy/currency?base=${fromUpper}&symbols=${toUpper}`;
+                const response = await fetchWithTimeout(proxyUrl);
 
-            // Check if store has rates, if not try to fetch them
-            if (!currencyStore.rates || Object.keys(currencyStore.rates).length === 0) {
-                console.log('Currency store has no rates, attempting to fetch...');
-                await currencyStore.fetchRates(fromUpper);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.rates && data.rates[toUpper]) {
+                        const rate = data.rates[toUpper];
+                        console.log(`[Client] Got exchange rate from proxy API for ${fromUpper} to ${toUpper}: ${rate}`);
+                        setCachedRate(fromUpper, toUpper, rate);
+                        return rate;
+                    }
+                } else {
+                    console.warn(`[Client] Proxy API returned status ${response.status} for ${fromUpper} to ${toUpper}`);
+                }
+            } catch (proxyError) {
+                console.warn(`[Client] Proxy API error for ${fromUpper} to ${toUpper}:`, proxyError instanceof Error ? proxyError.message : 'Unknown error');
             }
 
-            const value = currencyStore.convertAmount(1, fromUpper, toUpper);
-            if (value !== null && value !== undefined && value > 0) {
-                console.log(`Currency store exchange rate for ${fromUpper} to ${toUpper}: ${value}`);
-                setCachedRate(fromUpper, toUpper, value);
-                return value;
+            // Fallback: Use currency store (client-side only)
+            console.log(`[Client] Proxy API failed for ${fromUpper} to ${toUpper}, using currency store`);
+            try {
+                const currencyStore = useCurrencyStore.getState();
+
+                // Check if store has rates, if not try to fetch them
+                if (!currencyStore.rates || Object.keys(currencyStore.rates).length === 0) {
+                    console.log('[Client] Currency store has no rates, attempting to fetch...');
+                    await currencyStore.fetchRates(fromUpper);
+                }
+
+                const value = currencyStore.convertAmount(1, fromUpper, toUpper);
+                if (value !== null && value !== undefined && value > 0) {
+                    console.log(`[Client] Currency store exchange rate for ${fromUpper} to ${toUpper}: ${value}`);
+                    setCachedRate(fromUpper, toUpper, value);
+                    return value;
+                }
+            } catch (storeError) {
+                console.warn(`[Client] Currency store error for ${fromUpper} to ${toUpper}:`, storeError instanceof Error ? storeError.message : 'Unknown error');
             }
-        } catch (storeError) {
-            console.warn(`Currency store error for ${fromUpper} to ${toUpper}:`, storeError instanceof Error ? storeError.message : 'Unknown error');
         }
 
         // Last resort: Use hardcoded fallback rates
-        console.log(`Currency store failed for ${fromUpper} to ${toUpper}, using fallback rates`);
+        console.log(`All methods failed for ${fromUpper} to ${toUpper}, using fallback rates`);
         const fallbackRate = getFallbackRate(fromUpper, toUpper);
         if (fallbackRate !== null) {
             setCachedRate(fromUpper, toUpper, fallbackRate);
