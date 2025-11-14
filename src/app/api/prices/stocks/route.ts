@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getExchangeRate } from '@/lib/services/exchangeRateService'
 
 // Use multiple APIs for better reliability
 const YAHOO_FINANCE_API_URL = 'https://query2.finance.yahoo.com/v8/finance/chart'
@@ -9,66 +10,6 @@ const IEX_CLOUD_API_URL = 'https://cloud.iexapis.com/stable'
 const IS_REPLIT = typeof window !== 'undefined' &&
   (window.location.hostname.includes('replit') ||
     window.location.hostname.endsWith('.repl.co'));
-
-// Helper function to get exchange rate with fallbacks
-async function getExchangeRate(from: string, to: string): Promise<number | null> {
-  // If currencies are the same, no conversion needed
-  if (from.toUpperCase() === to.toUpperCase()) {
-    return 1;
-  }
-
-  try {
-    // Use the proxy API to get exchange rates (avoids direct API calls and provides fallback)
-    const response = await fetch(`/api/proxy/currency?base=${from}&symbols=${to}`, {
-      signal: AbortSignal.timeout(10000) // 10 second timeout
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data && data.rates && data.rates[to.toUpperCase()]) {
-        console.log(`Got exchange rate for ${from} to ${to}: ${data.rates[to.toUpperCase()]}`);
-        return data.rates[to.toUpperCase()];
-      }
-    }
-
-    console.log(`Proxy API failed for ${from} to ${to}, using hardcoded fallbacks`);
-
-    // Fallback to hardcoded rates if API fails
-    const FALLBACK_RATES: Record<string, number> = {
-      'USD': 1,
-      'EUR': 0.92,
-      'GBP': 0.78,
-      'SAR': 3.75,
-      'PKR': 278.5,
-      'AED': 3.67,
-      'INR': 83.15,
-      'RUB': 91.5
-    };
-
-    const fromUpper = from.toUpperCase();
-    const toUpper = to.toUpperCase();
-
-    if (FALLBACK_RATES[fromUpper] && FALLBACK_RATES[toUpper]) {
-      const rate = FALLBACK_RATES[toUpper] / FALLBACK_RATES[fromUpper];
-      console.log(`Using fallback rate for ${from} to ${to}: ${rate}`);
-      return rate;
-    }
-
-    return null;
-  } catch (error) {
-    console.error(`Error fetching exchange rate from ${from} to ${to}:`, error);
-
-    // Return hardcoded fallback rates on error
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'SAR') {
-      return 3.75;
-    }
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'PKR') {
-      return 278.5;
-    }
-
-    return null;
-  }
-}
 
 // Try to fetch from Yahoo Finance API
 async function fetchFromYahooFinance(symbol: string): Promise<number | null> {

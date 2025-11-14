@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { SYMBOL_TO_ID } from '@/lib/api/crypto'
+import { getExchangeRate as getExchangeRateFromService } from '@/lib/services/exchangeRateService'
 
 const COINGECKO_API_URL = 'https://api.coingecko.com/api/v3'
 const COINCAP_API_URL = 'https://api.coincap.io/v2'
@@ -9,77 +10,6 @@ const CRYPTOCOMPARE_API_URL = 'https://min-api.cryptocompare.com/data'
 const IS_REPLIT = typeof window !== 'undefined' &&
   (window.location.hostname.includes('replit') ||
     window.location.hostname.endsWith('.repl.co'));
-
-// Helper function to get exchange rate with fallbacks
-async function getExchangeRate(from: string, to: string): Promise<number | null> {
-  // If currencies are the same, no conversion needed
-  if (from.toUpperCase() === to.toUpperCase()) {
-    return 1;
-  }
-
-  try {
-    // Use the proxy API to get exchange rates (provides fallback mechanisms)
-    const response = await fetch(`/api/proxy/currency?base=${from}&symbols=${to}`, {
-      signal: AbortSignal.timeout(10000) // 10 second timeout
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data && data.rates && data.rates[to.toUpperCase()]) {
-        console.log(`Got exchange rate for ${from} to ${to}: ${data.rates[to.toUpperCase()]}`);
-        return data.rates[to.toUpperCase()];
-      }
-    }
-
-    console.log(`Proxy API failed for ${from} to ${to}, using hardcoded fallbacks`);
-
-    // Fallback to hardcoded rates if API fails
-    const FALLBACK_RATES: Record<string, number> = {
-      'USD': 1,
-      'EUR': 0.92,
-      'GBP': 0.78,
-      'SAR': 3.75,
-      'PKR': 278.5,
-      'AED': 3.67,
-      'INR': 83.15,
-      'RUB': 91.5
-    };
-
-    const fromUpper = from.toUpperCase();
-    const toUpper = to.toUpperCase();
-
-    if (FALLBACK_RATES[fromUpper] && FALLBACK_RATES[toUpper]) {
-      const rate = FALLBACK_RATES[toUpper] / FALLBACK_RATES[fromUpper];
-      console.log(`Using fallback rate for ${from} to ${to}: ${rate}`);
-      return rate;
-    }
-
-    return null;
-  } catch (error) {
-    console.error(`Error fetching exchange rate from ${from} to ${to}:`, error);
-
-    // Return hardcoded fallback rates on error
-    const FALLBACK_RATES: Record<string, number> = {
-      'USD': 1,
-      'EUR': 0.92,
-      'GBP': 0.78,
-      'SAR': 3.75,
-      'PKR': 278.5,
-      'AED': 3.67,
-      'INR': 83.15,
-      'RUB': 91.5
-    };
-
-    const fromUpper = from.toUpperCase();
-    const toUpper = to.toUpperCase();
-
-    if (FALLBACK_RATES[fromUpper] && FALLBACK_RATES[toUpper]) {
-      return FALLBACK_RATES[toUpper] / FALLBACK_RATES[fromUpper];
-    }
-
-    return null;
-  }
-}
 
 // Map of CoinGecko IDs to CoinCap IDs for major cryptocurrencies
 const COINCAP_ID_MAP: Record<string, string> = {
@@ -423,7 +353,7 @@ export async function GET(request: Request) {
 
     // Convert currency if needed and different from USD
     if (requestedCurrency !== 'USD') {
-      const rate = await getExchangeRate(sourceCurrency, requestedCurrency);
+      const rate = await getExchangeRateFromService(sourceCurrency, requestedCurrency);
 
       if (rate) {
         price = Number((price * rate).toFixed(2));
