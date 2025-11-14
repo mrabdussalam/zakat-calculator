@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { SYMBOL_TO_ID } from '@/lib/api/crypto'
+import { getExchangeRate as getExchangeRateFromService } from '@/lib/services/exchangeRateService'
 
 const COINGECKO_API_URL = 'https://api.coingecko.com/api/v3'
 const COINCAP_API_URL = 'https://api.coincap.io/v2'
@@ -445,7 +446,7 @@ export async function GET(request: Request) {
 
     // Convert currency if needed and different from USD
     if (requestedCurrency !== 'USD') {
-      const rate = await getExchangeRate(sourceCurrency, requestedCurrency);
+      const rate = await getExchangeRateFromService(sourceCurrency, requestedCurrency);
 
       if (rate) {
         price = Number((price * rate).toFixed(2));
