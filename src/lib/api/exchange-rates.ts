@@ -1,4 +1,5 @@
 import { useCurrencyStore } from '@/lib/services/currency'
+import { getFallbackRate } from '@/lib/constants/currency'
 
 // Detect if we're on the server or client
 const isServer = typeof window === 'undefined';
@@ -67,44 +68,7 @@ async function fetchWithTimeout(url: string, timeout: number = API_TIMEOUT): Pro
     }
 }
 
-// Fallback rates for common currency pairs
-const FALLBACK_RATES: Record<string, number> = {
-    'usd': 1,
-    'eur': 0.92,
-    'gbp': 0.78,
-    'jpy': 150.5,
-    'cad': 1.35,
-    'aud': 1.52,
-    'inr': 83.15,
-    'pkr': 278.5,
-    'aed': 3.67,
-    'sar': 3.75,
-    'myr': 4.65,
-    'sgd': 1.35,
-    'bdt': 110.5,
-    'egp': 30.9,
-    'idr': 15600,
-    'kwd': 0.31,
-    'ngn': 1550,
-    'qar': 3.64,
-    'zar': 18.5,
-    'rub': 91.5
-};
-
-// Helper function to get fallback rate
-function getFallbackRate(from: string, to: string): number | null {
-    const fromLower = from.toLowerCase();
-    const toLower = to.toLowerCase();
-
-    if (FALLBACK_RATES[fromLower] && FALLBACK_RATES[toLower]) {
-        // Convert via USD
-        const rate = FALLBACK_RATES[toLower] / FALLBACK_RATES[fromLower];
-        console.log(`Using fallback rate for ${from} to ${to}: ${rate}`);
-        return rate;
-    }
-
-    return null;
-}
+// Fallback rates are now imported from shared constants
 
 // Main function to get exchange rate with caching
 export async function getExchangeRate(from: string, to: string): Promise<number | null> {
@@ -187,6 +151,7 @@ export async function getExchangeRate(from: string, to: string): Promise<number 
         console.log(`All methods failed for ${fromUpper} to ${toUpper}, using fallback rates`);
         const fallbackRate = getFallbackRate(fromUpper, toUpper);
         if (fallbackRate !== null) {
+            console.log(`Using fallback rate for ${fromUpper} to ${toUpper}: ${fallbackRate}`);
             setCachedRate(fromUpper, toUpper, fallbackRate);
             return fallbackRate;
         }
@@ -199,6 +164,7 @@ export async function getExchangeRate(from: string, to: string): Promise<number 
         // Try fallback rates even on error
         const fallbackRate = getFallbackRate(from, to);
         if (fallbackRate !== null) {
+            console.log(`Using fallback rate after error for ${from} to ${to}: ${fallbackRate}`);
             return fallbackRate;
         }
 
