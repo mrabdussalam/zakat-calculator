@@ -203,19 +203,19 @@ describe('Cash Calculator Hawl Status', () => {
   test('respects hawl status in zakatable calculations', () => {
     const store = createFreshStore()
     store.setCashValue('cash_on_hand', 1000)
-    
+
     // When hawl is not met
-    store.setCashHawl(false)
+    store.setCashHawlMet(false)
     expect(store.getTotalZakatableCash()).toBe(0)
-    
+
     // When hawl is met
-    store.setCashHawl(true)
+    store.setCashHawlMet(true)
     expect(store.getTotalZakatableCash()).toBe(1000)
   })
 
   test('persists hawl status through updates', () => {
     const store = createFreshStore()
-    store.setCashHawl(true)
+    store.setCashHawlMet(true)
     store.setCashValue('checking_account', 500)
     expect(store.cashHawlMet).toBe(true)
     expect(store.getTotalZakatableCash()).toBe(500)
@@ -224,13 +224,13 @@ describe('Cash Calculator Hawl Status', () => {
   test('calculates zakat due correctly based on hawl', () => {
     const store = createFreshStore()
     store.setCashValue('savings_account', 1000)
-    
+
     // With hawl met
-    store.setCashHawl(true)
+    store.setCashHawlMet(true)
     expect(store.getCashBreakdown().zakatDue).toBe(25) // 2.5% of 1000
-    
+
     // Without hawl
-    store.setCashHawl(false)
+    store.setCashHawlMet(false)
     expect(store.getCashBreakdown().zakatDue).toBe(0)
   })
 })
@@ -238,20 +238,20 @@ describe('Cash Calculator Hawl Status', () => {
 describe('Cash Calculator Reset', () => {
   test('resets all values to initial state', () => {
     const store = createFreshStore()
-    
+
     // Set some values
     store.setCashValue('cash_on_hand', 1000)
     store.setCashValue('checking_account', 2000)
-    store.setCashHawl(true)
-    
+    store.setCashHawlMet(true)
+
     // Reset
     store.resetCashValues()
-    
+
     // Verify all values are reset
     expect(store.getTotalCash()).toBe(0)
     expect(store.getTotalZakatableCash()).toBe(0)
     expect(store.getCashBreakdown().zakatDue).toBe(0)
-    
+
     // Verify individual values
     const { cashValues } = store
     Object.values(cashValues).forEach(value => {
@@ -261,30 +261,30 @@ describe('Cash Calculator Reset', () => {
 
   test('maintains hawl status after reset', () => {
     const store = createFreshStore()
-    store.setCashHawl(true)
+    store.setCashHawlMet(true)
     store.resetCashValues()
     expect(store.cashHawlMet).toBe(true)
   })
   
   test('resets foreign currency entries correctly', () => {
     const store = createFreshStore()
-    
+
     // Add foreign currency entries
     store.setCashValue('foreign_currency_entries', [
       { amount: 100, currency: 'EUR' },
       { amount: 200, currency: 'GBP' }
     ])
-    
+
     // Verify entries were added
     expect(Array.isArray(store.cashValues.foreign_currency_entries)).toBe(true)
-    expect(store.cashValues.foreign_currency_entries.length).toBe(2)
-    
+    expect(store.cashValues.foreign_currency_entries?.length).toBe(2)
+
     // Reset the store
     store.resetCashValues()
-    
+
     // Verify foreign_currency_entries is reset to empty array
     expect(Array.isArray(store.cashValues.foreign_currency_entries)).toBe(true)
-    expect(store.cashValues.foreign_currency_entries.length).toBe(0)
+    expect(store.cashValues.foreign_currency_entries?.length || 0).toBe(0)
   })
 })
 
@@ -312,7 +312,7 @@ describe('Cash Calculator Currency Handling', () => {
   test('calculates zakat on total converted amount', () => {
     const store = createFreshStore()
     store.setCashValue('foreign_currency', 1000)
-    store.setCashHawl(true)
+    store.setCashHawlMet(true)
     expect(store.getCashBreakdown().zakatDue).toBe(25) // 2.5% of 1000
   })
 })
@@ -409,21 +409,21 @@ describe('Cash Calculator Advanced Validation', () => {
 
   test('validates combined calculations', () => {
     const store = createFreshStore()
-    
+
     // Set multiple values
     store.setCashValue('cash_on_hand', 1234.56)
     store.setCashValue('checking_account', 7890.12)
     store.setCashValue('savings_account', 3456.78)
-    store.setCashHawl(true)
-    
+    store.setCashHawlMet(true)
+
     const breakdown = store.getCashBreakdown()
-    
+
     // Verify total
     expect(breakdown.total).toBeCloseTo(12581.46, 2)
-    
+
     // Verify zakat calculation
     expect(breakdown.zakatDue).toBeCloseTo(314.54, 2) // 2.5% of total
-    
+
     // Verify individual items
     expect(breakdown.items.cash_on_hand.value).toBeCloseTo(1234.56, 2)
     expect(breakdown.items.checking_account.value).toBeCloseTo(7890.12, 2)
@@ -534,16 +534,16 @@ describe('Cash Calculator Currency Conversion', () => {
 
   test('validates currency calculations with hawl', () => {
     const store = createFreshStore()
-    
+
     // Add mixed currency holdings
     store.setCashValue('cash_on_hand', 1000) // USD
     store.setCashValue('foreign_currency', 1100) // Converted amount
-    store.setCashHawl(true)
-    
+    store.setCashHawlMet(true)
+
     const breakdown = store.getCashBreakdown()
     expect(breakdown.total).toBe(2100)
     expect(breakdown.zakatDue).toBe(52.5) // 2.5% of 2100
-    
+
     // Verify foreign currency is included in zakatable amount
     expect(breakdown.items.foreign_currency.value).toBe(1100)
     expect(breakdown.items.foreign_currency.isZakatable).toBe(true)

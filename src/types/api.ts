@@ -5,4 +5,5 @@ export interface StockPriceResponse {
     sourceCurrency: string;
     currency: string;
     source: string;
+    conversionApplied?: boolean;
 } 

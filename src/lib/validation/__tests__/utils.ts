@@ -9,7 +9,7 @@ export const createFreshStore = () => {
   store.resetCryptoValues?.()
   
   // Reset hawl status
-  store.setCashHawl(true)
+  store.setCashHawlMet(true)
   store.setCryptoHawl?.(true)
   
   return useZakatStore.getState()
