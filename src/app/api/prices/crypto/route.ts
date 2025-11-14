@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { SYMBOL_TO_ID } from '@/lib/api/crypto'
+import { getExchangeRate as getExchangeRateFromService } from '@/lib/services/exchangeRateService'
 
 const COINGECKO_API_URL = 'https://api.coingecko.com/api/v3'
 const COINCAP_API_URL = 'https://api.coincap.io/v2'
@@ -9,89 +10,6 @@ const CRYPTOCOMPARE_API_URL = 'https://min-api.cryptocompare.com/data'
 const IS_REPLIT = typeof window !== 'undefined' &&
   (window.location.hostname.includes('replit') ||
     window.location.hostname.endsWith('.repl.co'));
-
-// Helper function to get exchange rate with fallbacks
-async function getExchangeRate(from: string, to: string): Promise<number | null> {
-  // If currencies are the same, no conversion needed
-  if (from.toUpperCase() === to.toUpperCase()) {
-    return 1;
-  }
-
-  try {
-    // Always try to get exchange rate from Frankfurter API first
-    const response = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=${to}`);
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data && data.rates && data.rates[to.toUpperCase()]) {
-        console.log(`Got real-time exchange rate for ${from} to ${to}: ${data.rates[to.toUpperCase()]}`);
-        return data.rates[to.toUpperCase()];
-      }
-    }
-
-    console.log(`Frankfurter API failed for ${from} to ${to}, trying Open Exchange Rates API`);
-
-    // Try Open Exchange Rates API as a fallback
-    try {
-      // Use our proxy endpoint to avoid exposing API keys
-      const openExchangeResponse = await fetch(`/api/proxy/currency?base=${from}&symbols=${to}`);
-
-      if (openExchangeResponse.ok) {
-        const openExchangeData = await openExchangeResponse.json();
-        if (openExchangeData && openExchangeData.rates && openExchangeData.rates[to.toUpperCase()]) {
-          const rate = openExchangeData.rates[to.toUpperCase()];
-          console.log(`Got real-time exchange rate from Open Exchange Rates for ${from} to ${to}: ${rate}`);
-          return rate;
-        }
-      }
-    } catch (openExchangeError) {
-      console.error(`Open Exchange Rates API failed for ${from} to ${to}:`, openExchangeError);
-    }
-
-    console.log(`All API attempts failed for ${from} to ${to}, using fallback rates`);
-
-    // Fallback to hardcoded rates if API fails
-    // Special case for USD to SAR (Saudi Riyal)
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'SAR') {
-      console.log(`Using fallback rate for USD to SAR: 3.75`);
-      return 3.75; // Fixed rate for SAR
-    }
-
-    // Special case for USD to PKR (Pakistani Rupee) - approximate rate
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'PKR') {
-      console.log(`Using fallback rate for USD to PKR: 278.5`);
-      return 278.5; // Approximate rate for PKR
-    }
-
-    // Special case for USD to RUB (Russian Ruble) - approximate rate
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'RUB') {
-      console.log(`Using fallback rate for USD to RUB: 91.5`);
-      return 91.5; // Approximate rate for RUB
-    }
-
-    return null;
-  } catch (error) {
-    console.error(`Error fetching exchange rate from ${from} to ${to}:`, error);
-
-    // Fallback to hardcoded rates if error occurs
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'SAR') {
-      console.log(`Using fallback rate after error for USD to SAR: 3.75`);
-      return 3.75;
-    }
-
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'PKR') {
-      console.log(`Using fallback rate after error for USD to PKR: 278.5`);
-      return 278.5;
-    }
-
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'RUB') {
-      console.log(`Using fallback rate after error for USD to RUB: 91.5`);
-      return 91.5;
-    }
-
-    return null;
-  }
-}
 
 // Map of CoinGecko IDs to CoinCap IDs for major cryptocurrencies
 const COINCAP_ID_MAP: Record<string, string> = {
@@ -435,7 +353,7 @@ export async function GET(request: Request) {
 
     // Convert currency if needed and different from USD
     if (requestedCurrency !== 'USD') {
-      const rate = await getExchangeRate(sourceCurrency, requestedCurrency);
+      const rate = await getExchangeRateFromService(sourceCurrency, requestedCurrency);
 
       if (rate) {
         price = Number((price * rate).toFixed(2));

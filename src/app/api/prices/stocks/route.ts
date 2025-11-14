@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getExchangeRate } from '@/lib/services/exchangeRateService'
 
 // Use multiple APIs for better reliability
 const YAHOO_FINANCE_API_URL = 'https://query2.finance.yahoo.com/v8/finance/chart'
@@ -9,47 +10,6 @@ const IEX_CLOUD_API_URL = 'https://cloud.iexapis.com/stable'
 const IS_REPLIT = typeof window !== 'undefined' &&
   (window.location.hostname.includes('replit') ||
     window.location.hostname.endsWith('.repl.co'));
-
-// Helper function to get exchange rate with fallbacks
-async function getExchangeRate(from: string, to: string): Promise<number | null> {
-  // If currencies are the same, no conversion needed
-  if (from.toUpperCase() === to.toUpperCase()) {
-    return 1;
-  }
-
-  try {
-    // Always try to get exchange rate from Frankfurter API first
-    const response = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=${to}`);
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data && data.rates && data.rates[to.toUpperCase()]) {
-        console.log(`Got real-time exchange rate for ${from} to ${to}: ${data.rates[to.toUpperCase()]}`);
-        return data.rates[to.toUpperCase()];
-      }
-    }
-
-    console.log(`Frankfurter API failed for ${from} to ${to}, using fallbacks`);
-
-    // Fallback to hardcoded rates if API fails
-    // Special case for USD to SAR (Saudi Riyal)
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'SAR') {
-      console.log(`Using fallback rate for USD to SAR: 3.75`);
-      return 3.75; // Fixed rate for SAR
-    }
-
-    // Special case for USD to PKR (Pakistani Rupee) - approximate rate
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'PKR') {
-      console.log(`Using fallback rate for USD to PKR: 278.5`);
-      return 278.5; // Approximate rate for PKR
-    }
-
-    return null;
-  } catch (error) {
-    console.error(`Error fetching exchange rate from ${from} to ${to}:`, error);
-    return null;
-  }
-}
 
 // Try to fetch from Yahoo Finance API
 async function fetchFromYahooFinance(symbol: string): Promise<number | null> {
