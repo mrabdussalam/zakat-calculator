@@ -10,6 +10,68 @@ const IS_REPLIT = typeof window !== 'undefined' &&
   (window.location.hostname.includes('replit') ||
     window.location.hostname.endsWith('.repl.co'));
 
+// Comprehensive fallback exchange rates (approximate values as of 2025)
+// These are used when the Frankfurter API is unavailable
+const FALLBACK_RATES: { [key: string]: number } = {
+  // USD to other currencies
+  'USD-SAR': 3.75,    // Saudi Riyal (fixed peg)
+  'USD-PKR': 278.5,   // Pakistani Rupee
+  'USD-RUB': 91.5,    // Russian Ruble
+  'USD-INR': 84.0,    // Indian Rupee
+  'USD-GBP': 0.79,    // British Pound
+  // GBP to other currencies
+  'GBP-USD': 1.27,    // Inverse of USD-GBP
+  // EUR fallbacks (if needed in the future)
+  'USD-EUR': 0.93,
+  'EUR-USD': 1.08,
+};
+
+// Helper function to get fallback rate
+function getFallbackRate(from: string, to: string): number | null {
+  const fromUpper = from.toUpperCase();
+  const toUpper = to.toUpperCase();
+
+  // Direct lookup
+  const key = `${fromUpper}-${toUpper}`;
+  if (FALLBACK_RATES[key]) {
+    console.log(`Using fallback rate for ${from} to ${to}: ${FALLBACK_RATES[key]}`);
+    return FALLBACK_RATES[key];
+  }
+
+  // Try reverse lookup for inverse rate
+  const reverseKey = `${toUpper}-${fromUpper}`;
+  if (FALLBACK_RATES[reverseKey]) {
+    const inverseRate = 1 / FALLBACK_RATES[reverseKey];
+    console.log(`Using inverse fallback rate for ${from} to ${to}: ${inverseRate}`);
+    return inverseRate;
+  }
+
+  // Try triangulation through USD for cross-currency conversions
+  if (fromUpper !== 'USD' && toUpper !== 'USD') {
+    const fromToUSD = FALLBACK_RATES[`${fromUpper}-USD`];
+    const usdToTo = FALLBACK_RATES[`USD-${toUpper}`];
+
+    if (fromToUSD && usdToTo) {
+      const rate = fromToUSD * usdToTo;
+      console.log(`Using triangulated fallback rate for ${from} to ${to}: ${rate} (via USD)`);
+      return rate;
+    }
+
+    // Try inverse triangulation
+    const usdToFrom = FALLBACK_RATES[`USD-${fromUpper}`];
+    const toToUSD = FALLBACK_RATES[`${toUpper}-USD`];
+
+    if (usdToFrom && toToUSD) {
+      const rate = toToUSD / usdToFrom;
+      console.log(`Using inverse triangulated fallback rate for ${from} to ${to}: ${rate} (via USD)`);
+      return rate;
+    }
+  }
+
+  console.log(`No fallback rate available for ${from} to ${to}`);
+  return null;
+}
+
 // Helper function to get exchange rate with fallbacks
 async function getExchangeRate(from: string, to: string): Promise<number | null> {
   // If currencies are the same, no conversion needed
@@ -31,23 +93,13 @@ async function getExchangeRate(from: string, to: string): Promise<number | null>
 
     console.log(`Frankfurter API failed for ${from} to ${to}, using fallbacks`);
 
-    // Fallback to hardcoded rates if API fails
-    // Special case for USD to SAR (Saudi Riyal)
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'SAR') {
-      console.log(`Using fallback rate for USD to SAR: 3.75`);
-      return 3.75; // Fixed rate for SAR
-    }
-
-    // Special case for USD to PKR (Pakistani Rupee) - approximate rate
-    if (from.toUpperCase() === 'USD' && to.toUpperCase() === 'PKR') {
-      console.log(`Using fallback rate for USD to PKR: 278.5`);
-      return 278.5; // Approximate rate for PKR
-    }
-
-    return null;
+    // Use comprehensive fallback rates
+    return getFallbackRate(from, to);
   } catch (error) {
     console.error(`Error fetching exchange rate from ${from} to ${to}:`, error);
-    return null;
+
+    // Even when an exception occurs, try to use fallback rates
+    return getFallbackRate(from, to);
   }
 }
 
