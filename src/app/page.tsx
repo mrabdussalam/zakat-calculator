@@ -44,12 +44,17 @@ const itemVariants = {
 
 export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false)
-  const [selectedCurrency, setSelectedCurrency] = useState('USD')
+  // Initialize with saved currency from localStorage
+  const [selectedCurrency, setSelectedCurrency] = useState(() => {
+    try {
+      return typeof window !== 'undefined' ? (localStorage.getItem('selected-currency') || 'USD') : 'USD'
+    } catch {
+      return 'USD'
+    }
+  })
 
   // Listen for currency selection changes
   useEffect(() => {
-    const savedCurrency = localStorage.getItem('selected-currency') || 'USD'
-    setSelectedCurrency(savedCurrency)
 
     const handleCurrencyChange = (event: CustomEvent) => {
       setSelectedCurrency(event.detail.to)
