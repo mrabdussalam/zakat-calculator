@@ -11,6 +11,99 @@ const IS_REPLIT = typeof window !== 'undefined' &&
   (window.location.hostname.includes('replit') ||
     window.location.hostname.endsWith('.repl.co'));
 
+// Comprehensive fallback exchange rates (approximate values as of 2025)
+// These are used when the Frankfurter API is unavailable
+const FALLBACK_RATES: { [key: string]: number } = {
+  // USD to other currencies
+  'USD-SAR': 3.75,    // Saudi Riyal (fixed peg)
+  'USD-PKR': 278.5,   // Pakistani Rupee
+  'USD-RUB': 91.5,    // Russian Ruble
+  'USD-INR': 84.0,    // Indian Rupee
+  'USD-GBP': 0.79,    // British Pound
+  // GBP to other currencies
+  'GBP-USD': 1.27,    // Inverse of USD-GBP
+  // EUR fallbacks (if needed in the future)
+  'USD-EUR': 0.93,
+  'EUR-USD': 1.08,
+};
+
+// Helper function to get fallback rate
+function getFallbackRate(from: string, to: string): number | null {
+  const fromUpper = from.toUpperCase();
+  const toUpper = to.toUpperCase();
+
+  // Direct lookup
+  const key = `${fromUpper}-${toUpper}`;
+  if (FALLBACK_RATES[key]) {
+    console.log(`Using fallback rate for ${from} to ${to}: ${FALLBACK_RATES[key]}`);
+    return FALLBACK_RATES[key];
+  }
+
+  // Try reverse lookup for inverse rate
+  const reverseKey = `${toUpper}-${fromUpper}`;
+  if (FALLBACK_RATES[reverseKey]) {
+    const inverseRate = 1 / FALLBACK_RATES[reverseKey];
+    console.log(`Using inverse fallback rate for ${from} to ${to}: ${inverseRate}`);
+    return inverseRate;
+  }
+
+  // Try triangulation through USD for cross-currency conversions
+  if (fromUpper !== 'USD' && toUpper !== 'USD') {
+    const fromToUSD = FALLBACK_RATES[`${fromUpper}-USD`];
+    const usdToTo = FALLBACK_RATES[`USD-${toUpper}`];
+
+    if (fromToUSD && usdToTo) {
+      const rate = fromToUSD * usdToTo;
+      console.log(`Using triangulated fallback rate for ${from} to ${to}: ${rate} (via USD)`);
+      return rate;
+    }
+
+    // Try inverse triangulation
+    const usdToFrom = FALLBACK_RATES[`USD-${fromUpper}`];
+    const toToUSD = FALLBACK_RATES[`${toUpper}-USD`];
+
+    if (usdToFrom && toToUSD) {
+      const rate = toToUSD / usdToFrom;
+      console.log(`Using inverse triangulated fallback rate for ${from} to ${to}: ${rate} (via USD)`);
+      return rate;
+    }
+  }
+
+  console.log(`No fallback rate available for ${from} to ${to}`);
+  return null;
+}
+
+// Helper function to get exchange rate with fallbacks
+async function getExchangeRate(from: string, to: string): Promise<number | null> {
+  // If currencies are the same, no conversion needed
+  if (from.toUpperCase() === to.toUpperCase()) {
+    return 1;
+  }
+
+  try {
+    // Always try to get exchange rate from Frankfurter API first
+    const response = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=${to}`);
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.rates && data.rates[to.toUpperCase()]) {
+        console.log(`Got real-time exchange rate for ${from} to ${to}: ${data.rates[to.toUpperCase()]}`);
+        return data.rates[to.toUpperCase()];
+      }
+    }
+
+    console.log(`Frankfurter API failed for ${from} to ${to}, using fallbacks`);
+
+    // Use comprehensive fallback rates
+    return getFallbackRate(from, to);
+  } catch (error) {
+    console.error(`Error fetching exchange rate from ${from} to ${to}:`, error);
+
+    // Even when an exception occurs, try to use fallback rates
+    return getFallbackRate(from, to);
+  }
+}
+
 // Map of CoinGecko IDs to CoinCap IDs for major cryptocurrencies
 const COINCAP_ID_MAP: Record<string, string> = {
   'bitcoin': 'bitcoin',
