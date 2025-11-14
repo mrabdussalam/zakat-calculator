@@ -6,13 +6,15 @@ import { RetirementSlice } from './modules/retirement'
 import { RealEstateSlice } from './modules/realEstate'
 import { AssetBreakdown as LibAssetBreakdown, CompanyFinancials } from '@/lib/assets/types'
 import { StateCreator } from 'zustand'
-import { CryptoSlice, CryptoValues } from './modules/crypto.types'
+import { CryptoSlice, CryptoValues as CryptoValuesImport } from './modules/crypto.types'
 import { StockHolding } from '@/lib/assets/stocks'
 import { WeightUnit } from '@/lib/utils/units'
 import { DistributionSlice } from './modules/distribution'
 
 // Re-export types with new names to avoid conflicts
 export type AssetBreakdown = LibAssetBreakdown
+// Re-export CryptoValues for use in tests and validation
+export type CryptoValues = CryptoValuesImport
 
 export interface HawlStatus {
   cash: boolean
@@ -45,7 +47,8 @@ export interface MetalPrices {
   currency: string
 }
 
-export interface MetalsValues {
+// Exported for tests and validation
+export interface MetalValues extends Record<string, unknown> {
   gold_regular: number
   gold_occasional: number
   gold_investment: number
@@ -53,6 +56,9 @@ export interface MetalsValues {
   silver_occasional: number
   silver_investment: number
 }
+
+// Keep old name for backward compatibility
+export type MetalsValues = MetalValues
 
 export interface MetalsPreferences {
   weightUnit: WeightUnit
@@ -80,7 +86,7 @@ export interface ActiveStock extends StockHolding {
   zakatDue: number
 }
 
-export interface StockValues {
+export interface StockValues extends Record<string, unknown> {
   active_shares: number
   active_price_per_share: number
   passive_shares: number
@@ -131,7 +137,7 @@ export interface RealEstateValues {
 }
 
 // Retirement Types
-export interface RetirementValues {
+export interface RetirementValues extends Record<string, unknown> {
   traditional_401k: number
   traditional_ira: number
   roth_401k: number
@@ -148,13 +154,13 @@ export interface ForeignCurrencyEntry {
   rawInput?: string
 }
 
-export interface CashValues {
+export interface CashValues extends Record<string, unknown> {
   cash_on_hand: number
   checking_account: number
   savings_account: number
   digital_wallets: number
   foreign_currency: number
-  foreign_currency_entries: ForeignCurrencyEntry[]
+  foreign_currency_entries?: ForeignCurrencyEntry[]
 }
 
 export interface ZakatBreakdown {

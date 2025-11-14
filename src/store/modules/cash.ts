@@ -1,30 +1,13 @@
 import { StateCreator } from 'zustand'
-import { ZakatState } from '../types'
+import { ZakatState, CashValues, ForeignCurrencyEntry } from '../types'
 import { getAssetType } from '@/lib/assets/registry'
 import { ZAKAT_RATE } from '@/lib/constants'
 import { roundCurrency, formatCurrency, isValidCurrencyAmount } from '@/lib/utils/currency'
 
-export interface CashValues {
-  cash_on_hand: number
-  checking_account: number
-  savings_account: number
-  digital_wallets: number
-  foreign_currency: number
-  foreign_currency_entries?: Array<{
-    amount: number
-    currency: string
-    rawInput?: string
-  }>
-}
-
 export interface CashSlice {
   cashValues: CashValues
   cashHawlMet: boolean
-  setCashValue: (key: keyof CashValues, value: number | Array<{
-    amount: number
-    currency: string
-    rawInput?: string
-  }>) => void
+  setCashValue: (key: keyof CashValues, value: number | ForeignCurrencyEntry[]) => void
   setCashHawlMet: (value: boolean) => void
   resetCashValues: () => void
   getTotalCash: () => number

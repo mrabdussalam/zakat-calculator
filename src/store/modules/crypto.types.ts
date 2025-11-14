@@ -9,7 +9,7 @@ export interface CryptoHolding {
   currency?: string
 }
 
-export interface CryptoValues {
+export interface CryptoValues extends Record<string, unknown> {
   coins: CryptoHolding[]
   total_value: number
   zakatable_value: number

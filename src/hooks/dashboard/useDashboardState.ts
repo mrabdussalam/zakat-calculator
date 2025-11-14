@@ -161,9 +161,35 @@ export function useDashboardState({ onNisabUpdate }: UseDashboardStateProps = {}
 
       // If we get here, either there was no saved state or it was invalid
       console.log('🟢 Using default state (no valid saved state found)')
+
+      // Check for user currency preference even when using default state
+      const userCurrencyPreference = localStorage.getItem('selected-currency')
+      if (userCurrencyPreference) {
+        console.log('🟢 Applied user currency preference to default state:', userCurrencyPreference)
+        return {
+          ...DEFAULT_STATE,
+          currency: userCurrencyPreference
+        }
+      }
+
       return DEFAULT_STATE
     } catch (error) {
       console.error('🔴 Error initializing dashboard state:', error)
+
+      // Check for user currency preference even on error
+      try {
+        const userCurrencyPreference = localStorage.getItem('selected-currency')
+        if (userCurrencyPreference) {
+          console.log('🟢 Applied user currency preference to default state (after error):', userCurrencyPreference)
+          return {
+            ...DEFAULT_STATE,
+            currency: userCurrencyPreference
+          }
+        }
+      } catch (e) {
+        console.error('🔴 Failed to read user currency preference:', e)
+      }
+
       return DEFAULT_STATE
     }
   })

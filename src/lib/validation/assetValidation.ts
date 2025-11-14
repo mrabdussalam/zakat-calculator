@@ -93,7 +93,7 @@ export class AssetValidation {
 
     // Check for negative values
     Object.entries(values).forEach(([key, value]) => {
-      if (value < 0) {
+      if (typeof value === 'number' && value < 0) {
         result.errors.push(`${key} cannot be negative`)
         result.isValid = false
       }
@@ -138,12 +138,13 @@ export class AssetValidation {
     }
 
     // Validate passive investments
-    if (values.passiveInvestments) {
-      if (values.passiveInvestments.marketValue < 0) {
+    if (values.passiveInvestments && typeof values.passiveInvestments === 'object') {
+      const pi = values.passiveInvestments as { marketValue?: number; zakatableValue?: number }
+      if (pi.marketValue !== undefined && pi.marketValue < 0) {
         result.errors.push('Passive investments market value cannot be negative')
         result.isValid = false
       }
-      if (values.passiveInvestments.zakatableValue < 0) {
+      if (pi.zakatableValue !== undefined && pi.zakatableValue < 0) {
         result.errors.push('Passive investments zakatable value cannot be negative')
         result.isValid = false
       }
@@ -160,7 +161,7 @@ export class AssetValidation {
 
     // Check for negative weights
     Object.entries(values).forEach(([key, value]) => {
-      if (value < 0) {
+      if (typeof value === 'number' && value < 0) {
         result.errors.push(`${key} weight cannot be negative`)
         result.isValid = false
       }

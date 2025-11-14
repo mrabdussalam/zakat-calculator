@@ -44,12 +44,29 @@ const itemVariants = {
 
 export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false)
-  const [selectedCurrency, setSelectedCurrency] = useState('USD')
+  // Initialize with saved currency from localStorage
+  const [selectedCurrency, setSelectedCurrency] = useState(() => {
+    try {
+      return typeof window !== 'undefined' ? (localStorage.getItem('selected-currency') || 'USD') : 'USD'
+    } catch {
+      return 'USD'
+    }
+  })
 
-  // Listen for currency selection changes
+  // Listen for currency selection changes and poll localStorage
   useEffect(() => {
-    const savedCurrency = localStorage.getItem('selected-currency') || 'USD'
-    setSelectedCurrency(savedCurrency)
+    // Check localStorage periodically to keep state in sync
+    const checkCurrency = () => {
+      const savedCurrency = localStorage.getItem('selected-currency') || 'USD'
+      if (savedCurrency !== selectedCurrency) {
+        console.log('Currency changed in localStorage, updating state:', savedCurrency)
+        setSelectedCurrency(savedCurrency)
+      }
+    }
+
+    // Check immediately and then every 500ms
+    checkCurrency()
+    const interval = setInterval(checkCurrency, 500)
 
     const handleCurrencyChange = (event: CustomEvent) => {
       setSelectedCurrency(event.detail.to)
@@ -58,9 +75,10 @@ export default function HomePage() {
     window.addEventListener('currency-changed', handleCurrencyChange as EventListener)
 
     return () => {
+      clearInterval(interval)
       window.removeEventListener('currency-changed', handleCurrencyChange as EventListener)
     }
-  }, [])
+  }, [selectedCurrency])
 
   // Reset loading state when page becomes visible again
   useEffect(() => {
@@ -101,18 +119,23 @@ export default function HomePage() {
     e.preventDefault()
     setIsLoading(true)
 
+    // Get the CURRENT currency from localStorage (source of truth)
+    // Don't rely on state which may be stale
+    const currentCurrency = localStorage.getItem('selected-currency') || 'USD'
+    console.log('Starting calculation with currency:', currentCurrency)
+
     // Get the zakatStore instance
     const zakatStore = useZakatStore.getState()
 
     // Perform a hard reset with the new currency
     if (zakatStore && typeof zakatStore.resetWithCurrencyChange === 'function') {
-      console.log('Performing hard reset with currency change to:', selectedCurrency)
-      zakatStore.resetWithCurrencyChange(selectedCurrency)
+      console.log('Performing hard reset with currency change to:', currentCurrency)
+      zakatStore.resetWithCurrencyChange(currentCurrency)
     } else {
       console.warn('resetWithCurrencyChange function not available, using fallback')
       // Fallback: Store the currency selection in localStorage for the dashboard to use
       localStorage.setItem('zakatState', JSON.stringify({
-        currency: selectedCurrency,
+        currency: currentCurrency,
         setupCompleted: true
       }))
     }

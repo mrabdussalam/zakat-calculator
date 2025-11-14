@@ -1,4 +1,5 @@
-import { ZakatSlice } from '../types'
+import { ZakatSlice, ZakatState } from '../types'
+import { StateCreator } from 'zustand'
 
 // Define the asnaf categories with educational content
 export const ASNAF_CATEGORIES = [
@@ -112,7 +113,7 @@ const SCHOLAR_DISTRIBUTION = {
 }
 
 // Create the distribution slice
-export const createDistributionSlice: ZakatSlice = (set, get) => {
+export const createDistributionSlice: StateCreator<ZakatState, [], [], DistributionSlice> = (set, get) => {
     // Create initial allocations
     const initialAllocations = ASNAF_CATEGORIES.reduce<Record<string, DistributionAllocation>>((acc, category) => {
         acc[category.id] = {
@@ -137,7 +138,7 @@ export const createDistributionSlice: ZakatSlice = (set, get) => {
 
             const percentage = (amount / totalZakat) * 100
 
-            set((state) => ({
+            set((state: ZakatState) => ({
                 distributionMode: 'custom',
                 allocations: {
                     ...state.allocations,
@@ -158,7 +159,7 @@ export const createDistributionSlice: ZakatSlice = (set, get) => {
 
             const amount = (percentage / 100) * totalZakat
 
-            set((state) => ({
+            set((state: ZakatState) => ({
                 distributionMode: 'custom',
                 allocations: {
                     ...state.allocations,
@@ -172,7 +173,7 @@ export const createDistributionSlice: ZakatSlice = (set, get) => {
         },
 
         setNotes: (category: string, notes: string) => {
-            set((state) => ({
+            set((state: ZakatState) => ({
                 allocations: {
                     ...state.allocations,
                     [category]: {
@@ -250,8 +251,8 @@ export const createDistributionSlice: ZakatSlice = (set, get) => {
             const totalZakat = getBreakdown().combined.zakatDue
             const allocations = get().allocations
 
-            const totalAllocated = Object.values(allocations).reduce((sum, allocation) => sum + allocation.amount, 0)
-            const remaining = totalZakat - totalAllocated
+            const totalAllocated = Object.values(allocations).reduce((sum: number, allocation: DistributionAllocation) => sum + allocation.amount, 0)
+            const remaining = (totalZakat as number) - totalAllocated
             const isComplete = Math.abs(remaining) < 0.01 // Allow for small rounding errors
 
             return {

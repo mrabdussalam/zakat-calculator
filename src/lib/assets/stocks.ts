@@ -41,7 +41,8 @@ export interface StockValues {
     zakatableValue: number
     hawlStatus: {
       isComplete: boolean
-      startDate: string
+      startDate?: string
+      endDate?: string
     }
     displayProperties: {
       currency: string

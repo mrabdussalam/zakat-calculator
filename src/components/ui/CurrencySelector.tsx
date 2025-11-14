@@ -137,7 +137,18 @@ const getCurrencyName = (code: string): string => {
 }
 
 export function CurrencySelector({ className, onChange }: CurrencySelectorProps) {
-  const [value, setValue] = React.useState("USD")
+  // Initialize with saved currency from localStorage, or default to USD
+  const [value, setValue] = React.useState(() => {
+    try {
+      const savedCurrency = typeof window !== 'undefined' ? localStorage.getItem('selected-currency') : null
+      if (savedCurrency && Object.keys(SUPPORTED_CURRENCIES).includes(savedCurrency)) {
+        return savedCurrency
+      }
+    } catch (error) {
+      console.error('Failed to load currency preference on init:', error)
+    }
+    return "USD"
+  })
   const [hoveredCurrency, setHoveredCurrency] = React.useState<string | null>(null)
 
   // Convert currencies object to array for display
@@ -180,18 +191,10 @@ export function CurrencySelector({ className, onChange }: CurrencySelectorProps)
   const handleValueChange = (newValue: string) => {
     console.log(`Currency selection: ${value} -> ${newValue}`)
 
-    if (newValue === value) return
-
-    // Track if this is the first-ever selection on page load
-    const isInitialPageLoad = !localStorage.getItem('has-selected-currency');
-
-    // Check if this is a page refresh (rather than user interaction)
-    // This is determined by checking if this currency selection is happening
-    // during the initial component mount and matches what was previously stored
-    const previouslySavedCurrency = localStorage.getItem('selected-currency');
-    const isPageRefresh = !isInitialPageLoad &&
-      previouslySavedCurrency === newValue &&
-      !document.hasFocus(); // Additional check: page likely refreshed if not focused
+    if (newValue === value) {
+      console.log('Currency already selected, ignoring duplicate selection')
+      return
+    }
 
     // Mark that we've now selected a currency at least once
     try {
@@ -207,43 +210,14 @@ export function CurrencySelector({ className, onChange }: CurrencySelectorProps)
       onChange(newValue)
     }
 
-    // If this is the initial page load or a browser refresh, just set the value without resetting
-    if (isInitialPageLoad || isPageRefresh) {
-      console.log('Initial currency selection or page refresh - skipping reset:', newValue);
-
-      // Store the selected currency
-      try {
-        localStorage.setItem('selected-currency', newValue)
-      } catch (error) {
-        console.error('Failed to save currency preference:', error)
-      }
-
-      // Update the store's currency but don't trigger a full reset
-      try {
-        const zakatStore = useZakatStore.getState()
-        if (zakatStore && typeof zakatStore.setCurrency === 'function') {
-          // Ensure we fetch exchange rates for the new currency
-          const currencyStore = useCurrencyStore.getState();
-          currencyStore.fetchRates(newValue)
-            .then(() => {
-              console.log('Successfully fetched exchange rates for', newValue);
-              zakatStore.setCurrency(newValue);
-            })
-            .catch((error: Error) => {
-              console.error('Failed to fetch exchange rates:', error);
-              // Still set the currency even if rate fetch fails
-              zakatStore.setCurrency(newValue);
-            });
-        }
-      } catch (error) {
-        console.error('Failed to set currency in store:', error)
-      }
-
-      return;
+    // Store the selected currency
+    try {
+      localStorage.setItem('selected-currency', newValue)
+    } catch (error) {
+      console.error('Failed to save currency preference:', error)
     }
 
-    // For user-initiated currency selections, perform a regular currency change
-    // Try to get the Zustand store to perform a hard reset
+    // Perform currency change with hard reset
     try {
       const zakatStore = useZakatStore.getState()
       if (zakatStore && typeof zakatStore.resetWithCurrencyChange === 'function') {
@@ -275,7 +249,7 @@ export function CurrencySelector({ className, onChange }: CurrencySelectorProps)
         from: value,
         to: newValue,
         shouldForceReload: true,
-        isInitialLoad: isInitialPageLoad
+        isInitialLoad: false
       }
     })
     window.dispatchEvent(event)
@@ -288,17 +262,8 @@ export function CurrencySelector({ className, onChange }: CurrencySelectorProps)
     }
   }
 
-  // Load saved currency on mount
-  React.useEffect(() => {
-    try {
-      const savedCurrency = localStorage.getItem('selected-currency')
-      if (savedCurrency && Object.keys(SUPPORTED_CURRENCIES).includes(savedCurrency)) {
-        setValue(savedCurrency)
-      }
-    } catch (error) {
-      console.error('Failed to load currency preference:', error)
-    }
-  }, [])
+  // No need to load currency in useEffect since we initialize state with it
+  // This prevents race conditions and ensures currency is set before first render
 
   return (
     <div className={cn("w-full", className)}>
