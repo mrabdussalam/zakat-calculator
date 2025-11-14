@@ -63,9 +63,24 @@ export const createNisabSlice: StateCreator<
 
   // New function to directly update nisab with metal prices
   updateNisabWithPrices: (prices: MetalPrices) => {
-    // Validate the prices
-    if (!prices || !prices.gold || !prices.silver || !prices.currency) {
-      console.error('Invalid metal prices provided to updateNisabWithPrices', prices);
+    // Validate the prices with proper number checks (not truthy checks which fail for 0)
+    if (!prices) {
+      console.error('Invalid metal prices provided to updateNisabWithPrices: prices is null/undefined');
+      return false;
+    }
+
+    if (typeof prices.gold !== 'number' || !isFinite(prices.gold) || prices.gold <= 0) {
+      console.error('Invalid gold price provided to updateNisabWithPrices:', prices.gold);
+      return false;
+    }
+
+    if (typeof prices.silver !== 'number' || !isFinite(prices.silver) || prices.silver <= 0) {
+      console.error('Invalid silver price provided to updateNisabWithPrices:', prices.silver);
+      return false;
+    }
+
+    if (!prices.currency || typeof prices.currency !== 'string' || prices.currency.length === 0) {
+      console.error('Invalid currency provided to updateNisabWithPrices:', prices.currency);
       return false;
     }
 

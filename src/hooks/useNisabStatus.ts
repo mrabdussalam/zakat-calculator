@@ -118,7 +118,10 @@ export function useNisabStatus(
   // Use the new utility function to calculate nisab values dynamically
   // This is the key change that addresses the currency display issue
   const calculateDynamicNisabValues = useCallback((prices: ExtendedMetalPrices, targetCurrency: string) => {
-    if (!prices || !prices.gold || !prices.silver) {
+    // Proper validation - check for valid numbers, not truthy values (0 is falsy but valid)
+    if (!prices ||
+        typeof prices.gold !== 'number' || !isFinite(prices.gold) || prices.gold <= 0 ||
+        typeof prices.silver !== 'number' || !isFinite(prices.silver) || prices.silver <= 0) {
       console.warn('Cannot calculate nisab values: invalid metal prices', prices);
       return null;
     }
@@ -163,7 +166,10 @@ export function useNisabStatus(
 
   // Update the updateLocalNisabValues function to use the new calculation method
   const updateLocalNisabValues = useCallback((prices: ExtendedMetalPrices) => {
-    if (!prices || !prices.gold || !prices.silver) {
+    // Proper validation - check for valid numbers, not truthy values (0 is falsy but valid)
+    if (!prices ||
+        typeof prices.gold !== 'number' || !isFinite(prices.gold) || prices.gold <= 0 ||
+        typeof prices.silver !== 'number' || !isFinite(prices.silver) || prices.silver <= 0) {
       console.warn('Cannot update nisab values: invalid metal prices', prices);
       return;
     }

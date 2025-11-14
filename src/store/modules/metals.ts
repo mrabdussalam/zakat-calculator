@@ -145,6 +145,22 @@ export const createMetalsSlice: StateCreator<
     // This ensures nisab threshold updates instantly with the metal prices
     const state = get();
 
+    // Only update nisab if we have valid prices (not initial 0 values or incomplete data)
+    const hasValidPrices = updatedPrices.gold > 0 &&
+                           updatedPrices.silver > 0 &&
+                           updatedPrices.currency &&
+                           isFinite(updatedPrices.gold) &&
+                           isFinite(updatedPrices.silver);
+
+    if (!hasValidPrices) {
+      console.log('Skipping nisab update - metal prices not yet initialized or invalid:', {
+        gold: updatedPrices.gold,
+        silver: updatedPrices.silver,
+        currency: updatedPrices.currency
+      });
+      return;
+    }
+
     // First try to use the direct update method for immediate updates
     if (typeof state.updateNisabWithPrices === 'function') {
       console.log('Immediately updating nisab with new metal prices (direct method)');

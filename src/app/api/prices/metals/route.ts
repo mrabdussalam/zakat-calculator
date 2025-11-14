@@ -490,8 +490,12 @@ async function fetchFromKitco(currency: string): Promise<{ gold: number | null, 
     }
 
     const data = await response.json();
-    if (!data.gold || !data.silver) {
-      console.warn(`No price data found in Kitco response for ${currency}`);
+    // Proper validation - check for valid numbers (null, undefined, or invalid numbers)
+    if (data.gold == null || data.silver == null ||
+        typeof data.gold !== 'number' || typeof data.silver !== 'number' ||
+        !isFinite(data.gold) || !isFinite(data.silver) ||
+        data.gold <= 0 || data.silver <= 0) {
+      console.warn(`No valid price data found in Kitco response for ${currency}`, { gold: data.gold, silver: data.silver });
       return { gold: null, silver: null };
     }
 
@@ -520,8 +524,12 @@ async function fetchFromGoldSilverPro(currency: string): Promise<{ gold: number 
     }
 
     const data = await response.json();
-    if (!data.gold || !data.silver) {
-      console.warn(`No price data found in GoldSilverPro response for ${currency}`);
+    // Proper validation - check for valid numbers (null, undefined, or invalid numbers)
+    if (data.gold == null || data.silver == null ||
+        typeof data.gold !== 'number' || typeof data.silver !== 'number' ||
+        !isFinite(data.gold) || !isFinite(data.silver) ||
+        data.gold <= 0 || data.silver <= 0) {
+      console.warn(`No valid price data found in GoldSilverPro response for ${currency}`, { gold: data.gold, silver: data.silver });
       return { gold: null, silver: null };
     }
 
