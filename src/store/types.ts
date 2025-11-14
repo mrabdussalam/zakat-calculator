@@ -100,6 +100,7 @@ export interface StockValues extends Record<string, unknown> {
   fund_value: number
   is_passive_fund: boolean
   activeStocks: ActiveStock[]
+  passiveInvestments?: CurrentPassiveInvestmentState
   market_value: number
   zakatable_value: number
   price_per_share: number

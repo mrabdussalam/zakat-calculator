@@ -1,0 +1,84 @@
+{
+  "timestamp": "2025-11-14T23:02:11.768Z",
+  "summary": {
+    "total_tests": 8,
+    "passed": 0,
+    "failed": 0,
+    "errors": 8
+  },
+  "apis": {
+    "GoldPrice.org (Metal Prices)": {
+      "tested": 1,
+      "passed": 0,
+      "failed": 1,
+      "errors": [
+        "getaddrinfo EAI_AGAIN data-asg.goldprice.org"
+      ],
+      "currencies_tested": []
+    },
+    "Frankfurter (Metal Prices)": {
+      "tested": 1,
+      "passed": 0,
+      "failed": 1,
+      "errors": [
+        "getaddrinfo EAI_AGAIN api.frankfurter.app"
+      ],
+      "currencies_tested": []
+    },
+    "Metals.live": {
+      "tested": 1,
+      "passed": 0,
+      "failed": 1,
+      "errors": [
+        "getaddrinfo EAI_AGAIN api.metals.live"
+      ],
+      "currencies_tested": []
+    },
+    "Frankfurter (Exchange Rates)": {
+      "tested": 1,
+      "passed": 0,
+      "failed": 1,
+      "errors": [
+        "getaddrinfo EAI_AGAIN api.frankfurter.dev"
+      ],
+      "currencies_tested": []
+    },
+    "Open Exchange Rates (ER-API)": {
+      "tested": 1,
+      "passed": 0,
+      "failed": 1,
+      "errors": [
+        "getaddrinfo EAI_AGAIN open.er-api.com"
+      ],
+      "currencies_tested": []
+    },
+    "ExchangeRate.host": {
+      "tested": 1,
+      "passed": 0,
+      "failed": 1,
+      "errors": [
+        "getaddrinfo EAI_AGAIN api.exchangerate.host"
+      ],
+      "currencies_tested": []
+    },
+    "CoinGecko": {
+      "tested": 1,
+      "passed": 0,
+      "failed": 1,
+      "errors": [
+        "getaddrinfo EAI_AGAIN api.coingecko.com"
+      ],
+      "currencies_tested": []
+    },
+    "Yahoo Finance": {
+      "tested": 1,
+      "passed": 0,
+      "failed": 1,
+      "errors": [
+        "getaddrinfo EAI_AGAIN query2.finance.yahoo.com"
+      ],
+      "currencies_tested": []
+    }
+  },
+  "currencies": {}
+}

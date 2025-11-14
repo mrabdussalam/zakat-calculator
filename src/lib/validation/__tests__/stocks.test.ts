@@ -16,7 +16,7 @@ describe('Stocks Calculator Validation', () => {
   const validValues: StockValues = {
     activeStocks: [
       {
-        ticker: 'AAPL',
+        symbol: 'AAPL',
         shares: 100,
         currentPrice: 150,
         marketValue: 15000,
@@ -35,6 +35,9 @@ describe('Stocks Calculator Validation', () => {
     is_passive_fund: false,
     dividend_per_share: 1,
     dividend_shares: 1000,
+    market_value: 15000,
+    zakatable_value: 15000,
+    price_per_share: 150,
     passiveInvestments: {
       version: "2.0" as const,
       method: 'quick',
@@ -96,7 +99,7 @@ describe('Stocks Calculator Validation', () => {
         
         return values.activeStocks.every(stock => {
           if (typeof stock !== 'object') return false
-          if (typeof stock.ticker !== 'string') return false
+          if (typeof stock.symbol !== 'string') return false
           if (typeof stock.shares !== 'number' || stock.shares < 0) return false
           if (typeof stock.currentPrice !== 'number' || stock.currentPrice < 0) return false
           if (typeof stock.marketValue !== 'number' || stock.marketValue < 0) return false
@@ -170,7 +173,10 @@ describe('Stocks Calculator Validation', () => {
         fund_value: 0,
         is_passive_fund: false,
         dividend_per_share: 0,
-        dividend_shares: 0
+        dividend_shares: 0,
+        market_value: 0,
+        zakatable_value: 0,
+        price_per_share: 0
       }
 
       expect(stocksValidation.validateValues(zeroValues)).toBe(true)
@@ -180,7 +186,7 @@ describe('Stocks Calculator Validation', () => {
       const negativeValues: StockValues = {
         activeStocks: [
           {
-            ticker: 'AAPL',
+            symbol: 'AAPL',
             shares: -100, // Negative value
             currentPrice: 150,
             marketValue: 15000,
@@ -198,7 +204,10 @@ describe('Stocks Calculator Validation', () => {
         fund_value: 50000,
         is_passive_fund: false,
         dividend_per_share: 1,
-        dividend_shares: 1000
+        dividend_shares: 1000,
+        market_value: 15000,
+        zakatable_value: 15000,
+        price_per_share: 150
       }
 
       expect(stocksValidation.validateValues(negativeValues)).toBe(false)
@@ -218,7 +227,7 @@ describe('Stocks Calculator Validation', () => {
       const invalidStructure: StockValues = {
         activeStocks: [
           {
-            ticker: 'AAPL',
+            symbol: 'AAPL',
             shares: 100,
             currentPrice: 150
             // Missing marketValue and zakatDue
@@ -235,7 +244,10 @@ describe('Stocks Calculator Validation', () => {
         fund_value: 50000,
         is_passive_fund: false,
         dividend_per_share: 1,
-        dividend_shares: 1000
+        dividend_shares: 1000,
+        market_value: 15000,
+        zakatable_value: 15000,
+        price_per_share: 150
       }
 
       expect(stocksValidation.validateValues(invalidStructure)).toBe(false)
@@ -339,11 +351,7 @@ describe('Stocks Calculator Validation', () => {
             receivables: 5000,
             inventory: 20000,
             totalShares: 1000,
-            yourShares: 100,
-            displayProperties: {
-              currency: 'USD',
-              sharePercentage: 10
-            }
+            yourShares: 100
           },
           hawlStatus: {
             isComplete: false,
@@ -428,11 +436,7 @@ describe('Stocks Calculator Validation', () => {
             receivables: 5000,
             inventory: 20000,
             totalShares: 1000,
-            yourShares: 100,
-            displayProperties: {
-              currency: 'USD',
-              sharePercentage: 10
-            }
+            yourShares: 100
           },
           hawlStatus: {
             isComplete: false,
@@ -487,6 +491,9 @@ describe('Stocks Calculator Validation', () => {
         is_passive_fund: false,
         dividend_per_share: 0,
         dividend_shares: 0,
+        market_value: 0,
+        zakatable_value: 0,
+        price_per_share: 0,
         passiveInvestments: {
           version: "2.0" as const,
           method: 'quick' as const,

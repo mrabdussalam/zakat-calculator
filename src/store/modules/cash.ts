@@ -80,12 +80,15 @@ export const createCashSlice: StateCreator<
     }
 
     // Normal number value handling
-    if (!isValidCurrencyAmount(value as number)) {
+    // Convert to number if it's a string
+    const numericValue = typeof value === 'string' ? parseFloat(value) : (value as number);
+
+    if (!isValidCurrencyAmount(numericValue)) {
       console.warn(`Invalid cash value: ${value} for ${key}`);
       return;
     }
 
-    const roundedValue = roundCurrency(value as number);
+    const roundedValue = roundCurrency(numericValue);
     // console.log(`Setting ${key} to ${roundedValue} in cash store`);
 
     set((state: ZakatState) => {
