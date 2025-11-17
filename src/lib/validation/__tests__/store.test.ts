@@ -191,7 +191,10 @@ describe('Store Validation Tests', () => {
       }
 
       expect(validateValueTypes(invalidState)).toBe(false)
-      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Invalid active stock structure'))
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('Invalid active stock structure'),
+        expect.any(Object)
+      )
     })
   })
 
@@ -227,7 +230,10 @@ describe('Store Validation Tests', () => {
       }
 
       expect(validateCalculations(invalidState)).toBe(false)
-      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('calculations mismatch'))
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('calculations mismatch'),
+        expect.any(Object)
+      )
     })
   })
 
@@ -263,7 +269,10 @@ describe('Store Validation Tests', () => {
       }
 
       expect(validateValuePropagation(invalidState)).toBe(false)
-      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('breakdown total mismatch'))
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('breakdown total mismatch'),
+        expect.any(Object)
+      )
     })
 
     it('should detect zakatable amount mismatch', () => {
