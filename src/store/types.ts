@@ -103,6 +103,7 @@ export interface StockValues extends Record<string, unknown> {
   market_value: number
   zakatable_value: number
   price_per_share: number
+  passiveInvestments?: CurrentPassiveInvestmentState
 }
 
 export type CurrentPassiveInvestmentState = {

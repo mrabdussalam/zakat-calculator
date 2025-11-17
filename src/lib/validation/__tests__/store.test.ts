@@ -4,7 +4,8 @@ import {
   validateCalculations,
   validateValuePropagation
 } from '../store'
-import { ZakatState, CashValues, MetalsValues, StockValues } from '@/store/types'
+import { ZakatState } from '@/store/types'
+import { StockValues } from '@/lib/assets/stocks'
 import '@testing-library/jest-dom'
 
 describe('Store Validation Tests', () => {
@@ -40,19 +41,14 @@ describe('Store Validation Tests', () => {
         },
         stockValues: {
           activeStocks: [],
-          active_shares: 0,
-          active_price_per_share: 0,
-          passive_shares: 0,
-          company_cash: 0,
-          company_receivables: 0,
-          company_inventory: 0,
-          total_shares_issued: 0,
+          market_value: 0,
+          zakatable_value: 0,
           total_dividend_earnings: 0,
           fund_value: 0,
           is_passive_fund: false
         },
-        metalPrices: { gold: 0, silver: 0, lastUpdated: new Date(), isCache: false },
-        stockPrices: { currentMarketPrice: 0, lastUpdated: new Date() },
+        metalPrices: { gold: 0, silver: 0, lastUpdated: new Date(), isCache: false, currency: 'USD' },
+        stockPrices: { prices: {}, lastUpdated: new Date() },
         cashHawlMet: true,
         metalsHawlMet: true,
         stockHawlMet: true,
@@ -75,13 +71,8 @@ describe('Store Validation Tests', () => {
         // Missing metalsValues
         stockValues: {
           activeStocks: [],
-          active_shares: 0,
-          active_price_per_share: 0,
-          passive_shares: 0,
-          company_cash: 0,
-          company_receivables: 0,
-          company_inventory: 0,
-          total_shares_issued: 0,
+          market_value: 0,
+          zakatable_value: 0,
           total_dividend_earnings: 0,
           fund_value: 0,
           is_passive_fund: false
@@ -94,7 +85,13 @@ describe('Store Validation Tests', () => {
 
     it('should return false for invalid hawl status', () => {
       const invalidState: Partial<ZakatState> = {
-        cashValues: {},
+        cashValues: {
+          cash_on_hand: 0,
+          checking_account: 0,
+          savings_account: 0,
+          digital_wallets: 0,
+          foreign_currency: 0
+        },
         metalsValues: {
           gold_regular: 0,
           gold_regular_purity: '24K',
@@ -106,9 +103,13 @@ describe('Store Validation Tests', () => {
           silver_occasional: 0,
           silver_investment: 0
         },
-        stockValues: {},
-        metalPrices: { gold: 0, silver: 0, lastUpdated: new Date(), isCache: false },
-        stockPrices: { currentMarketPrice: 0, lastUpdated: new Date() },
+        stockValues: {
+          activeStocks: [],
+          market_value: 0,
+          zakatable_value: 0
+        },
+        metalPrices: { gold: 0, silver: 0, lastUpdated: new Date(), isCache: false, currency: 'USD' },
+        stockPrices: { prices: {}, lastUpdated: new Date() },
         cashHawlMet: true,
         metalsHawlMet: 'invalid' as any, // Invalid type
         stockHawlMet: true,
@@ -126,7 +127,9 @@ describe('Store Validation Tests', () => {
         cashValues: {
           cash_on_hand: 100,
           checking_account: 500,
-          savings_account: 1000
+          savings_account: 1000,
+          digital_wallets: 0,
+          foreign_currency: 0
         }
       }
 
@@ -137,7 +140,11 @@ describe('Store Validation Tests', () => {
     it('should reject negative cash values', () => {
       const invalidState: Partial<ZakatState> = {
         cashValues: {
-          cash_on_hand: -100 // Negative value
+          cash_on_hand: -100, // Negative value
+          checking_account: 0,
+          savings_account: 0,
+          digital_wallets: 0,
+          foreign_currency: 0
         }
       }
 
@@ -150,13 +157,15 @@ describe('Store Validation Tests', () => {
         stockValues: {
           activeStocks: [
             {
-              ticker: 'AAPL',
+              symbol: 'AAPL',
               shares: 10,
               currentPrice: 150,
               marketValue: 1500,
               zakatDue: 37.5
             }
-          ]
+          ],
+          market_value: 1500,
+          zakatable_value: 1500
         }
       }
 
@@ -169,11 +178,15 @@ describe('Store Validation Tests', () => {
         stockValues: {
           activeStocks: [
             {
-              ticker: 'AAPL',
+              symbol: 'AAPL',
               shares: 'invalid' as any, // Invalid type
-              currentPrice: 150
+              currentPrice: 150,
+              marketValue: 0,
+              zakatDue: 0
             }
-          ]
+          ],
+          market_value: 0,
+          zakatable_value: 0
         }
       }
 
@@ -191,7 +204,7 @@ describe('Store Validation Tests', () => {
           zakatable: 1000,
           zakatDue: 25,
           items: {
-            stocks: { value: 1000, isZakatable: true }
+            stocks: { value: 1000, isZakatable: true, zakatable: 1000, zakatDue: 25, label: 'Stocks', tooltip: 'Stock holdings', percentage: 100 }
           }
         })
       }
@@ -208,7 +221,7 @@ describe('Store Validation Tests', () => {
           zakatable: 900,
           zakatDue: 22.5,
           items: {
-            stocks: { value: 900, isZakatable: true }
+            stocks: { value: 900, isZakatable: true, zakatable: 900, zakatDue: 22.5, label: 'Stocks', tooltip: 'Stock holdings', percentage: 100 }
           }
         })
       }
@@ -227,7 +240,7 @@ describe('Store Validation Tests', () => {
           zakatable: 1000,
           zakatDue: 25,
           items: {
-            stocks: { value: 1000, isZakatable: true }
+            stocks: { value: 1000, isZakatable: true, zakatable: 1000, zakatDue: 25, label: 'Stocks', tooltip: 'Stock holdings', percentage: 100 }
           }
         })
       }
@@ -244,7 +257,7 @@ describe('Store Validation Tests', () => {
           zakatable: 1000,
           zakatDue: 25,
           items: {
-            stocks: { value: 900, isZakatable: true } // Sum of items doesn't match total
+            stocks: { value: 900, isZakatable: true, zakatable: 900, zakatDue: 22.5, label: 'Stocks', tooltip: 'Stock holdings', percentage: 100 } // Sum of items doesn't match total
           }
         })
       }
@@ -261,7 +274,7 @@ describe('Store Validation Tests', () => {
           zakatable: 1000,
           zakatDue: 25,
           items: {
-            stocks: { value: 1000, isZakatable: false } // Item marked as not zakatable but included in zakatable total
+            stocks: { value: 1000, isZakatable: false, zakatable: 0, zakatDue: 0, label: 'Stocks', tooltip: 'Stock holdings', percentage: 100 } // Item marked as not zakatable but included in zakatable total
           }
         })
       }

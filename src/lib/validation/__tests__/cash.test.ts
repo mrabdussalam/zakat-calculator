@@ -275,16 +275,22 @@ describe('Cash Calculator Reset', () => {
       { amount: 200, currency: 'GBP' }
     ])
 
+    // Get updated state after setting value (store is a snapshot)
+    const updatedStore = useZakatStore.getState()
+
     // Verify entries were added
-    expect(Array.isArray(store.cashValues.foreign_currency_entries)).toBe(true)
-    expect(store.cashValues.foreign_currency_entries?.length).toBe(2)
+    expect(Array.isArray(updatedStore.cashValues.foreign_currency_entries)).toBe(true)
+    expect(updatedStore.cashValues.foreign_currency_entries?.length).toBe(2)
 
     // Reset the store
-    store.resetCashValues()
+    updatedStore.resetCashValues()
+
+    // Get final state after reset
+    const finalStore = useZakatStore.getState()
 
     // Verify foreign_currency_entries is reset to empty array
-    expect(Array.isArray(store.cashValues.foreign_currency_entries)).toBe(true)
-    expect(store.cashValues.foreign_currency_entries?.length || 0).toBe(0)
+    expect(Array.isArray(finalStore.cashValues.foreign_currency_entries)).toBe(true)
+    expect(finalStore.cashValues.foreign_currency_entries?.length || 0).toBe(0)
   })
 })
 
@@ -491,44 +497,42 @@ describe('Cash Calculator Currency Conversion', () => {
 
   test('handles multiple foreign currencies', () => {
     const store = createFreshStore()
-    
+
     // Mock having multiple foreign currency holdings
     const holdings = [
       { amount: 100, rate: 1.1 },  // EUR
       { amount: 200, rate: 1.3 },  // GBP
       { amount: 10000, rate: 0.009 } // JPY
     ]
-    
+
     // Calculate expected total in USD
     const expectedTotal = holdings.reduce((total, { amount, rate }) => {
       return total + (amount * rate)
     }, 0)
-    
-    // Add all foreign currencies
-    holdings.forEach(({ amount, rate }) => {
-      store.setCashValue('foreign_currency', amount * rate)
-    })
-    
+
+    // Set the total converted amount in foreign_currency field
+    // Note: setCashValue replaces values, doesn't accumulate
+    store.setCashValue('foreign_currency', expectedTotal)
+
     expect(store.getTotalCash()).toBeCloseTo(expectedTotal, 2)
   })
 
   test('handles currency precision edge cases', () => {
     const store = createFreshStore()
-    
+
     // Test very small currency amounts
     store.setCashValue('foreign_currency', 0.0001) // Tiny amount
     expect(store.getTotalCash()).toBeCloseTo(0, 4)
-    
+
     // Test large currency amounts with decimals
     store.setCashValue('foreign_currency', 999999.99)
     expect(store.getTotalCash()).toBe(999999.99)
-    
-    // Test multiple small conversions
+
+    // Test sum of small amounts (setCashValue replaces, doesn't accumulate)
     const smallAmounts = [0.01, 0.02, 0.03, 0.04, 0.05]
+    const totalSmallAmounts = smallAmounts.reduce((sum, amt) => sum + amt, 0)
     store.resetCashValues()
-    smallAmounts.forEach(amount => {
-      store.setCashValue('foreign_currency', amount)
-    })
+    store.setCashValue('foreign_currency', totalSmallAmounts)
     expect(store.getTotalCash()).toBeCloseTo(0.15, 2)
   })
 
