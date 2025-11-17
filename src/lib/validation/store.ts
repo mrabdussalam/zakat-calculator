@@ -69,7 +69,7 @@ export const validateValueTypes = (state: Partial<ZakatState>): boolean => {
 
       // Validate active stocks structure
       for (const stock of state.stockValues.activeStocks || []) {
-        if (!stock.ticker || typeof stock.shares !== 'number' || typeof stock.currentPrice !== 'number') {
+        if (!stock.symbol || typeof stock.shares !== 'number' || typeof stock.currentPrice !== 'number') {
           console.error('Invalid active stock structure:', stock)
           return false
         }
@@ -92,8 +92,8 @@ export const validateValueTypes = (state: Partial<ZakatState>): boolean => {
     }
 
     // Validate retirement values
-    if (state.retirementValues) {
-      for (const [key, value] of Object.entries(state.retirementValues)) {
+    if ((state as any).retirementValues) {
+      for (const [key, value] of Object.entries((state as any).retirementValues)) {
         if (typeof value !== 'number' || value < 0) {
           console.error(`Invalid retirement value for ${key}: ${value}`)
           return false
@@ -132,8 +132,8 @@ export const validateCalculations = (state: Partial<ZakatState>): boolean => {
         name: 'metals'
       },
       {
-        total: state.getTotalRetirement,
-        breakdown: state.getRetirementBreakdown,
+        total: (state as any).getTotalRetirement,
+        breakdown: (state as any).getRetirementBreakdown,
         name: 'retirement'
       }
     ]
