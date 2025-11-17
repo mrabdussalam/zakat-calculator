@@ -70,7 +70,7 @@ export function Summary({ currency }: { currency: string }) {
     metalPrices,
     stockValues,
     stockPrices,
-    retirementValues,
+    // retirementValues - not yet implemented in store
     retirementHawlMet,
     realEstateValues,
     realEstateHawlMet,

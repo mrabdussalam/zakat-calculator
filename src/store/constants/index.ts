@@ -31,8 +31,11 @@ export const initialCashValues: CashValues = {
 
 export const initialMetalsValues: MetalsValues = {
   gold_regular: 0,
+  gold_regular_purity: '24K',
   gold_occasional: 0,
+  gold_occasional_purity: '24K',
   gold_investment: 0,
+  gold_investment_purity: '24K',
   silver_regular: 0,
   silver_occasional: 0,
   silver_investment: 0

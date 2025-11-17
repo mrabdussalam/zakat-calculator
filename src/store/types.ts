@@ -126,7 +126,7 @@ export type CurrentPassiveInvestmentState = {
 }
 
 // Real Estate Types
-export interface RealEstateValues {
+export interface RealEstateValues extends Record<string, unknown> {
   primary_residence_value: number
   rental_income: number
   rental_expenses: number
