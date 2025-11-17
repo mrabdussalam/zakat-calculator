@@ -32,6 +32,7 @@ export interface AssetFAQs {
   stocks: StockFAQs
   retirement: FAQSection
   cash: FAQSection
+  debt: FAQSection
 }
 
 export const ASSET_FAQS: AssetFAQs = {
@@ -175,6 +176,43 @@ export const ASSET_FAQS: AssetFAQs = {
       {
         question: "How is foreign currency calculated?",
         answer: "Foreign currency is converted to your local currency at current exchange rates. The total value in your local currency is what's used for Zakat calculation."
+      }
+    ],
+    sources: ['AMAZON']
+  },
+  debt: {
+    items: [
+      {
+        question: "What debts are zakatable?",
+        answer: "Money owed to you (receivables) is generally zakatable if it is 'good debt' that you expect to be repaid. Money you owe to others (liabilities) can be deducted from your zakatable assets."
+      },
+      {
+        question: "How are long-term debts handled?",
+        answer: "For long-term debts like mortgages or student loans, you may deduct up to 12 months' worth of installments due within the forthcoming lunar year."
+      },
+      {
+        question: "Are all liabilities deductible?",
+        answer: "Only debts that were incurred before the start of the ḥawl and are due within the next 12 lunar months can be fully deducted. Future expenses and long-term debts beyond the next 12 months are not fully deductible. For example, you cannot include next month's rent and utilities in your deductibles."
+      },
+      {
+        question: "How do I handle money owed to me?",
+        answer: "Money owed to you that you expect to be repaid is considered 'good debt' and is zakatable at 2.5% if you've owned it for a full lunar year."
+      },
+      {
+        question: "Can I deduct my student loan from my zakat calculation?",
+        answer: "If you're currently repaying your student loan, you may deduct up to 12 months' worth of repayments from your zakatable assets. If you're not yet repaying the loan, it shouldn't be deducted."
+      },
+      {
+        question: "Do I pay zakat on my mortgage?",
+        answer: "You can deduct up to 12 months' worth of principal repayments due within the forthcoming lunar year from your zakatable assets. Interest payments are not deductible."
+      },
+      {
+        question: "Are business loans deductible in zakat calculation?",
+        answer: "Yes, business loans can be deducted. You may deduct up to 12 months' worth of principal repayments due within the forthcoming lunar year."
+      },
+      {
+        question: "Should I deduct my monthly bills when calculating zakat?",
+        answer: "Yes, immediate liabilities such as this month's bills, rent, and utilities can be deducted from your zakatable assets. Future expenses not yet incurred are not deductible."
       }
     ],
     sources: ['AMAZON']
