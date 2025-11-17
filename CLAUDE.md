@@ -259,6 +259,7 @@ The application follows a strict layered architecture:
 ### 1. Cash Calculator
 - **File**: `/src/components/calculators/cash/CashCalculator.tsx`
 - **Store Module**: `/src/store/modules/cash.ts`
+- **Calculation Method**: Aggregates all liquid cash holdings (cash on hand, checking, savings, digital wallets, foreign currency) and applies the standard 2.5% Zakat rate on the total if hawl (one lunar year of possession) is met. All cash is considered 100% zakatable at full value.
 - **Tracks**:
   - Cash on hand
   - Checking & savings accounts
@@ -270,10 +271,11 @@ The application follows a strict layered architecture:
   - Hawl status tracking
 
 ### 2. Precious Metals Calculator
-- **Files**: 
+- **Files**:
   - `/src/components/calculators/precious-metals/`
   - `/src/store/modules/metals.ts`
   - `/src/lib/assets/precious-metals.ts`
+- **Calculation Method**: Regularly worn jewelry is exempt from Zakat. Only occasionally worn and investment metals are zakatable. Values are calculated using real-time market prices multiplied by weight, then 2.5% Zakat rate is applied. Nisab thresholds: Gold = 87.48g (7.5 tolas), Silver = 612.36g (52.5 tolas).
 - **Tracks**:
   - Gold (regular, occasional, investment use)
   - Silver (regular, occasional, investment use)
@@ -290,6 +292,7 @@ The application follows a strict layered architecture:
   - `/src/components/calculators/stocks/StockCalculator.tsx`
   - `/src/store/modules/stocks.ts`
   - `/src/lib/assets/stocks.ts`
+- **Calculation Method**: Active trading stocks are 100% zakatable at market value. Passive investments use either the 30% rule (quick method) or CRI (Company Residual Investment) method based on company financials. Dividends are 100% zakatable. Standard 2.5% Zakat rate applies to all zakatable amounts.
 - **Tracks**:
   - Active trading stocks
   - Passive investments (mutual funds, ETFs)
@@ -306,6 +309,7 @@ The application follows a strict layered architecture:
   - `/src/components/calculators/realestate/RealEstateCalculator.tsx`
   - `/src/store/modules/realEstate.ts`
   - `/src/lib/assets/real-estate.ts`
+- **Calculation Method**: Primary residence is fully exempt from Zakat. For rental properties, only net rental income (income minus expenses) is zakatable. Properties actively listed for sale are zakatable at full market value. Vacant land is zakatable at sale price if sold during the year. Standard 2.5% rate applies.
 - **Tracks**:
   - Primary residence (exempt)
   - Rental properties
@@ -322,6 +326,7 @@ The application follows a strict layered architecture:
   - `/src/components/calculators/crypto/CryptoCalculator.tsx`
   - `/src/store/modules/crypto.ts`
   - `/src/lib/assets/crypto.ts`
+- **Calculation Method**: Cryptocurrency is treated similarly to trading goods. The full market value of all crypto holdings is zakatable if hawl is met. Values are fetched in real-time from CoinGecko API and converted to local currency. Standard 2.5% Zakat rate is applied to the total market value.
 - **Tracks**:
   - Major cryptocurrencies (Bitcoin, Ethereum, etc.)
   - Real-time market values
@@ -336,6 +341,7 @@ The application follows a strict layered architecture:
   - `/src/components/calculators/retirement/RetirementCalculator.tsx`
   - `/src/store/modules/retirement.ts`
   - `/src/lib/assets/retirement.ts`
+- **Calculation Method**: Only the net withdrawable amount is zakatable. Traditional 401(k)/IRA accounts are calculated after deducting 20% tax and 10% early withdrawal penalty. Pension funds are exempt as locked assets. Roth accounts are exempt. Standard 2.5% Zakat rate applies to the net accessible amount.
 - **Tracks**:
   - Traditional 401(k) & IRA
   - Roth 401(k) & IRA
@@ -771,7 +777,7 @@ When starting work on this project:
 
 ## 20. IMPORTANT CONTACTS & RESOURCES
 
-**Project Owner**: Abdussalam Rafiq
+**Project Owner**: Abdus Salam
 - Email: abdussalam.rafiq@gmail.com
 - LinkedIn: https://www.linkedin.com/in/imabdussalam/
 
