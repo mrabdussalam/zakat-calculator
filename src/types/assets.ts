@@ -1,4 +1,5 @@
-import { AssetIconType } from '@/components/ui/icons/icon-types'
+// Define AssetIconType locally since icon-types module doesn't exist
+export type AssetIconType = 'cash' | 'gold' | 'silver' | 'crypto' | 'stocks' | 'realEstate' | 'retirement' | 'other'
 
 export interface AssetMetadata {
   // Common metadata

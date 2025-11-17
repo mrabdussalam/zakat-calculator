@@ -20,7 +20,7 @@ const buttonVariants = cva(
       fullWidth: {
         true: 'w-full',
       },
-      disabled: {
+      isDisabled: {
         true: 'opacity-50 cursor-not-allowed',
       },
     },
@@ -28,14 +28,14 @@ const buttonVariants = cva(
       variant: 'primary',
       size: 'md',
       fullWidth: false,
-      disabled: false,
+      isDisabled: false,
     },
   }
 );
 
-interface ButtonProps 
+interface ButtonProps
   extends ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+    Omit<VariantProps<typeof buttonVariants>, 'isDisabled'> {
   children: ReactNode;
   icon?: ReactNode;
 }
@@ -52,7 +52,7 @@ export function Button({
 }: ButtonProps) {
   return (
     <button
-      className={buttonVariants({ variant, size, fullWidth, disabled, className })}
+      className={buttonVariants({ variant, size, fullWidth, isDisabled: disabled, className })}
       disabled={disabled}
       {...props}
     >

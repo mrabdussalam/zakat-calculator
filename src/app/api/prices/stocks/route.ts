@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getExchangeRate } from '@/lib/services/exchangeRateService'
+import { getExchangeRate as getServiceExchangeRate } from '@/lib/services/exchangeRateService'
 
 // Use multiple APIs for better reliability
 const YAHOO_FINANCE_API_URL = 'https://query2.finance.yahoo.com/v8/finance/chart'

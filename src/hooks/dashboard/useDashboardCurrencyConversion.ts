@@ -4,9 +4,7 @@ import { useCurrencyStore } from '@/lib/services/currency'
 import { useCurrencyContext } from '@/lib/context/CurrencyContext'
 import { toast } from '@/components/ui/toast'
 import { roundCurrency } from '@/lib/utils/currency'
-import { CashValues } from '@/store/modules/cash'
-import { RealEstateValues } from '@/store/modules/realEstate'
-import { RetirementValues, ActiveStock } from '@/store/types'
+import { CashValues, RealEstateValues, RetirementValues, ActiveStock } from '@/store/types'
 
 interface UseDashboardCurrencyConversionProps {
   currency: string
@@ -332,7 +330,8 @@ export function useDashboardCurrencyConversion({
               // Otherwise, update properties individually, which is safer than bulk updates
               Object.entries(zakatStore.realEstateValues).forEach(([key, value]) => {
                 if (typeof value === 'number' && typeof zakatStore.setRealEstateValue === 'function') {
-                  zakatStore.setRealEstateValue(key as keyof RealEstateValues, convertValue(value, fromCurrency));
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  zakatStore.setRealEstateValue(key as any, convertValue(value, fromCurrency));
                 }
               });
             }
