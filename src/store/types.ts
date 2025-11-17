@@ -10,6 +10,7 @@ import { CryptoSlice, CryptoValues as CryptoValuesImport } from './modules/crypt
 import { StockHolding } from '@/lib/assets/stocks'
 import { WeightUnit } from '@/lib/utils/units'
 import { DistributionSlice } from './modules/distribution'
+import { DebtSlice } from './modules/debt.types'
 
 // Re-export types with new names to avoid conflicts
 export type AssetBreakdown = LibAssetBreakdown
@@ -23,6 +24,7 @@ export interface HawlStatus {
   retirement: boolean
   real_estate: boolean
   crypto: boolean
+  debt: boolean
 }
 
 export interface NisabData {
@@ -164,6 +166,29 @@ export interface CashValues extends Record<string, unknown> {
   foreign_currency_entries?: ForeignCurrencyEntry[]
 }
 
+// Debt Types
+export interface ReceivableEntry {
+  id: string
+  description: string
+  amount: number
+  certainty: 'certain' | 'likely' | 'unlikely'
+}
+
+export interface DebtEntry {
+  id: string
+  description: string
+  amount: number
+  is_short_term: boolean
+}
+
+export interface DebtValues {
+  receivables: number
+  receivables_entries: ReceivableEntry[]
+  short_term_liabilities: number
+  long_term_liabilities_annual: number
+  liabilities_entries: DebtEntry[]
+}
+
 export interface ZakatBreakdown {
   total: number
   zakatable: number
@@ -180,7 +205,7 @@ export interface ZakatBreakdown {
   }>
 }
 
-export interface ZakatState extends CashSlice, MetalsSlice, StocksSlice, RetirementSlice, RealEstateSlice, CryptoSlice, NisabSlice, DistributionSlice {
+export interface ZakatState extends CashSlice, MetalsSlice, StocksSlice, RetirementSlice, RealEstateSlice, CryptoSlice, NisabSlice, DistributionSlice, DebtSlice {
   // Core properties
   currency: string
 
@@ -204,6 +229,7 @@ export interface ZakatState extends CashSlice, MetalsSlice, StocksSlice, Retirem
     retirement: ReturnType<RetirementSlice['getRetirementBreakdown']>
     realEstate: ReturnType<RealEstateSlice['getRealEstateBreakdown']>
     crypto: ReturnType<CryptoSlice['getCryptoBreakdown']>
+    debt: ReturnType<DebtSlice['getDebtBreakdown']>
     combined: {
       totalValue: number
       zakatableValue: number

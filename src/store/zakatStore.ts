@@ -9,6 +9,7 @@ import { createRetirementSlice } from './modules/retirement'
 import { createRealEstateSlice } from './modules/realEstate'
 import { createCryptoSlice } from './modules/crypto'
 import { createDistributionSlice } from './modules/distribution'
+import { createDebtSlice } from './modules/debt'
 import { DEFAULT_HAWL_STATUS } from './constants'
 
 // Initial state
@@ -74,12 +75,20 @@ const initialState: Partial<ZakatState> = {
     total_value: 0,
     zakatable_value: 0
   },
+  debtValues: {
+    receivables: 0,
+    receivables_entries: [],
+    short_term_liabilities: 0,
+    long_term_liabilities_annual: 0,
+    liabilities_entries: []
+  },
   cashHawlMet: DEFAULT_HAWL_STATUS.cash,
   metalsHawlMet: DEFAULT_HAWL_STATUS.metals,
   stockHawlMet: DEFAULT_HAWL_STATUS.stocks,
   retirementHawlMet: DEFAULT_HAWL_STATUS.retirement,
   realEstateHawlMet: DEFAULT_HAWL_STATUS.real_estate,
-  cryptoHawlMet: DEFAULT_HAWL_STATUS.crypto
+  cryptoHawlMet: DEFAULT_HAWL_STATUS.crypto,
+  debtHawlMet: DEFAULT_HAWL_STATUS.debt
 }
 
 // Enhanced hydration function with better error handling and validation
@@ -197,6 +206,7 @@ export const useZakatStore = create<ZakatState>()(
       const cryptoSlice = createCryptoSlice(set, get, store)
       const nisabSlice = createNisabSlice(set, get, store)
       const distributionSlice = createDistributionSlice(set, get, store)
+      const debtSlice = createDebtSlice(set, get, store)
 
       return {
         ...initialState,
@@ -208,6 +218,7 @@ export const useZakatStore = create<ZakatState>()(
         ...cryptoSlice,
         ...nisabSlice,
         ...distributionSlice,
+        ...debtSlice,
 
         // Reset all slices
         reset: () => {
@@ -233,6 +244,7 @@ export const useZakatStore = create<ZakatState>()(
           setTimeout(() => retirementSlice.resetRetirement?.(), 40)
           setTimeout(() => realEstateSlice.resetRealEstateValues?.(), 50)
           setTimeout(() => cryptoSlice.resetCryptoValues?.(), 60)
+          setTimeout(() => debtSlice.resetDebtValues?.(), 70)
 
           // Update localStorage properly without removing the structure
           try {
@@ -254,12 +266,14 @@ export const useZakatStore = create<ZakatState>()(
                 realEstateValues: initialState.realEstateValues,
                 // These other properties will be included or omitted based on whether they're in initialState
                 ...('cryptoValues' in initialState ? { cryptoValues: initialState.cryptoValues } : {}),
+                ...('debtValues' in initialState ? { debtValues: initialState.debtValues } : {}),
                 cashHawlMet: initialState.cashHawlMet,
                 metalsHawlMet: initialState.metalsHawlMet,
                 stockHawlMet: initialState.stockHawlMet,
                 retirementHawlMet: initialState.retirementHawlMet,
                 realEstateHawlMet: initialState.realEstateHawlMet,
                 ...('cryptoHawlMet' in initialState ? { cryptoHawlMet: initialState.cryptoHawlMet } : {}),
+                ...('debtHawlMet' in initialState ? { debtHawlMet: initialState.debtHawlMet } : {}),
                 // Do not preserve nisab data or metal prices
                 nisabData: undefined
               };
@@ -606,7 +620,8 @@ export const useZakatStore = create<ZakatState>()(
               stockHawlMet: DEFAULT_HAWL_STATUS.stocks,
               retirementHawlMet: DEFAULT_HAWL_STATUS.retirement,
               realEstateHawlMet: DEFAULT_HAWL_STATUS.real_estate,
-              cryptoHawlMet: DEFAULT_HAWL_STATUS.crypto
+              cryptoHawlMet: DEFAULT_HAWL_STATUS.crypto,
+              debtHawlMet: DEFAULT_HAWL_STATUS.debt
             });
 
             // Also reset the slices
@@ -616,6 +631,7 @@ export const useZakatStore = create<ZakatState>()(
             retirementSlice.resetRetirement?.();
             realEstateSlice.resetRealEstateValues?.();
             cryptoSlice.resetCryptoValues?.();
+            debtSlice.resetDebtValues?.();
 
             // Set the new currency in localStorage
             try {
@@ -735,6 +751,14 @@ export const useZakatStore = create<ZakatState>()(
               roth_ira: 0,
               pension: 0,
               other_retirement: 0
+            },
+            // Reset debt values
+            debtValues: {
+              receivables: 0,
+              receivables_entries: [],
+              short_term_liabilities: 0,
+              long_term_liabilities_annual: 0,
+              liabilities_entries: []
             }
           }));
 
@@ -756,13 +780,19 @@ export const useZakatStore = create<ZakatState>()(
         // Get complete breakdown
         getBreakdown: () => {
           const state = get()
+
+          // Get debt impact (can be positive or negative)
+          const debtNetImpact = state.getNetDebtImpact ? state.getNetDebtImpact() : 0
+          const debtBreakdown = state.getDebtBreakdown ? state.getDebtBreakdown() : { total: 0, zakatable: 0, zakatDue: 0, items: {} }
+
           const totalValue =
             state.getTotalCash() +
             state.getMetalsTotal() +
             state.getTotalStocks() +
             state.getRetirementTotal() +
             state.getRealEstateTotal() +
-            state.getTotalCrypto()
+            state.getTotalCrypto() +
+            debtNetImpact // Add net debt impact (can be negative)
 
           const zakatableValue =
             state.getTotalZakatableCash() +
@@ -770,7 +800,11 @@ export const useZakatStore = create<ZakatState>()(
             state.getTotalZakatableStocks() +
             state.getRetirementZakatable() +
             state.getRealEstateZakatable() +
-            state.getTotalZakatableCrypto()
+            state.getTotalZakatableCrypto() +
+            debtBreakdown.zakatable // Add zakatable debt impact (can be negative for deductions)
+
+          // Ensure zakatable value doesn't go negative
+          const finalZakatableValue = Math.max(0, zakatableValue)
 
           return {
             cash: state.getCashBreakdown(),
@@ -779,10 +813,11 @@ export const useZakatStore = create<ZakatState>()(
             retirement: state.getRetirementBreakdown(),
             realEstate: state.getRealEstateBreakdown(),
             crypto: state.getCryptoBreakdown(),
+            debt: debtBreakdown,
             combined: {
               totalValue,
-              zakatableValue,
-              zakatDue: zakatableValue * 0.025,
+              zakatableValue: finalZakatableValue,
+              zakatDue: finalZakatableValue * 0.025,
               meetsNisab: state.getNisabStatus()
             }
           }
@@ -813,12 +848,14 @@ export const useZakatStore = create<ZakatState>()(
                 retirement: state.retirement,
                 realEstateValues: state.realEstateValues,
                 cryptoValues: state.cryptoValues,
+                debtValues: state.debtValues,
                 cashHawlMet: state.cashHawlMet,
                 metalsHawlMet: state.metalsHawlMet,
                 stockHawlMet: state.stockHawlMet,
                 retirementHawlMet: state.retirementHawlMet,
                 realEstateHawlMet: state.realEstateHawlMet,
                 cryptoHawlMet: state.cryptoHawlMet,
+                debtHawlMet: state.debtHawlMet,
                 metalPrices: state.metalPrices,
                 // Add distribution state to manual persistence
                 allocations: state.allocations,

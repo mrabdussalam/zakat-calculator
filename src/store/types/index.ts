@@ -1,12 +1,44 @@
 import { StockPrices } from '@/lib/assets/stocks'
 
+export interface ForeignCurrencyEntry {
+  amount: number
+  currency: string
+  rawInput?: string
+}
+
 export interface CashValues {
   cash_on_hand: number
   checking_account: number
   savings_account: number
   digital_wallets: number
   foreign_currency: number
-  [key: string]: number
+  foreign_currency_entries: ForeignCurrencyEntry[]
+}
+
+// Debt/Liabilities Types
+export interface DebtEntry {
+  id: string
+  description: string
+  amount: number
+  is_short_term: boolean
+}
+
+export interface ReceivableEntry {
+  id: string
+  description: string
+  amount: number
+  certainty: 'certain' | 'likely' | 'unlikely' // Likelihood of repayment
+}
+
+export interface DebtValues {
+  // Receivables (money owed TO you)
+  receivables: number
+  receivables_entries: ReceivableEntry[]
+
+  // Liabilities (money you owe)
+  short_term_liabilities: number  // Due within 12 months
+  long_term_liabilities_annual: number  // Annual portion of long-term debts
+  liabilities_entries: DebtEntry[]
 }
 
 export interface MetalPrices {

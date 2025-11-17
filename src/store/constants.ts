@@ -21,7 +21,7 @@ export const DEFAULT_HAWL_STATUS = {
   retirement: true,
   real_estate: true,
   crypto: true,
-  debt_receivable: true
+  debt: true
 } as const
 
 export const initialRetirementValues: RetirementValues = {

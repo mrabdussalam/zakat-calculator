@@ -1,4 +1,4 @@
-import { CashValues, StockValues, StockPrices } from '../types'
+import { CashValues, StockValues, StockPrices, DebtValues } from '../types'
 import { MetalsValues, MetalPrices } from '../modules/metals.types'
 
 export const ZAKAT_RULES = {
@@ -70,6 +70,14 @@ export const initialStockPrices: StockPrices = {
   lastUpdated: new Date()
 }
 
+export const initialDebtValues: DebtValues = {
+  receivables: 0,
+  receivables_entries: [],
+  short_term_liabilities: 0,
+  long_term_liabilities_annual: 0,
+  liabilities_entries: []
+}
+
 // Add default Hawl status
 export const DEFAULT_HAWL_STATUS = {
   cash: true,
@@ -78,5 +86,5 @@ export const DEFAULT_HAWL_STATUS = {
   retirement: true,
   real_estate: true,
   crypto: true,
-  debt_receivable: true
+  debt: true
 } as const 
