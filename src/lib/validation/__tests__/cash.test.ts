@@ -254,8 +254,12 @@ describe('Cash Calculator Reset', () => {
 
     // Verify individual values
     const { cashValues } = store
-    Object.values(cashValues).forEach(value => {
-      expect(value).toBe(0)
+    Object.entries(cashValues).forEach(([key, value]) => {
+      if (key === 'foreign_currency_entries') {
+        expect(value).toEqual([]) // Array should be empty
+      } else {
+        expect(value).toBe(0)
+      }
     })
   })
 
@@ -344,7 +348,13 @@ describe('Cash Calculator Validation Requirements', () => {
 
   test('validates numerical fields', () => {
     const store = createFreshStore()
-    store.setCashValue('cash_on_hand', '1000' as any) // Type coercion should handle this
+    // String values should be rejected (no type coercion)
+    store.setCashValue('cash_on_hand', '1000' as any)
+    // Value should remain 0 since string was rejected
+    expect(store.getTotalCash()).toBe(0)
+
+    // Only valid numbers should be accepted
+    store.setCashValue('cash_on_hand', 1000)
     expect(store.getTotalCash()).toBe(1000)
   })
 
