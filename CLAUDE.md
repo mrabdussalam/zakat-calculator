@@ -456,7 +456,164 @@ Located in `/src/app/api/`:
 
 ---
 
-## 8. KEY COMPONENTS & FEATURES
+## 8. DATA FLOW & SUMMARY ARCHITECTURE
+
+### How Data Flows from Calculators to Summary
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     USER INPUT (Calculator UI)                       │
+│   Cash Calculator → Metals Calculator → Stocks Calculator → etc.    │
+└────────────────────────────────┬────────────────────────────────────┘
+                                 │ Store Setters
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    ZUSTAND STORE (State Management)                  │
+│                                                                      │
+│   cashValues, metalsValues, stockValues, cryptoValues, etc.        │
+│   + hawl status per asset type (cashHawlMet, metalsHawlMet...)     │
+└────────────────────────────────┬────────────────────────────────────┘
+                                 │ Getter Functions
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│               ASSET BREAKDOWN CALCULATORS (per type)                 │
+│                                                                      │
+│   getCashBreakdown() → getMetalsBreakdown() → getStocksBreakdown()  │
+│   getRetirementBreakdown() → getRealEstateBreakdown() → getCryptoBreakdown()│
+│                                                                      │
+│   Each returns: { total, zakatable, zakatDue, items: {...} }        │
+└────────────────────────────────┬────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│           AGGREGATION LAYER (getBreakdown() & getNisabStatus())      │
+│                                                                      │
+│   getBreakdown():                                                    │
+│   - Sums all asset totals                                            │
+│   - Sums all zakatable values                                        │
+│   - Calculates total zakat due (zakatable × 2.5%)                    │
+│   - Returns combined breakdown with individual asset data            │
+│                                                                      │
+│   getNisabStatus():                                                  │
+│   - Sums total zakatable wealth across all assets                    │
+│   - Compares against nisab threshold (min of gold/silver nisab)      │
+│   - Gold nisab = 85g × gold price per gram                          │
+│   - Silver nisab = 595g × silver price per gram                     │
+│   - Returns: meetsNisab, totalValue, nisabValue, thresholds         │
+└────────────────────────────────┬────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    SUMMARY COMPONENT (Right Panel)                   │
+│                  /src/components/dashboard/Summary/                  │
+│                                                                      │
+│   ┌─────────────────────────────────────────────────────────────┐   │
+│   │  TotalHeader - Shows total assets and total zakat due       │   │
+│   └─────────────────────────────────────────────────────────────┘   │
+│                                 │                                    │
+│   ┌─────────────────────────────────────────────────────────────┐   │
+│   │  NisabStatus - Displays nisab threshold comparison          │   │
+│   │  • Green indicator if meetsNisab = true                     │   │
+│   │  • Shows gold (85g) and silver (595g) thresholds           │   │
+│   │  • Expandable for detailed breakdown                        │   │
+│   └─────────────────────────────────────────────────────────────┘   │
+│                                 │                                    │
+│   ┌─────────────────────────────────────────────────────────────┐   │
+│   │  AssetDistribution - Pie chart of asset type percentages    │   │
+│   └─────────────────────────────────────────────────────────────┘   │
+│                                 │                                    │
+│   ┌─────────────────────────────────────────────────────────────┐   │
+│   │  BreakdownTable - Detailed expandable table                 │   │
+│   │  • Row for each asset type (Cash, Metals, Stocks, etc.)    │   │
+│   │  • Columns: Asset Type | Total Value | Zakatable | Zakat Due│   │
+│   │  • Expandable rows show item-level breakdown                 │   │
+│   │  • Total row at bottom with aggregated values               │   │
+│   └─────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Store Methods for Summary
+
+**In `/src/store/zakatStore.ts`:**
+```typescript
+// Line 757-789: getBreakdown()
+getBreakdown: () => {
+  const totalValue = getTotalCash() + getMetalsTotal() + getTotalStocks()
+                   + getRetirementTotal() + getRealEstateTotal() + getTotalCrypto()
+
+  const zakatableValue = getTotalZakatableCash() + getMetalsZakatable()
+                       + getTotalZakatableStocks() + getRetirementZakatable()
+                       + getRealEstateZakatable() + getTotalZakatableCrypto()
+
+  return {
+    cash: getCashBreakdown(),
+    metals: getMetalsBreakdown(),
+    stocks: getStocksBreakdown(),
+    retirement: getRetirementBreakdown(),
+    realEstate: getRealEstateBreakdown(),
+    crypto: getCryptoBreakdown(),
+    combined: {
+      totalValue,
+      zakatableValue,
+      zakatDue: zakatableValue * 0.025,  // 2.5% Zakat rate
+      meetsNisab: getNisabStatus()
+    }
+  }
+}
+```
+
+**In `/src/store/modules/nisab.ts`:**
+```typescript
+// Line 492-566: getNisabStatus()
+getNisabStatus: () => {
+  // Sum all zakatable assets
+  const totalValue = totalCash + totalMetals + totalStocks
+                   + totalRetirement + totalRealEstate + totalCrypto
+
+  // Compare against nisab threshold
+  const meetsNisab = totalValue >= nisabData.nisabThreshold
+
+  // Calculate thresholds based on current metal prices
+  const goldThreshold = 85 * goldPricePerGram    // NISAB.GOLD.GRAMS
+  const silverThreshold = 595 * silverPricePerGram  // NISAB.SILVER.GRAMS
+
+  return {
+    meetsNisab,
+    totalValue,
+    nisabValue: nisabData.nisabThreshold,  // Uses lower of gold/silver
+    thresholds: { gold: goldThreshold, silver: silverThreshold },
+    currency
+  }
+}
+```
+
+### Summary Component Structure
+
+**Location:** `/src/components/dashboard/Summary/`
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| **Summary** | `index.tsx` | Main orchestrator - fetches all data from store |
+| **TotalHeader** | `TotalHeader.tsx` | Displays total assets and zakat due |
+| **NisabStatus** | `NisabStatus.tsx` | Collapsible nisab threshold comparison |
+| **AssetDistribution** | `AssetDistribution/index.tsx` | Pie chart visualization |
+| **BreakdownTable** | `BreakdownTable/index.tsx` | Detailed asset breakdown table |
+| **AssetRow** | `BreakdownTable/AssetRow.tsx` | Individual expandable asset row |
+| **AssetDetails** | `BreakdownTable/AssetDetails.tsx` | Expanded item details |
+| **TotalRow** | `BreakdownTable/TotalRow.tsx` | Aggregated totals footer |
+
+### Real-Time Updates
+
+1. **User enters value** in calculator → Store setter called
+2. **Store updates** → Zustand triggers re-render
+3. **Summary component** re-calls getters → New breakdown calculated
+4. **UI updates** → New totals, nisab status, and zakat due displayed
+
+All updates happen synchronously without page refresh, providing immediate feedback.
+
+---
+
+## 9. KEY COMPONENTS & FEATURES
 
 ### Home Page (`/src/app/page.tsx`)
 - Hero section with feature descriptions
@@ -497,7 +654,7 @@ Located in `/src/app/api/`:
 
 ---
 
-## 9. TESTING SETUP
+## 10. TESTING SETUP
 
 ### Test Framework
 - **Jest** 29.7.0 with ts-jest preset
@@ -532,7 +689,7 @@ npm run test:coverage     # Generate coverage report
 
 ---
 
-## 10. BUILD & DEVELOPMENT COMMANDS
+## 11. BUILD & DEVELOPMENT COMMANDS
 
 ### Available NPM Scripts
 ```json
@@ -576,7 +733,7 @@ npm start
 
 ---
 
-## 11. CONFIGURATION FILES
+## 12. CONFIGURATION FILES
 
 ### TypeScript (`tsconfig.json`)
 - Target: ES2017
@@ -606,7 +763,7 @@ npm start
 
 ---
 
-## 12. KEY LIBRARIES & UTILITIES
+## 13. KEY LIBRARIES & UTILITIES
 
 ### Custom Hooks
 - `useStoreHydration()` - Initialize store from localStorage
@@ -630,7 +787,7 @@ npm start
 
 ---
 
-## 13. DOCUMENTATION
+## 14. DOCUMENTATION
 
 ### Available Documentation Files
 - **README.md** - Main project overview & setup
@@ -652,7 +809,7 @@ npm start
 
 ---
 
-## 14. CURRENCY SUPPORT
+## 15. CURRENCY SUPPORT
 
 ### Supported Currencies (19)
 USD, EUR, GBP, JPY, CAD, AUD, INR, PKR, AED, SAR, MYR, SGD, BDT, EGP, IDR, KWD, NGN, QAR, ZAR
@@ -666,7 +823,7 @@ USD, EUR, GBP, JPY, CAD, AUD, INR, PKR, AED, SAR, MYR, SGD, BDT, EGP, IDR, KWD, 
 
 ---
 
-## 15. COMMON DEVELOPMENT PATTERNS
+## 16. COMMON DEVELOPMENT PATTERNS
 
 ### Adding a New Feature
 
@@ -709,7 +866,7 @@ export async function GET(request: NextRequest) {
 
 ---
 
-## 16. KNOWN ISSUES & CONSIDERATIONS
+## 17. KNOWN ISSUES & CONSIDERATIONS
 
 ### Environment Handling
 - Special fallback handling for restricted environments (e.g., Replit)
@@ -728,7 +885,7 @@ export async function GET(request: NextRequest) {
 
 ---
 
-## 17. DEPLOYMENT
+## 18. DEPLOYMENT
 
 ### Build Process
 ```bash
@@ -747,7 +904,7 @@ npm start      # Run production server
 
 ---
 
-## 18. PROJECT STATISTICS
+## 19. PROJECT STATISTICS
 
 - **Total TypeScript Files**: 244+
 - **Lines of Code**: ~4,826
@@ -760,7 +917,7 @@ npm start      # Run production server
 
 ---
 
-## 19. QUICK REFERENCE CHECKLIST
+## 20. QUICK REFERENCE CHECKLIST
 
 When starting work on this project:
 
@@ -775,7 +932,7 @@ When starting work on this project:
 
 ---
 
-## 20. IMPORTANT CONTACTS & RESOURCES
+## 21. IMPORTANT CONTACTS & RESOURCES
 
 **Project Owner**: Abdus Salam
 - Email: abdussalam.rafiq@gmail.com
