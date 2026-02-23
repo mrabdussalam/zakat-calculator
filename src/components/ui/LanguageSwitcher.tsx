@@ -10,13 +10,13 @@ import { ChevronDown, Globe } from 'lucide-react'
 // Language display names (always shown in their native script)
 const LANGUAGE_NAMES: Record<Locale, string> = {
   en: 'English',
-  fr: 'Français',
+  ru: 'Русский',
 }
 
 // Language flag emojis
 const LANGUAGE_FLAGS: Record<Locale, string> = {
   en: '🇬🇧',
-  fr: '🇫🇷',
+  ru: '🇷🇺',
 }
 
 export function LanguageSwitcher() {
