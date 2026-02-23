@@ -17,6 +17,7 @@ import { useDashboardState, DashboardState, DEFAULT_STATE } from '@/hooks/dashbo
 import { FeedbackFormModal } from '@/components/ui/FeedbackFormModal'
 import { RefreshIcon } from '@/components/ui/icons'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 
 // Local types not exported from the hook
 interface ConvertedStock {
@@ -37,6 +38,8 @@ type SetStocksFunction = (key: 'activeStocks', value: ActiveStock[]) => void;
 const MotionScrollArea = motion(ScrollArea)
 
 export default function DashboardPage() {
+  const t = useTranslations()
+
   // Use the custom hook to handle dashboard state
   const {
     state,
@@ -111,7 +114,7 @@ export default function DashboardPage() {
 
   // Custom titles for calculators
   const CALCULATOR_TITLES = {
-    stocks: 'Stocks & Investments'
+    stocks: t('calculatorNav.stocks')
   }
 
   // Add debug and emergency mechanism to fix any currency inconsistencies
@@ -223,18 +226,16 @@ export default function DashboardPage() {
       />
     )
   }
-
   return (
     <TooltipProvider>
       {isConvertingCurrency && (
         <div className="fixed inset-0 bg-black/20 z-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
-            <p className="text-sm text-gray-600">Converting values to {state.currency}...</p>
+            <p className="text-sm text-gray-600">{t('common.convertingValues', { currency: state.currency })}</p>
           </div>
         </div>
       )}
-
       <motion.div
         className="h-screen w-screen overflow-hidden bg-white relative"
         initial="hidden"
@@ -256,7 +257,7 @@ export default function DashboardPage() {
                   className="rounded-full md:hidden"
                 >
                   <Menu className="h-5 w-5" />
-                  <span className="sr-only">Open menu</span>
+                  <span className="sr-only">{t('common.openMenu')}</span>
                 </Button>
               </div>
               <div className="flex items-center gap-2">
@@ -267,7 +268,7 @@ export default function DashboardPage() {
                   size="sm"
                   className="rounded-full"
                 >
-                  Reset
+                  {t('common.reset')}
                 </Button>
                 <motion.div
                   whileHover={{ scale: 1.05 }}
@@ -279,14 +280,13 @@ export default function DashboardPage() {
                     size="sm"
                     className="rounded-full"
                   >
-                    Summary
+                    {t('common.viewSummary')}
                   </Button>
                 </motion.div>
               </div>
             </div>
           </div>
         </motion.div>
-
         {/* Mobile Menu */}
         <AnimatePresence>
           {isMobileMenuOpen && (
@@ -307,7 +307,7 @@ export default function DashboardPage() {
               >
                 <div className="p-4 border-b border-gray-100">
                   <div className="flex items-center justify-between">
-                    <h2 className="section-title">Assets</h2>
+                    <h2 className="section-title">{t('dashboard.assets')}</h2>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -315,11 +315,10 @@ export default function DashboardPage() {
                       className="rounded-full"
                     >
                       <X className="h-4 w-4" />
-                      <span className="sr-only">Close menu</span>
+                      <span className="sr-only">{t('common.closeMenu')}</span>
                     </Button>
                   </div>
                 </div>
-
                 <ScrollArea className="flex-1">
                   <div className="p-4">
                     {ASSETS.map(asset => (
@@ -341,7 +340,6 @@ export default function DashboardPage() {
             </motion.div>
           )}
         </AnimatePresence>
-
         {/* Mobile Summary Overlay */}
         <AnimatePresence>
           {isMobileSummaryOpen && (
@@ -355,7 +353,7 @@ export default function DashboardPage() {
               <div className="h-full flex flex-col">
                 <div className="px-4 py-3 border-b border-gray-100">
                   <div className="flex items-center justify-between">
-                    <h2 className="section-title">Summary</h2>
+                    <h2 className="section-title">{t('dashboard.summary')}</h2>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -363,7 +361,7 @@ export default function DashboardPage() {
                       className="rounded-full"
                     >
                       <X className="h-4 w-4" />
-                      <span className="sr-only">Close summary</span>
+                      <span className="sr-only">{t('common.closeSummary')}</span>
                     </Button>
                   </div>
                 </div>
@@ -378,7 +376,6 @@ export default function DashboardPage() {
             </motion.div>
           )}
         </AnimatePresence>
-
         {/* Main Layout */}
         <div className="w-full h-full grid lg:grid-cols-[auto_minmax(500px,1fr)_minmax(400px,1.5fr)] md:grid-cols-[auto_1fr] grid-cols-[100%] transition-all duration-200">
           {/* Left Column - Asset Selection */}
@@ -394,17 +391,16 @@ export default function DashboardPage() {
               isCollapsed={isCollapsed}
               onToggle={() => setIsCollapsed(!isCollapsed)}
             />
-
             <div className="h-full flex flex-col">
               <motion.div
                 variants={innerVariants}
                 className="p-6 flex-none"
               >
                 <h2 className={cn(
-                  "section-title transition-opacity",
+                  "section-title transition-opacity duration-200",
                   isCollapsed ? "opacity-0" : "opacity-100"
                 )}>
-                  Assets
+                  {t('dashboard.assets')}
                 </h2>
               </motion.div>
               <div className="flex-1 min-h-0">
@@ -427,7 +423,6 @@ export default function DashboardPage() {
               </div>
             </div>
           </motion.div>
-
           {/* Middle Column - Smart Calculator */}
           <motion.div
             variants={innerVariants}
@@ -446,7 +441,7 @@ export default function DashboardPage() {
                     {state.selectedAsset
                       ? CALCULATOR_TITLES[state.selectedAsset as keyof typeof CALCULATOR_TITLES] ||
                       ASSETS.find(a => a.id === state.selectedAsset)?.name
-                      : "Select an asset to begin"}
+                      : t('common.selectAsset')}
                   </h2>
                 </div>
               </motion.div>
@@ -475,7 +470,6 @@ export default function DashboardPage() {
               </div>
             </div>
           </motion.div>
-
           {/* Right Column - Dashboard/Summary */}
           <motion.div
             variants={innerVariants}
@@ -487,19 +481,8 @@ export default function DashboardPage() {
                 className="p-6 flex-none"
               >
                 <div className="flex items-center justify-between">
-                  <h2 className="section-title">Summary</h2>
+                  <h2 className="section-title">{t('dashboard.summary')}</h2>
                   <div className="flex items-center gap-2">
-                    {/* Temporarily commented out until testing is complete
-                    <Link href="/zakat-distribution">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="rounded-full"
-                      >
-                        Distribute Zakat
-                      </Button>
-                    </Link>
-                    */}
                     <FeedbackFormModal />
                     <Button
                       onClick={handleReset}
@@ -507,7 +490,7 @@ export default function DashboardPage() {
                       size="sm"
                       className="rounded-full"
                     >
-                      Reset
+                      {t('common.reset')}
                     </Button>
                   </div>
                 </div>
@@ -532,4 +515,4 @@ export default function DashboardPage() {
       </motion.div>
     </TooltipProvider>
   )
-} 
+}

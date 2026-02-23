@@ -5,6 +5,7 @@ import { AssetDetails } from "./AssetDetails"
 import { cn } from "@/lib/utils"
 import { ASSET_COLORS } from "@/config/colors"
 import { motion, AnimatePresence } from "framer-motion"
+import { useTranslations } from "next-intl"
 
 export interface AssetRowProps {
   title: string
@@ -29,6 +30,7 @@ export function AssetRow({
   isExpanded,
   onToggle
 }: AssetRowProps) {
+  const t = useTranslations()
   const hasDetails = breakdown &&
     Object.keys(breakdown.items).length > 0 &&
     Object.values(breakdown.items).some(item => item.value > 0)
@@ -92,7 +94,7 @@ export function AssetRow({
                 {percentage}%
               </span>
               {!hawlMet && (
-                <span className="hidden sm:inline-block text-xs text-amber-600 flex-shrink-0">(Hawl not met)</span>
+                <span className="hidden sm:inline-block text-xs text-amber-600 flex-shrink-0">({t('summary.hawlNotMet')})</span>
               )}
             </div>
           </div>
@@ -132,4 +134,4 @@ export function AssetRow({
       </AnimatePresence>
     </div>
   )
-} 
+}

@@ -10,8 +10,9 @@ import { CryptoIcon } from "@/components/ui/icons/crypto"
 import { motion } from "framer-motion"
 import { ASSET_COLOR_VARIANTS } from '@/config/colors'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useTranslations } from "next-intl"
 
-// Asset types with their display properties
+// Asset types with their display properties (ids and icons only; names/descriptions come from i18n)
 export const ASSETS = [
   {
     id: 'cash',
@@ -51,6 +52,16 @@ export const ASSETS = [
   },
 ] as const
 
+// Map asset IDs to i18n keys
+const ASSET_I18N_KEYS: Record<string, { name: string; description: string }> = {
+  'cash': { name: 'assetList.cash.name', description: 'assetList.cash.description' },
+  'precious-metals': { name: 'assetList.preciousMetals.name', description: 'assetList.preciousMetals.description' },
+  'stocks': { name: 'assetList.stocks.name', description: 'assetList.stocks.description' },
+  'retirement': { name: 'assetList.retirement.name', description: 'assetList.retirement.description' },
+  'real-estate': { name: 'assetList.realEstate.name', description: 'assetList.realEstate.description' },
+  'crypto': { name: 'assetList.crypto.name', description: 'assetList.crypto.description' },
+}
+
 interface AssetListProps {
   selectedAsset: string | null
   onAssetSelect: (assetId: string) => void
@@ -58,6 +69,8 @@ interface AssetListProps {
 }
 
 export function AssetList({ selectedAsset, onAssetSelect, isCollapsed }: AssetListProps) {
+  const t = useTranslations()
+
   return (
     <div className={cn(
       "space-y-2.5 rounded-3xl",
@@ -67,6 +80,9 @@ export function AssetList({ selectedAsset, onAssetSelect, isCollapsed }: AssetLi
         const Icon = asset.icon
         const isSelected = selectedAsset === asset.id
         const colors = ASSET_COLOR_VARIANTS[asset.id as keyof typeof ASSET_COLOR_VARIANTS]
+        const i18nKeys = ASSET_I18N_KEYS[asset.id]
+        const assetName = i18nKeys ? t(i18nKeys.name as Parameters<typeof t>[0]) : asset.name
+        const assetDescription = i18nKeys ? t(i18nKeys.description as Parameters<typeof t>[0]) : asset.description
 
         return (
           <TooltipProvider key={asset.id} delayDuration={0}>
@@ -124,17 +140,17 @@ export function AssetList({ selectedAsset, onAssetSelect, isCollapsed }: AssetLi
                         "text-sm transition-colors",
                         isSelected ? "text-gray-900 font-semibold" : "text-gray-800 font-medium"
                       )}>
-                        {asset.name}
+                        {assetName}
                       </div>
-                      <div className="text-xs text-gray-600 mt-1">{asset.description}</div>
+                      <div className="text-xs text-gray-600 mt-1">{assetDescription}</div>
                     </div>
                   )}
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={5} className={!isCollapsed ? "hidden" : undefined}>
                 <div>
-                  <div className="font-medium">{asset.name}</div>
-                  <div className="text-xs text-gray-500">{asset.description}</div>
+                  <div className="font-medium">{assetName}</div>
+                  <div className="text-xs text-gray-500">{assetDescription}</div>
                 </div>
               </TooltipContent>
             </Tooltip>
@@ -143,4 +159,4 @@ export function AssetList({ selectedAsset, onAssetSelect, isCollapsed }: AssetLi
       })}
     </div>
   )
-} 
+}

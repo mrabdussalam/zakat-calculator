@@ -1,3 +1,5 @@
+'use client'
+
 import { useState } from "react"
 import { formatCurrency } from "@/lib/utils"
 import { AssetBreakdownWithHawl } from "../types"
@@ -5,6 +7,7 @@ import { TableHeader } from "./TableHeader"
 import { AssetRow } from "./AssetRow"
 import { TotalRow } from "./TotalRow"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { useTranslations } from "next-intl"
 
 interface BreakdownTableProps {
   currency: string
@@ -23,6 +26,8 @@ export function BreakdownTable({
   breakdown,
   assetBreakdowns
 }: BreakdownTableProps) {
+  const t = useTranslations()
+
   // State for expanded sections
   const [expandedSections, setExpandedSections] = useState({
     cash: false,
@@ -61,7 +66,7 @@ export function BreakdownTable({
               <div className="min-w-[640px] md:w-auto">
                 {/* Cash */}
                 <AssetRow
-                  title="Cash & Bank"
+                  title={t('summary.assetBreakdown.cashBank')}
                   total={assetBreakdowns.cash?.total || 0}
                   breakdown={assetBreakdowns.cash?.breakdown || emptyBreakdown}
                   hawlMet={assetBreakdowns.cash?.hawlMet || false}
@@ -74,7 +79,7 @@ export function BreakdownTable({
 
                 {/* Precious Metals */}
                 <AssetRow
-                  title="Precious Metals"
+                  title={t('summary.assetBreakdown.preciousMetals')}
                   total={assetBreakdowns.metals?.total || 0}
                   breakdown={assetBreakdowns.metals?.breakdown || emptyBreakdown}
                   hawlMet={assetBreakdowns.metals?.hawlMet || false}
@@ -87,7 +92,7 @@ export function BreakdownTable({
 
                 {/* Stocks & Investments */}
                 <AssetRow
-                  title="Stocks & Investments"
+                  title={t('summary.assetBreakdown.stocks')}
                   total={assetBreakdowns.stocks?.total || 0}
                   breakdown={assetBreakdowns.stocks?.breakdown || emptyBreakdown}
                   hawlMet={assetBreakdowns.stocks?.hawlMet || false}
@@ -100,7 +105,7 @@ export function BreakdownTable({
 
                 {/* Retirement */}
                 <AssetRow
-                  title="Retirement Accounts"
+                  title={t('summary.assetBreakdown.retirement')}
                   total={assetBreakdowns.retirement?.total || 0}
                   breakdown={assetBreakdowns.retirement?.breakdown || emptyBreakdown}
                   hawlMet={assetBreakdowns.retirement?.hawlMet || false}
@@ -113,7 +118,7 @@ export function BreakdownTable({
 
                 {/* Real Estate */}
                 <AssetRow
-                  title="Real Estate"
+                  title={t('summary.assetBreakdown.realEstate')}
                   total={assetBreakdowns.realEstate?.total || 0}
                   breakdown={assetBreakdowns.realEstate?.breakdown || emptyBreakdown}
                   hawlMet={assetBreakdowns.realEstate?.hawlMet || false}
@@ -126,7 +131,7 @@ export function BreakdownTable({
 
                 {/* Cryptocurrency */}
                 <AssetRow
-                  title="Cryptocurrency"
+                  title={t('summary.assetBreakdown.crypto')}
                   total={assetBreakdowns.crypto?.total || 0}
                   breakdown={assetBreakdowns.crypto?.breakdown || emptyBreakdown}
                   hawlMet={assetBreakdowns.crypto?.hawlMet || false}
@@ -150,4 +155,4 @@ export function BreakdownTable({
       </div>
     </div>
   )
-} 
+}
