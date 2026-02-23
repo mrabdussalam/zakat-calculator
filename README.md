@@ -12,8 +12,9 @@ A comprehensive Islamic zakat calculator application built with Next.js that hel
 6. [State Management](#state-management)
 7. [UI Components](#ui-components)
 8. [Development Guidelines](#development-guidelines)
-9. [Testing](#testing)
-10. [Deployment](#deployment)
+9. [Internationalization (i18n)](#internationalization-i18n)
+10. [Testing](#testing)
+11. [Deployment](#deployment)
 
 ## Getting Started
 
@@ -299,11 +300,125 @@ npm run build
 
 For production deployment, configure appropriate environment variables in `.env.production`.
 
-## Internationalization and Currency Support
+## Internationalization (i18n)
 
-The application includes robust i18n and currency support:
+The application uses [next-intl](https://next-intl-docs.vercel.app/) for internationalization. Locale selection is stored in a cookie and `localStorage` so the server can pre-render in the correct language without changing any URLs.
 
-- Multi-currency calculations with real-time conversion
+### Current languages
+
+| Code | Language |
+|------|----------|
+| `en` | English (default) |
+| `ru` | Русский (Russian) |
+
+### Adding a new language
+
+Follow these four steps to add a new language to the application.
+
+**1. Register the locale**
+
+Open `src/i18n/config.ts` and add the new locale code to the `locales` array:
+
+```ts
+// src/i18n/config.ts
+export const locales = ['en', 'ru', 'ar'] as const  // e.g. adding Arabic
+```
+
+**2. Create the translation file**
+
+Copy the English base file and translate every value:
+
+```bash
+cp messages/en.json messages/ar.json
+```
+
+Then open `messages/ar.json` and replace every English string with its translation. The file is organised into namespaced sections that mirror the UI:
+
+```
+messages/
+├── en.json          # English (base locale — do not delete keys from here)
+├── ru.json          # Russian
+└── ar.json          # ← your new file
+```
+
+Key sections to translate:
+
+| Section | Covers |
+|---------|--------|
+| `common` | Shared labels (buttons, nav, footer) |
+| `home` | Landing page |
+| `about` | About page |
+| `dashboard` | Dashboard shell |
+| `summary` | Summary panel and Nisab status |
+| `assetList` | Asset sidebar names and descriptions |
+| `calculatorNav` | Calculator tab labels |
+| `cash` | Cash & equivalents calculator |
+| `metals` | Precious metals calculator |
+| `stocks` | Stocks & investments calculator |
+| `retirement` | Retirement accounts calculator |
+| `realEstate` | Real estate calculator |
+| `crypto` | Cryptocurrency calculator |
+| `report` | PDF report generator |
+| `distribution` | Zakat distribution planner |
+| `hawl` | Hawl status labels |
+| `nisab` | Nisab threshold labels |
+| `languageSwitcher` | Language switcher UI (add the new language name here) |
+
+> **Tip:** Keep all keys present. If a translation is not yet available, copy the English string as a placeholder — `next-intl` will throw an error at runtime for any missing key.
+
+**3. Add the language to the switcher**
+
+Open `src/components/ui/LanguageSwitcher.tsx` and add the display name and flag:
+
+```ts
+// Native display name (shown in the dropdown in the language's own script)
+const LANGUAGE_NAMES: Record<Locale, string> = {
+  en: 'English',
+  ru: 'Русский',
+  ar: 'العربية',   // ← add this
+}
+
+// Country flag emoji
+const LANGUAGE_FLAGS: Record<Locale, string> = {
+  en: '🇬🇧',
+  ru: '🇷🇺',
+  ar: '🇸🇦',        // ← add this
+}
+```
+
+Also add the display name to the `languageSwitcher.languages` object in your new `messages/ar.json`:
+
+```json
+"languageSwitcher": {
+  "label": "اللغة",
+  "languages": {
+    "en": "English",
+    "ru": "Русский",
+    "ar": "العربية"
+  }
+}
+```
+
+**4. (Optional) Enable RTL layout**
+
+For right-to-left languages (Arabic, Urdu, Hebrew, etc.), update `src/app/layout.tsx` to set the `dir` attribute on the `<html>` element based on the active locale:
+
+```ts
+// src/app/layout.tsx
+const RTL_LOCALES = ['ar', 'ur', 'he']
+const dir = RTL_LOCALES.includes(locale) ? 'rtl' : 'ltr'
+
+// Then in the JSX:
+<html lang={locale} dir={dir} suppressHydrationWarning>
+```
+
+After completing these steps, the new language will appear in the language switcher on the home page and all translated strings will be applied across the entire application.
+
+### Currency support
+
+In addition to language translations, the application includes robust multi-currency support:
+
+- Real-time currency conversion via API
 - Currency formatting according to locale
 - Support for various number formats
 - Customizable currency display options
