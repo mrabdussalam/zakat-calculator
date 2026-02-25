@@ -1,77 +1,13 @@
 import { NextResponse } from 'next/server'
 import { SYMBOL_TO_ID } from '@/lib/api/crypto'
 import { getExchangeRate as getExchangeRateFromService } from '@/lib/services/exchangeRateService'
+import { getFallbackRate } from '@/lib/constants/currency'
+import { FALLBACK_CRYPTO_PRICES } from '@/lib/constants/crypto'
+import { IS_REPLIT_SERVER as IS_REPLIT } from '@/lib/utils/environment'
 
 const COINGECKO_API_URL = 'https://api.coingecko.com/api/v3'
 const COINCAP_API_URL = 'https://api.coincap.io/v2'
 const CRYPTOCOMPARE_API_URL = 'https://min-api.cryptocompare.com/data'
-
-// Add environment detection for Replit
-const IS_REPLIT = typeof window !== 'undefined' &&
-  (window.location.hostname.includes('replit') ||
-    window.location.hostname.endsWith('.repl.co'));
-
-// Comprehensive fallback exchange rates (approximate values as of 2025)
-// These are used when the Frankfurter API is unavailable
-const FALLBACK_RATES: { [key: string]: number } = {
-  // USD to other currencies
-  'USD-SAR': 3.75,    // Saudi Riyal (fixed peg)
-  'USD-PKR': 278.5,   // Pakistani Rupee
-  'USD-RUB': 91.5,    // Russian Ruble
-  'USD-INR': 84.0,    // Indian Rupee
-  'USD-GBP': 0.79,    // British Pound
-  // GBP to other currencies
-  'GBP-USD': 1.27,    // Inverse of USD-GBP
-  // EUR fallbacks (if needed in the future)
-  'USD-EUR': 0.93,
-  'EUR-USD': 1.08,
-};
-
-// Helper function to get fallback rate
-function getFallbackRate(from: string, to: string): number | null {
-  const fromUpper = from.toUpperCase();
-  const toUpper = to.toUpperCase();
-
-  // Direct lookup
-  const key = `${fromUpper}-${toUpper}`;
-  if (FALLBACK_RATES[key]) {
-    console.log(`Using fallback rate for ${from} to ${to}: ${FALLBACK_RATES[key]}`);
-    return FALLBACK_RATES[key];
-  }
-
-  // Try reverse lookup for inverse rate
-  const reverseKey = `${toUpper}-${fromUpper}`;
-  if (FALLBACK_RATES[reverseKey]) {
-    const inverseRate = 1 / FALLBACK_RATES[reverseKey];
-    console.log(`Using inverse fallback rate for ${from} to ${to}: ${inverseRate}`);
-    return inverseRate;
-  }
-
-  // Try triangulation through USD for cross-currency conversions
-  if (fromUpper !== 'USD' && toUpper !== 'USD') {
-    const fromToUSD = FALLBACK_RATES[`${fromUpper}-USD`];
-    const usdToTo = FALLBACK_RATES[`USD-${toUpper}`];
-
-    if (fromToUSD && usdToTo) {
-      const rate = fromToUSD * usdToTo;
-      console.log(`Using triangulated fallback rate for ${from} to ${to}: ${rate} (via USD)`);
-      return rate;
-    }
-
-    // Try inverse triangulation
-    const usdToFrom = FALLBACK_RATES[`USD-${fromUpper}`];
-    const toToUSD = FALLBACK_RATES[`${toUpper}-USD`];
-
-    if (usdToFrom && toToUSD) {
-      const rate = toToUSD / usdToFrom;
-      console.log(`Using inverse triangulated fallback rate for ${from} to ${to}: ${rate} (via USD)`);
-      return rate;
-    }
-  }
-
-  console.log(`No fallback rate available for ${from} to ${to}`);
-  return null;
-}
 
 // Helper function to get exchange rate with fallbacks
 async function getExchangeRate(from: string, to: string): Promise<number | null> {
@@ -94,7 +30,7 @@ async function getExchangeRate(from: string, to: string): Promise<number | null>
 
     console.log(`Frankfurter API failed for ${from} to ${to}, using fallbacks`);
 
-    // Use comprehensive fallback rates
+    // Use canonical fallback rates
     return getFallbackRate(from, to);
   } catch (error) {
     console.error(`Error fetching exchange rate from ${from} to ${to}:`, error);
@@ -426,12 +362,7 @@ export async function GET(request: Request) {
     // If all APIs fail for major coins, use fallback values
     if (usdPrice === null) {
       if (upperSymbol === 'BTC' || upperSymbol === 'ETH') {
-        const fallbackPrices = {
-          'BTC': 65000, // Fallback price for BTC
-          'ETH': 3500,  // Fallback price for ETH
-        };
-
-        usdPrice = fallbackPrices[upperSymbol];
+        usdPrice = FALLBACK_CRYPTO_PRICES[upperSymbol];
         source = 'fallback';
         console.log(`Using fallback price for ${upperSymbol}: ${usdPrice}`);
       } else {
@@ -475,7 +406,7 @@ export async function GET(request: Request) {
     if (symbol.toUpperCase() === 'BTC') {
       return NextResponse.json({
         symbol: symbol.toUpperCase(),
-        price: 65000, // Fallback price for BTC
+        price: FALLBACK_CRYPTO_PRICES['BTC'],
         lastUpdated: new Date().toISOString(),
         sourceCurrency: 'USD',
         currency: requestedCurrency,
@@ -488,7 +419,7 @@ export async function GET(request: Request) {
     if (symbol.toUpperCase() === 'ETH') {
       return NextResponse.json({
         symbol: symbol.toUpperCase(),
-        price: 3500, // Fallback price for ETH
+        price: FALLBACK_CRYPTO_PRICES['ETH'],
         lastUpdated: new Date().toISOString(),
         sourceCurrency: 'USD',
         currency: requestedCurrency,

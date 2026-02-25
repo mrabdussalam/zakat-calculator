@@ -225,6 +225,6 @@ Testing structure for calculator-related functionality:
 For more detailed documentation on specific areas:
 
 - Calculator implementation: `src/components/calculators/README.md`
-- Asset types and calculation rules: `ASSET_CALCULATOR_GUIDELINES.md`
+- Asset types and calculation rules: `docs/ASSET_CALCULATOR_GUIDELINES.md`
 - Store implementation: See comments in `src/store/zakatStore.ts`
 - Validation system: See comments in `src/lib/validation/templates/calculatorValidation.ts` 

@@ -33,9 +33,9 @@ const buttonVariants = cva(
   }
 );
 
-interface ButtonProps 
+interface ButtonProps
   extends ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+    Omit<VariantProps<typeof buttonVariants>, 'disabled'> {
   children: ReactNode;
   icon?: ReactNode;
 }

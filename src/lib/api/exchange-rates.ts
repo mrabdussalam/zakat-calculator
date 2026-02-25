@@ -8,6 +8,7 @@ const isServer = typeof window === 'undefined';
 let exchangeRateService: typeof import('@/lib/services/exchangeRateService') | null = null;
 if (isServer) {
     // Use dynamic import to avoid bundling server code in client
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     exchangeRateService = require('@/lib/services/exchangeRateService');
 }
 

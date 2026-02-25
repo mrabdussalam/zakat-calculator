@@ -4,23 +4,27 @@ import { createFreshStore } from './utils'
 import '@testing-library/jest-dom'
 
 // Test currencies representing different regions and value ranges
+// These must match the canonical FALLBACK_RATES in @/lib/constants/currency
 const TEST_CURRENCIES = [
   { code: 'USD', rate: 1, name: 'US Dollar' },
-  { code: 'EUR', rate: 0.92, name: 'Euro' },
-  { code: 'GBP', rate: 0.78, name: 'British Pound' },
-  { code: 'JPY', rate: 150.5, name: 'Japanese Yen' },
+  { code: 'EUR', rate: 0.844, name: 'Euro' },
+  { code: 'GBP', rate: 0.733, name: 'British Pound' },
+  { code: 'JPY', rate: 153.34, name: 'Japanese Yen' },
+  { code: 'CAD', rate: 1.363, name: 'Canadian Dollar' },
+  { code: 'AUD', rate: 1.411, name: 'Australian Dollar' },
   { code: 'PKR', rate: 278.5, name: 'Pakistani Rupee' },
-  { code: 'INR', rate: 83.15, name: 'Indian Rupee' },
+  { code: 'INR', rate: 90.73, name: 'Indian Rupee' },
   { code: 'AED', rate: 3.67, name: 'UAE Dirham' },
   { code: 'SAR', rate: 3.75, name: 'Saudi Riyal' },
-  { code: 'MYR', rate: 4.65, name: 'Malaysian Ringgit' },
+  { code: 'QAR', rate: 3.64, name: 'Qatari Riyal' },
+  { code: 'MYR', rate: 3.9, name: 'Malaysian Ringgit' },
   { code: 'BDT', rate: 110.5, name: 'Bangladeshi Taka' },
 ]
 
 describe('Currency Conversion Service Tests', () => {
   describe('Fallback Rate Calculations', () => {
     test('should have all required currencies in fallback rates', () => {
-      const requiredCurrencies = ['USD', 'EUR', 'GBP', 'JPY', 'PKR', 'INR', 'AED', 'SAR', 'MYR', 'BDT']
+      const requiredCurrencies = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'PKR', 'INR', 'AED', 'SAR', 'QAR', 'MYR', 'BDT']
       requiredCurrencies.forEach(currency => {
         expect(FALLBACK_RATES).toHaveProperty(currency)
         expect(typeof FALLBACK_RATES[currency]).toBe('number')
@@ -53,11 +57,11 @@ describe('Currency Conversion Service Tests', () => {
     test('should correctly convert between non-USD currencies', () => {
       // PKR to INR
       const pkrToInr = getFallbackRate('PKR', 'INR')
-      expect(pkrToInr).toBeCloseTo(83.15 / 278.5, 6)
+      expect(pkrToInr).toBeCloseTo(90.73 / 278.5, 6)
 
       // EUR to GBP
       const eurToGbp = getFallbackRate('EUR', 'GBP')
-      expect(eurToGbp).toBeCloseTo(0.78 / 0.92, 6)
+      expect(eurToGbp).toBeCloseTo(0.733 / 0.844, 6)
 
       // AED to SAR
       const aedToSar = getFallbackRate('AED', 'SAR')
@@ -78,17 +82,17 @@ describe('Currency Conversion Service Tests', () => {
 
   describe('Currency Amount Conversion', () => {
     test('should correctly convert amounts between currencies', () => {
-      // 100 USD to EUR
+      // 100 USD to EUR (rate: 0.844)
       const usdToEur = convertCurrency(100, 'USD', 'EUR')
-      expect(usdToEur).toBeCloseTo(92, 0)
+      expect(usdToEur).toBeCloseTo(84.4, 0)
 
-      // 1000 PKR to USD
+      // 1000 PKR to USD (rate: 1/278.5)
       const pkrToUsd = convertCurrency(1000, 'PKR', 'USD')
       expect(pkrToUsd).toBeCloseTo(3.59, 2)
 
-      // 100 EUR to GBP
+      // 100 EUR to GBP (rate: 0.733/0.844)
       const eurToGbp = convertCurrency(100, 'EUR', 'GBP')
-      expect(eurToGbp).toBeCloseTo(84.78, 2)
+      expect(eurToGbp).toBeCloseTo(86.85, 1)
     })
 
     test('should handle zero amounts', () => {
@@ -105,7 +109,7 @@ describe('Currency Conversion Service Tests', () => {
     test('should handle very small amounts', () => {
       const smallAmount = 0.01
       const result = convertCurrency(smallAmount, 'USD', 'EUR')
-      expect(result).toBeCloseTo(0.0092, 4)
+      expect(result).toBeCloseTo(0.00844, 4)
     })
 
     test('should return null for unsupported currency conversion', () => {
@@ -209,8 +213,8 @@ describe('Metals Calculator Currency Tests', () => {
     test('sets metal prices with USD currency', () => {
       const store = createFreshStore()
       store.setMetalPrices({
-        gold: 93.98,
-        silver: 1.02,
+        gold: 160.57,
+        silver: 2.47,
         lastUpdated: new Date(),
         isCache: false,
         currency: 'USD'
@@ -218,14 +222,14 @@ describe('Metals Calculator Currency Tests', () => {
 
       const prices = useZakatStore.getState().metalPrices
       expect(prices.currency).toBe('USD')
-      expect(prices.gold).toBe(93.98)
-      expect(prices.silver).toBe(1.02)
+      expect(prices.gold).toBe(160.57)
+      expect(prices.silver).toBe(2.47)
     })
 
     TEST_CURRENCIES.slice(1, 6).forEach(({ code, rate, name }) => {
       test(`converts metal prices from USD to ${name} (${code})`, () => {
-        const usdGoldPrice = 93.98
-        const usdSilverPrice = 1.02
+        const usdGoldPrice = 160.57
+        const usdSilverPrice = 2.47
 
         // Convert to target currency
         const localGoldPrice = usdGoldPrice * rate
@@ -240,8 +244,8 @@ describe('Metals Calculator Currency Tests', () => {
     })
 
     test('calculates nisab threshold in different currencies', () => {
-      const silverNisabGrams = 595
-      const usdSilverPrice = 1.02
+      const silverNisabGrams = 612.36
+      const usdSilverPrice = 2.47
 
       TEST_CURRENCIES.forEach(({ code, rate }) => {
         const localSilverPrice = usdSilverPrice * rate
@@ -262,12 +266,12 @@ describe('Metals Calculator Currency Tests', () => {
     test('calculates zakat on gold value in USD', () => {
       const store = createFreshStore()
       const goldGrams = 100 // 100g of gold
-      const goldPriceUSD = 93.98
+      const goldPriceUSD = 160.57
 
       store.setMetalsValue('gold_investment', goldGrams)
       store.setMetalPrices({
         gold: goldPriceUSD,
-        silver: 1.02,
+        silver: 2.47,
         lastUpdated: new Date(),
         isCache: false,
         currency: 'USD'
@@ -524,7 +528,7 @@ describe('Cross-Calculator Currency Consistency', () => {
   })
 
   test('handles nisab threshold comparison across currencies', () => {
-    const silverNisabUSD = 595 * 1.02 // ~606.90 USD
+    const silverNisabUSD = 612.36 * 2.47 // ~1512.53 USD
 
     TEST_CURRENCIES.forEach(({ code, rate }) => {
       const localNisab = silverNisabUSD * rate

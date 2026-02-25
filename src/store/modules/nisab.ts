@@ -3,22 +3,19 @@ import { NisabData, ZakatState } from '../types'
 import { NISAB } from '../constants'
 import { MetalPrices } from './metals.types'
 import { getOfflineFallbackNisabData, calculateNisabThreshold, fetchNisabData } from '../utils/nisabUtils'
+import { DEFAULT_METAL_PRICES } from '@/lib/constants/metals'
+import { IS_REPLIT_CLIENT as IS_REPLIT } from '@/lib/utils/environment'
 
 // Add a debounce mechanism to prevent multiple rapid fetch calls
-let lastFetchTimestamp = 0;
+const lastFetchTimestamp = 0;
 const FETCH_DEBOUNCE_MS = 2000; // 2 seconds debounce
 const MAX_RETRIES = 3; // Increase maximum number of retry attempts
 const BASE_URL = typeof window !== 'undefined' ? window.location.origin : '';
 
-// Add environment detection for Replit
-const IS_REPLIT = typeof window !== 'undefined' &&
-  (window.location.hostname.includes('replit') ||
-    window.location.hostname.endsWith('.repl.co'));
-
-// Add offline fallback prices that will be used when API calls fail in Replit
+// Use canonical fallback metal prices
 const OFFLINE_FALLBACK_PRICES = {
-  gold: 93.98,  // USD per gram (updated to match other fallback values)
-  silver: 1.02, // USD per gram (updated to match other fallback values)
+  gold: DEFAULT_METAL_PRICES.gold,
+  silver: DEFAULT_METAL_PRICES.silver,
   lastUpdated: new Date().toISOString()
 };
 
@@ -252,8 +249,8 @@ export const createNisabSlice: StateCreator<
 
         // For these currencies, we'll try to use the refreshNisabCalculations utility if available
         try {
-          // Use a direct import instead of window.require
-          const nisabCalculations = require('../../lib/utils/nisabCalculations');
+          // Use dynamic import
+          const nisabCalculations = await import('../../lib/utils/nisabCalculations');
           if (nisabCalculations && typeof nisabCalculations.refreshNisabCalculations === 'function') {
             console.log(`Using refreshNisabCalculations utility for ${actualCurrency}`);
 
@@ -436,8 +433,8 @@ export const createNisabSlice: StateCreator<
         console.log('Using fallback calculation for nisab');
 
         // Determine the best available prices to use
-        const goldPrice = state.metalPrices?.gold || 65; // Default fallback gold price
-        const silverPrice = state.metalPrices?.silver || 0.85; // Default fallback silver price
+        const goldPrice = state.metalPrices?.gold || DEFAULT_METAL_PRICES.gold;
+        const silverPrice = state.metalPrices?.silver || DEFAULT_METAL_PRICES.silver;
 
         // Calculate nisab threshold
         const nisabThreshold = calculateNisabThreshold(goldPrice, silverPrice);

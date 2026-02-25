@@ -1,4 +1,5 @@
 import { SYMBOL_TO_ID, DEFAULT_MAPPINGS } from '@/data/crypto-mappings';
+import { FALLBACK_CRYPTO_PRICES as FALLBACK_PRICES } from '@/lib/constants/crypto';
 
 const COINGECKO_API_URL = 'https://api.coingecko.com/api/v3'
 const COINCAP_API_URL = 'https://api.coincap.io/v2'
@@ -8,12 +9,6 @@ const CRYPTOCOMPARE_API_URL = 'https://min-api.cryptocompare.com/data'
 const IS_REPLIT = typeof window !== 'undefined' &&
   (window.location.hostname.includes('replit') ||
     window.location.hostname.endsWith('.repl.co'));
-
-// Fallback prices for major cryptocurrencies
-const FALLBACK_PRICES: Record<string, number> = {
-  'BTC': 65000, // Fallback price for BTC
-  'ETH': 3500,  // Fallback price for ETH
-};
 
 // Map of cryptocurrency symbols to CoinCap IDs
 const COINCAP_SYMBOL_MAP: Record<string, string> = {

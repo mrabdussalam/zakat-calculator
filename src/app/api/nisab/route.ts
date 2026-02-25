@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { NISAB } from '@/lib/constants'
+import { DEFAULT_METAL_PRICES } from '@/lib/constants/metals'
 
-// Nisab is 85 grams of gold (modern standard)
-const GOLD_GRAMS_NISAB = 85;
-// Nisab is 595 grams of silver (modern standard)
-const SILVER_GRAMS_NISAB = 595;
+// Use canonical NISAB constants
+const GOLD_GRAMS_NISAB = NISAB.GOLD.GRAMS;
+const SILVER_GRAMS_NISAB = NISAB.SILVER.GRAMS;
 
 // Add cache mechanism for API requests
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour cache
@@ -28,9 +29,9 @@ interface Response {
 }
 const cachedResponses: Record<string, Response> = {};
 
-// Define fallback values for when metal price API fails
-const FALLBACK_GOLD_PRICE = 93.98; // USD per gram
-const FALLBACK_SILVER_PRICE = 1.02; // USD per gram
+// Use canonical fallback metal prices
+const FALLBACK_GOLD_PRICE = DEFAULT_METAL_PRICES.gold;
+const FALLBACK_SILVER_PRICE = DEFAULT_METAL_PRICES.silver;
 
 // Define interface for metadata object
 interface NisabMetadata {

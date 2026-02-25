@@ -7,6 +7,8 @@ import { useCurrencyStore } from '@/lib/services/currency';
 // Helper function to clear calculator values from localStorage
 function clearCalculatorValuesFromStorage() {
   try {
+    if (typeof window === 'undefined') return;
+
     // Get the current state from localStorage
     const storageKey = 'zakat-store';
     const storedData = localStorage.getItem(storageKey);

@@ -1,3 +1,11 @@
+type AssetType = string
+
+interface ZakatResultBreakdownItem {
+  type: string
+  value: number
+  zakatDue: number
+}
+
 export interface Asset {
   id: string
   type: AssetType
@@ -9,9 +17,11 @@ export interface Asset {
 export interface ZakatResult {
   eligible: boolean
   amount: number
-  breakdown: AssetBreakdown[]
+  breakdown: ZakatResultBreakdownItem[]
 }
 
 export interface ExtendedWindow extends Window {
   hasDispatchedHydrationEvent?: boolean;
 }
+
+export type { CalculatorProps } from './calculator'

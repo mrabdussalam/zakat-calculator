@@ -10,6 +10,8 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useZakatStore } from '@/store/zakatStore'
 import { toGrams, fromGrams, WeightUnit } from '@/lib/utils/units'
 import { MetalsValues } from '@/store/modules/metals.types'
+import { useStoreHydration } from '@/hooks/useStoreHydration'
+import { useCalculatorReset } from '@/hooks/useCalculatorReset'
 
 // Define and export the MetalCategory interface
 export interface MetalCategory {
@@ -120,7 +122,7 @@ export function useMetalsForm({ onUpdateValues }: UseMetalsFormProps = {}) {
     const [isComponentMounted, setIsComponentMounted] = useState(false)
 
     // Add a state to track if the store has been hydrated
-    const [storeHydrated, setStoreHydrated] = useState(false)
+    const isHydrated = useStoreHydration()
 
     // Modify the useEffect for updating input values
     useEffect(() => {
@@ -201,57 +203,38 @@ export function useMetalsForm({ onUpdateValues }: UseMetalsFormProps = {}) {
         }
     }, [metalsValues, showInvestment])
 
-    // Update the useEffect for component mount tracking and add hydration listener
+    // Update the useEffect for component mount tracking
     useEffect(() => {
         setIsComponentMounted(true)
-
-        // Add listener for store hydration completion
-        const handleHydrationComplete = () => {
-            console.log('MetalsForm hook: Store hydration complete event received')
-            setStoreHydrated(true)
-
-            // After hydration, safely initialize form values from store
-            setTimeout(() => {
-                const newInputValues = METAL_CATEGORIES.reduce((acc: Record<string, string>, category: MetalCategory) => {
-                    const valueInGrams = metalsValues[category.id as keyof typeof metalsValues]
-                    const convertedValue = fromGrams(valueInGrams, selectedUnit)
-                    return {
-                        ...acc,
-                        [category.id]: valueInGrams > 0 ? convertedValue.toString() : ''
-                    }
-                }, {} as Record<string, string>)
-
-                setInputValues(newInputValues)
-
-                // Check if there are investment values to show investment section
-                const hasInvestmentValues = METAL_CATEGORIES
-                    .filter((cat: MetalCategory) => cat.id.includes('investment'))
-                    .some((cat: MetalCategory) => (metalsValues[cat.id as keyof typeof metalsValues] || 0) > 0)
-
-                if (hasInvestmentValues) {
-                    setShowInvestment(true)
-                }
-
-                console.log('MetalsForm hook: Initialized form values after hydration', newInputValues)
-            }, 50) // Small delay to ensure store is fully ready
-        }
-
-        // Listen for the custom hydration event
-        window.addEventListener('store-hydration-complete', handleHydrationComplete)
-
-        // Check if hydration already happened
-        if (typeof window !== 'undefined' && 'hasDispatchedHydrationEvent' in window) {
-            // @ts-ignore - This is set by StoreHydration component
-            if (window.hasDispatchedHydrationEvent) {
-                handleHydrationComplete()
-            }
-        }
-
         return () => {
             setIsComponentMounted(false)
-            window.removeEventListener('store-hydration-complete', handleHydrationComplete)
         }
-    }, [metalsValues, selectedUnit])
+    }, [])
+
+    // Post-hydration initialization
+    useEffect(() => {
+        if (!isHydrated) return
+
+        const newInputValues = METAL_CATEGORIES.reduce((acc: Record<string, string>, category: MetalCategory) => {
+            const valueInGrams = metalsValues[category.id as keyof typeof metalsValues]
+            const convertedValue = fromGrams(valueInGrams, selectedUnit)
+            return {
+                ...acc,
+                [category.id]: valueInGrams > 0 ? convertedValue.toString() : ''
+            }
+        }, {} as Record<string, string>)
+
+        setInputValues(newInputValues)
+
+        // Check if there are investment values to show investment section
+        const hasInvestmentValues = METAL_CATEGORIES
+            .filter((cat: MetalCategory) => cat.id.includes('investment'))
+            .some((cat: MetalCategory) => (metalsValues[cat.id as keyof typeof metalsValues] || 0) > 0)
+
+        if (hasInvestmentValues) {
+            setShowInvestment(true)
+        }
+    }, [isHydrated, metalsValues, selectedUnit])
 
     // Update handleUnitChange to record when unit was changed
     const handleUnitChange = (value: WeightUnit) => {
@@ -458,42 +441,24 @@ export function useMetalsForm({ onUpdateValues }: UseMetalsFormProps = {}) {
         }
     }, [])
 
-    // Listen for global store reset events
-    useEffect(() => {
-        // Function to handle store reset events
-        const handleStoreReset = (event?: Event) => {
-            console.log('MetalsForm hook: Detected store reset, clearing local input state', event)
-
-            // Clear any active input tracking
-            setActiveInputId(null)
-            if (inputTimeoutRef.current) {
-                clearTimeout(inputTimeoutRef.current)
-                inputTimeoutRef.current = null
-            }
-
-            // Reset all input fields
-            const emptyInputs = METAL_CATEGORIES.reduce((acc: Record<string, string>, category: MetalCategory) => {
-                return {
-                    ...acc,
-                    [category.id]: ''
-                }
-            }, {} as Record<string, string>)
-            setInputValues(emptyInputs)
-
-            // Do not reset investment section to allow users to toggle it regardless of other values
+    // Handle store resets
+    const handleStoreReset = useCallback(() => {
+        setActiveInputId(null)
+        if (inputTimeoutRef.current) {
+            clearTimeout(inputTimeoutRef.current)
+            inputTimeoutRef.current = null
         }
 
-        // Listen for custom reset events from the store
-        if (typeof window !== 'undefined') {
-            window.addEventListener('zakat-store-reset', handleStoreReset)
-
-            return () => {
-                window.removeEventListener('zakat-store-reset', handleStoreReset)
+        const emptyInputs = METAL_CATEGORIES.reduce((acc: Record<string, string>, category: MetalCategory) => {
+            return {
+                ...acc,
+                [category.id]: ''
             }
-        }
-
-        return undefined
+        }, {} as Record<string, string>)
+        setInputValues(emptyInputs)
     }, [])
+
+    useCalculatorReset(isHydrated, handleStoreReset)
 
     // Simplified key down handler - only prevent non-numeric and multiple decimal points
     const handleKeyDown = (categoryId: string, event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -536,7 +501,7 @@ export function useMetalsForm({ onUpdateValues }: UseMetalsFormProps = {}) {
         showInvestment,
         activeInputId,
         isComponentMounted,
-        storeHydrated,
+        isHydrated,
 
         // Actions
         handleUnitChange,

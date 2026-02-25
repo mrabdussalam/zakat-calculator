@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/form/switch'
 import { RadioGroup, RadioGroupCard } from '@/components/ui/form/radio-group'
 import { FAQ } from '@/components/ui/faq'
 import { ASSET_FAQS } from '@/config/faqs'
-import { cn } from '@/lib/utils'
+import { cn, formatCurrency as formatCurrencyBase } from '@/lib/utils'
 import { InfoIcon } from '@/components/ui/icons'
 import {
   Tooltip,
@@ -21,7 +21,9 @@ import { retirement } from '@/lib/assets/retirement'
 import { AssetValidation } from '@/lib/validation/assetValidation'
 import { toast } from '@/components/ui/toast'
 import { CalculatorNav } from '@/components/ui/calculator-nav'
-import { ExtendedWindow } from '@/types'
+import { CalculatorProps } from '@/types/calculator'
+import { useStoreHydration } from '@/hooks/useStoreHydration'
+import { useCalculatorReset } from '@/hooks/useCalculatorReset'
 
 interface AccountDetails {
   balance: number
@@ -29,16 +31,6 @@ interface AccountDetails {
   penaltyRate: number
   isWithdrawn: boolean
   withdrawnAmount: number
-}
-
-interface RetirementCalculatorProps {
-  currency: string
-  onUpdateValues: (values: Record<string, number>) => void
-  onHawlUpdate: (hawlMet: boolean) => void
-  onCalculatorChange: (calculator: string) => void
-  onOpenSummary?: () => void
-  initialValues?: Record<string, number>
-  initialHawlMet?: boolean
 }
 
 export function RetirementCalculator({
@@ -49,7 +41,7 @@ export function RetirementCalculator({
   onOpenSummary,
   initialValues = {},
   initialHawlMet = true
-}: RetirementCalculatorProps) {
+}: CalculatorProps) {
   const {
     retirement: retirementValues,
     setRetirementValue,
@@ -59,7 +51,7 @@ export function RetirementCalculator({
   } = useZakatStore()
 
   // Add a state to track if store has been hydrated
-  const [storeHydrated, setStoreHydrated] = useState(false)
+  const isHydrated = useStoreHydration()
 
   // Get the retirement breakdown
   const retirementBreakdown = getRetirementBreakdown()
@@ -107,85 +99,52 @@ export function RetirementCalculator({
     withdrawnAmount: 0
   })
 
-  // Add a listener for the store hydration event
+  // Post-hydration initialization
   useEffect(() => {
-    const handleHydrationComplete = () => {
-      console.log('RetirementCalculator: Store hydration complete event received')
-      setStoreHydrated(true)
+    if (!isHydrated) return
 
-      // After hydration, safely initialize form values from store with a small delay
-      setTimeout(() => {
-        console.log('RetirementCalculator: Initializing values from store after hydration');
+    setRetirementHawlMet(retirementHawlMet);
+    onHawlUpdate(retirementHawlMet);
 
-        // Set hawl status first
-        setRetirementHawlMet(retirementHawlMet);
-        onHawlUpdate(retirementHawlMet);
-
-        // Check for accessible funds
-        if (retirementValues.traditional_401k > 0) {
-          setAccessibility('accessible')
-          setAccountDetails(prev => ({
-            ...prev,
-            balance: retirementValues.traditional_401k,
-            taxRate: 20,
-            penaltyRate: 10,
-            isWithdrawn: false,
-            withdrawnAmount: 0
-          }))
-        }
-        // Check for locked funds
-        else if (retirementValues.pension > 0) {
-          setAccessibility('restricted')
-          setAccountDetails(prev => ({
-            ...prev,
-            balance: retirementValues.pension,
-            isWithdrawn: false,
-            withdrawnAmount: 0
-          }))
-        }
-        // Check for withdrawn funds
-        else if (retirementValues.other_retirement > 0) {
-          setAccessibility('restricted')
-          setAccountDetails(prev => ({
-            ...prev,
-            balance: 0,
-            isWithdrawn: true,
-            withdrawnAmount: retirementValues.other_retirement
-          }))
-        }
-
-        // Notify parent component of current values
-        if (onUpdateValues) {
-          onUpdateValues({
-            traditional_401k: retirementValues.traditional_401k || 0,
-            traditional_ira: retirementValues.traditional_ira || 0,
-            roth_401k: retirementValues.roth_401k || 0,
-            roth_ira: retirementValues.roth_ira || 0,
-            pension: retirementValues.pension || 0,
-            other_retirement: retirementValues.other_retirement || 0
-          });
-        }
-
-        console.log('RetirementCalculator: Values initialized from store after hydration');
-      }, 50); // Small delay to ensure store is fully ready
+    if (retirementValues.traditional_401k > 0) {
+      setAccessibility('accessible')
+      setAccountDetails(prev => ({
+        ...prev,
+        balance: retirementValues.traditional_401k,
+        taxRate: 20,
+        penaltyRate: 10,
+        isWithdrawn: false,
+        withdrawnAmount: 0
+      }))
+    } else if (retirementValues.pension > 0) {
+      setAccessibility('restricted')
+      setAccountDetails(prev => ({
+        ...prev,
+        balance: retirementValues.pension,
+        isWithdrawn: false,
+        withdrawnAmount: 0
+      }))
+    } else if (retirementValues.other_retirement > 0) {
+      setAccessibility('restricted')
+      setAccountDetails(prev => ({
+        ...prev,
+        balance: 0,
+        isWithdrawn: true,
+        withdrawnAmount: retirementValues.other_retirement
+      }))
     }
 
-    // Listen for the custom hydration event
-    window.addEventListener('store-hydration-complete', handleHydrationComplete)
-
-    // Check if hydration already happened
-    if (typeof window !== 'undefined') {
-      // Safe way to check for custom property without TypeScript errors
-      const win = window as ExtendedWindow;
-      if (win.hasDispatchedHydrationEvent) {
-        handleHydrationComplete();
-      }
+    if (onUpdateValues) {
+      onUpdateValues({
+        traditional_401k: retirementValues.traditional_401k || 0,
+        traditional_ira: retirementValues.traditional_ira || 0,
+        roth_401k: retirementValues.roth_401k || 0,
+        roth_ira: retirementValues.roth_ira || 0,
+        pension: retirementValues.pension || 0,
+        other_retirement: retirementValues.other_retirement || 0
+      });
     }
-
-    return () => {
-      window.removeEventListener('store-hydration-complete', handleHydrationComplete)
-    }
-  }, [retirementValues, retirementHawlMet, setRetirementHawlMet, onHawlUpdate, onUpdateValues])
+  }, [isHydrated, retirementValues, retirementHawlMet, setRetirementHawlMet, onHawlUpdate, onUpdateValues])
 
   // Set hawl met to true since retirement is always considered to have met hawl
   useEffect(() => {
@@ -195,7 +154,7 @@ export function RetirementCalculator({
   // Sync initial values from store - only run after hydration is complete
   useEffect(() => {
     // Only run this effect after hydration to prevent wiping out values during initialization
-    if (!storeHydrated) return;
+    if (!isHydrated) return;
 
     // Check for accessible funds
     if (retirementValues.traditional_401k > 0) {
@@ -229,62 +188,31 @@ export function RetirementCalculator({
         withdrawnAmount: retirementValues.other_retirement
       }))
     }
-  }, [retirementValues, storeHydrated]) // Update when store values change and after hydration
+  }, [retirementValues, isHydrated]) // Update when store values change and after hydration
 
-  // Add a listener to detect store resets
-  useEffect(() => {
-    // Only process resets after hydration is complete to prevent false resets
-    if (!storeHydrated) return;
-
-    const handleReset = () => {
-      console.log('RetirementCalculator: Store reset event detected');
-
-      // Check if this is still during initial page load
-      if (typeof window !== 'undefined') {
-        // Safe way to check for custom property without TypeScript errors
-        const win = window as any;
-        if (win.isInitialPageLoad) {
-          console.log('RetirementCalculator: Ignoring reset during initial page load');
-          return;
-        }
-      }
-
-      // This is a user-initiated reset, so clear all local state
-      console.log('RetirementCalculator: Clearing local state due to user-initiated reset');
-
-      // Reset to default values
-      setAccessibility('restricted');
-      setAccountDetails({
-        balance: 0,
-        taxRate: 20,
-        penaltyRate: 10,
-        isWithdrawn: false,
-        withdrawnAmount: 0
+  // Handle store resets
+  const handleStoreReset = useCallback(() => {
+    setAccessibility('restricted');
+    setAccountDetails({
+      balance: 0,
+      taxRate: 20,
+      penaltyRate: 10,
+      isWithdrawn: false,
+      withdrawnAmount: 0
+    });
+    setTimeout(() => {
+      onUpdateValues({
+        traditional_401k: 0,
+        traditional_ira: 0,
+        roth_401k: 0,
+        roth_ira: 0,
+        pension: 0,
+        other_retirement: 0
       });
+    }, 100);
+  }, [onUpdateValues])
 
-      // Ensure the total is updated after reset
-      setTimeout(() => {
-        onUpdateValues({
-          traditional_401k: 0,
-          traditional_ira: 0,
-          roth_401k: 0,
-          roth_ira: 0,
-          pension: 0,
-          other_retirement: 0
-        });
-      }, 100);
-    };
-
-    // Listen for both possible reset event names
-    window.addEventListener('store-reset', handleReset);
-    window.addEventListener('zakat-store-reset', handleReset);
-
-    // Cleanup
-    return () => {
-      window.removeEventListener('store-reset', handleReset);
-      window.removeEventListener('zakat-store-reset', handleReset);
-    };
-  }, [storeHydrated, onUpdateValues]);
+  useCalculatorReset(isHydrated, handleStoreReset)
 
   // Handle accessibility change
   const handleAccessibilityChange = (value: string) => {
@@ -385,11 +313,7 @@ export function RetirementCalculator({
   }
 
   // Format currency helper
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currency
-    }).format(value)
+  const formatCurrency = (value: number) => formatCurrencyBase(value, currency)
 
   // Calculate results for display
   const netAmount = accessibility === 'accessible'

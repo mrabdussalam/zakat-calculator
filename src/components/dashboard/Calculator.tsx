@@ -6,6 +6,7 @@ import { StockCalculator } from '@/components/calculators/stocks/StockCalculator
 import { RetirementCalculator } from '@/components/calculators/retirement/RetirementCalculator'
 import { RealEstateCalculator } from '@/components/calculators/realestate/RealEstateCalculator'
 import { CryptoCalculator } from '@/components/calculators/crypto/CryptoCalculator'
+import { DebtCalculator } from '@/components/calculators/debt/DebtCalculator'
 import { memo, useCallback, useEffect, useState } from 'react'
 import { useZakatStore } from '@/store/zakatStore'
 import { formatCurrency, cn } from '@/lib/utils'
@@ -19,6 +20,9 @@ import {
 } from '@/components/ui/tooltip'
 import { trackEvent, AnalyticsEvents } from '@/lib/analytics'
 import { ExtendedWindow } from '@/types'
+import { CalculatorProps as CommonCalculatorProps } from '@/types/calculator'
+import { useStoreHydration } from '@/hooks/useStoreHydration'
+import { useCalculatorReset } from '@/hooks/useCalculatorReset'
 
 // Animation variants for the slide effect
 const slideAnimation = {
@@ -47,25 +51,15 @@ const slideAnimation = {
 // Add Nisab constants
 const NISAB = {
   GOLD_GRAMS: 85,    // 85 grams of gold
-  SILVER_GRAMS: 595  // 595 grams of silver
+  SILVER_GRAMS: 612.36  // 612.36 grams of silver (52.5 tolas, Hanafi position)
 } as const
 
-interface CalculatorProps {
+interface DashboardCalculatorProps {
   selectedAsset: string | null
   currency: string
   onUpdateValues: (values: Record<string, number>) => void
   onHawlUpdate: (hawlMet: boolean) => void
   onAssetSelect: (assetId: string) => void
-  onOpenSummary?: () => void
-  initialValues?: Record<string, number>
-  initialHawlMet?: boolean
-}
-
-interface CommonCalculatorProps {
-  currency: string
-  onUpdateValues: (values: Record<string, number>) => void
-  onHawlUpdate: (hawlMet: boolean) => void
-  onCalculatorChange: (calculator: string) => void
   onOpenSummary?: () => void
   initialValues?: Record<string, number>
   initialHawlMet?: boolean
@@ -77,6 +71,7 @@ const StockCalculatorMemo = memo(StockCalculator) as React.FC<CommonCalculatorPr
 const RetirementCalculatorMemo = memo(RetirementCalculator) as React.FC<CommonCalculatorProps>
 const RealEstateCalculatorMemo = memo(RealEstateCalculator) as React.FC<CommonCalculatorProps>
 const CryptoCalculatorMemo = memo(CryptoCalculator) as React.FC<CommonCalculatorProps>
+const DebtCalculatorMemo = memo(DebtCalculator) as React.FC<CommonCalculatorProps>
 
 // Animated number component
 function AnimatedNumber({ value, currency = 'USD' }: { value: number, currency?: string }) {
@@ -217,6 +212,7 @@ const MemoizedCalculatorSummary = memo(({ currency = 'USD' }: { currency?: strin
     </TooltipProvider>
   )
 })
+MemoizedCalculatorSummary.displayName = 'MemoizedCalculatorSummary'
 
 export const CalculatorSummary = MemoizedCalculatorSummary
 
@@ -229,98 +225,26 @@ export function Calculator({
   onOpenSummary,
   initialValues = {},
   initialHawlMet = true
-}: CalculatorProps) {
-  // Add state to track if the store has been hydrated
-  const [storeHydrated, setStoreHydrated] = useState(false)
+}: DashboardCalculatorProps) {
+  const isHydrated = useStoreHydration()
 
-  // Listen for store hydration event
-  useEffect(() => {
-    const handleHydrationComplete = (event?: Event) => {
-      console.log('Dashboard Calculator: Store hydration complete event received')
-      setStoreHydrated(true)
-    }
-
-    // Listen for the custom hydration event
-    window.addEventListener('store-hydration-complete', handleHydrationComplete)
-
-    const win = window as ExtendedWindow;
-    if (win.hasDispatchedHydrationEvent) {
-      handleHydrationComplete()
-    }
-
-    return () => {
-      window.removeEventListener('store-hydration-complete', handleHydrationComplete)
-    }
+  // Handle store resets
+  const handleStoreReset = useCallback(() => {
+    // Dashboard Calculator has no local state to clear beyond what the store handles
   }, [])
 
-  // Add a listener to detect store resets
-  useEffect(() => {
-    // Only process resets after hydration is complete to prevent false resets
-    if (!storeHydrated) return;
-
-    const handleReset = (event?: CustomEvent) => {
-      console.log('Dashboard Calculator: Store reset event detected');
-
-      // Check if this is still during initial page load
-      if (typeof window !== 'undefined' && 'isInitialPageLoad' in window) {
-        // @ts-ignore - Custom property added to window
-        if (window.isInitialPageLoad) {
-          console.log('Dashboard Calculator: Ignoring reset during initial page load');
-          return;
-        }
-      }
-
-      // This is a user-initiated reset, handle any dashboard-specific logic here
-      console.log('Dashboard Calculator: Processing user-initiated reset');
-
-      // If we need to reset any dashboard state that isn't in the store
-      // We can do that here
-    };
-
-    // Listen for the store-reset event
-    window.addEventListener('store-reset', handleReset as EventListener);
-
-    // Cleanup
-    return () => {
-      window.removeEventListener('store-reset', handleReset as EventListener);
-    };
-  }, [storeHydrated]);
+  useCalculatorReset(isHydrated, handleStoreReset)
 
   const handleUpdateValues = useCallback((values: Record<string, number>) => {
-    // Update dashboard state
+    // Pass to parent handler (no-op, preserves contract)
     onUpdateValues(values)
-
-    // Force synchronize with localStorage if browser supports it
-    if (typeof window !== 'undefined') {
-      try {
-        // Get current state
-        const savedState = localStorage.getItem('zakatState')
-        if (savedState) {
-          const parsedState = JSON.parse(savedState)
-          if (parsedState && parsedState.assetValues && selectedAsset) {
-            // Update with new values
-            parsedState.assetValues[selectedAsset] = {
-              ...parsedState.assetValues[selectedAsset],
-              ...values
-            }
-
-            // Save back to localStorage
-            localStorage.setItem('zakatState', JSON.stringify(parsedState))
-            console.log('Calculator directly synced values to localStorage for asset:', selectedAsset)
-          }
-        }
-      } catch (error) {
-        console.error('Error directly syncing calculator values to localStorage:', error)
-      }
-    }
 
     // Track asset update
     if (selectedAsset) {
       trackEvent({
         ...AnalyticsEvents.ASSET_UPDATE,
         assetType: selectedAsset,
-        currency: currency,
-        value: Object.values(values).reduce((sum, val) => sum + val, 0)
+        currency: currency
       })
     }
   }, [selectedAsset, currency, onUpdateValues])
@@ -407,6 +331,8 @@ export function Calculator({
         return <RealEstateCalculatorMemo {...commonProps} />
       case 'crypto':
         return <CryptoCalculatorMemo {...commonProps} />
+      case 'debt':
+        return <DebtCalculatorMemo {...commonProps} />
       default:
         return (
           <div className="text-gray-500 text-sm">

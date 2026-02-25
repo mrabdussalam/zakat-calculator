@@ -9,27 +9,33 @@
  * 4. Providing consistent validation logic across the application
  */
 
-// Define expected price ranges for metals in USD
+// Define expected price ranges for metals in USD (updated Feb 2026)
+// Gold ~$4,994/oz = ~$160.57/gram, Silver ~$76.73/oz = ~$2.47/gram
+// Ranges are intentionally wide to handle market volatility without false rejections
 const EXPECTED_METAL_PRICE_RANGES = {
     gold: {
-        min: 50,    // Minimum acceptable gold price per gram in USD
-        max: 120    // Maximum acceptable gold price per gram in USD
+        min: 50,    // ~$1,555/oz - floor for gold per gram in USD
+        max: 350    // ~$10,886/oz - ceiling for gold per gram in USD
     },
     silver: {
-        min: 0.5,   // Minimum acceptable silver price per gram in USD
-        max: 3      // Maximum acceptable silver price per gram in USD
+        min: 0.5,   // ~$15.55/oz - floor for silver per gram in USD
+        max: 8.0    // ~$248.83/oz - ceiling for silver per gram in USD
     }
 };
 
 // Define expected exchange rate ranges for common currencies (relative to USD)
+// Updated Feb 2026 from Frankfurter API
 const EXPECTED_EXCHANGE_RATE_RANGES: Record<string, { min: number; max: number }> = {
-    'EUR': { min: 0.8, max: 1.0 },
-    'GBP': { min: 0.7, max: 0.9 },
-    'INR': { min: 70, max: 90 },
-    'PKR': { min: 250, max: 300 },
-    'AED': { min: 3.5, max: 3.8 },
+    'EUR': { min: 0.75, max: 0.95 },
+    'GBP': { min: 0.65, max: 0.85 },
+    'CAD': { min: 1.2, max: 1.5 },
+    'AUD': { min: 1.25, max: 1.6 },
+    'INR': { min: 80, max: 100 },
+    'PKR': { min: 250, max: 320 },
+    'AED': { min: 3.5, max: 3.9 },
     'SAR': { min: 3.6, max: 3.9 },
-    'JPY': { min: 140, max: 160 }
+    'QAR': { min: 3.5, max: 3.8 },
+    'JPY': { min: 135, max: 170 }
 };
 
 // Default cache TTL (Time To Live) in milliseconds

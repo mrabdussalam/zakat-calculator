@@ -1,33 +1,8 @@
 // Metals API module
 // This file provides utilities for fetching metal prices from the API
 
-// Add environment detection for Replit
-const IS_REPLIT =
-  typeof window !== "undefined" &&
-  (window.location.hostname.includes("replit") ||
-    window.location.hostname.endsWith(".repl.co"));
-
-// Add fallback values for when API calls fail (especially in Replit)
-const FALLBACK_METAL_PRICES = {
-  USD: {
-    gold: 93.98,  // USD per gram
-    silver: 1.02, // USD per gram
-  },
-  GBP: {
-    gold: 74.55,  // GBP per gram
-    silver: 0.81, // GBP per gram
-  },
-  EUR: {
-    gold: 86.25,  // EUR per gram
-    silver: 0.94, // EUR per gram
-  }
-};
-
-// Default fallback for currencies not in the map
-const DEFAULT_FALLBACK = {
-  gold: 93.98,  // USD per gram
-  silver: 1.02, // USD per gram
-};
+import { getFallbackMetalPrices } from '@/lib/constants/metals'
+import { IS_REPLIT_CLIENT as IS_REPLIT } from '@/lib/utils/environment'
 
 /**
  * Fetches the latest metal prices for a given currency
@@ -150,8 +125,8 @@ export async function fetchMetalPrices(
  * Get fallback prices for a given currency
  */
 function getFallbackPrices(currency: string) {
-  const fallbackPrices = FALLBACK_METAL_PRICES[currency as keyof typeof FALLBACK_METAL_PRICES] || DEFAULT_FALLBACK;
-  
+  const fallbackPrices = getFallbackMetalPrices(currency);
+
   return {
     gold: fallbackPrices.gold,
     silver: fallbackPrices.silver,

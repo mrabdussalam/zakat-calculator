@@ -3,20 +3,18 @@
 import * as React from "react"
 import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { SUPPORTED_CURRENCIES, SupportedCurrency } from "@/lib/utils/currency"
+import { SUPPORTED_CURRENCIES } from "@/lib/utils/currency"
 import { motion, AnimatePresence } from "framer-motion"
 import { CURRENCY_NAMES } from "@/lib/services/currency"
-import { useZakatStore } from "@/store/zakatStore"
-import { useCurrencyStore } from "@/lib/services/currency"
 
-export interface CurrencySelectorProps {
+interface CurrencySelectorProps {
+  value: string
+  onValueChange: (value: string) => void
   className?: string
-  onChange?: (value: string) => void
 }
 
-// Helper function to get country code from currency code
+// Currency code to country code mapping
 const getCountryCode = (currencyCode: string): string => {
-  // Currency code to country code mapping (exceptions for common currencies)
   const currencyToCountry: Record<string, string> = {
     USD: "US",
     EUR: "EU",
@@ -51,55 +49,47 @@ const getCountryCode = (currencyCode: string): string => {
     AED: "AE",
     SAR: "SA",
     PKR: "PK",
+    QAR: "QA",
     BDT: "BD",
-    // Add more mappings as needed
   }
 
-  // Get the country code from mapping or use first two letters of currency code
   return currencyToCountry[currencyCode] ||
     (currencyCode.slice(0, 2) === 'X' ? 'UN' : currencyCode.slice(0, 2))
 }
 
-// Flag component that uses SVG files from the public directory
+// Flag component that loads SVGs from /flags/ with a colored circle fallback
 const CountryFlag = ({ countryCode }: { countryCode: string }) => {
-  const [flagLoaded, setFlagLoaded] = React.useState(false);
-  const [flagError, setFlagError] = React.useState(false);
+  const [flagLoaded, setFlagLoaded] = React.useState(false)
+  const [flagError, setFlagError] = React.useState(false)
 
-  // Generate a consistent color based on the country code (for fallback)
   const getColorFromCode = (code: string): string => {
     const colors = [
       "#e53935", "#d81b60", "#8e24aa", "#5e35b1",
       "#3949ab", "#1e88e5", "#039be5", "#00acc1",
       "#00897b", "#43a047", "#7cb342", "#c0ca33",
       "#fdd835", "#ffb300", "#fb8c00", "#f4511e"
-    ];
-
-    // Simple hash function to get consistent color
-    let hash = 0;
+    ]
+    let hash = 0
     for (let i = 0; i < code.length; i++) {
-      hash = code.charCodeAt(i) + ((hash << 5) - hash);
+      hash = code.charCodeAt(i) + ((hash << 5) - hash)
     }
-
-    const index = Math.abs(hash) % colors.length;
-    return colors[index];
+    return colors[Math.abs(hash) % colors.length]
   }
 
-  const backgroundColor = getColorFromCode(countryCode);
+  const backgroundColor = getColorFromCode(countryCode)
 
-  // Try to preload the image to see if it exists
   React.useEffect(() => {
-    const img = new Image();
-    img.onload = () => setFlagLoaded(true);
-    img.onerror = () => setFlagError(true);
-    img.src = `/flags/${countryCode.toUpperCase()}.svg`;
+    const img = new Image()
+    img.onload = () => setFlagLoaded(true)
+    img.onerror = () => setFlagError(true)
+    img.src = `/flags/${countryCode.toUpperCase()}.svg`
 
     return () => {
-      img.onload = null;
-      img.onerror = null;
-    };
-  }, [countryCode]);
+      img.onload = null
+      img.onerror = null
+    }
+  }, [countryCode])
 
-  // If flag failed to load, or is still loading, show the fallback
   if (!flagLoaded || flagError) {
     return (
       <svg width="100%" height="100%" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
@@ -117,153 +107,46 @@ const CountryFlag = ({ countryCode }: { countryCode: string }) => {
           {countryCode}
         </text>
       </svg>
-    );
+    )
   }
 
-  // If flag loaded successfully, show it
   return (
     <img
       src={`/flags/${countryCode.toUpperCase()}.svg`}
       alt={`${countryCode} flag`}
       className="w-full h-full object-cover rounded-full"
     />
-  );
-};
+  )
+}
 
-// Helper to get currency name
 const getCurrencyName = (code: string): string => {
   const lowerCode = code.toLowerCase()
   return CURRENCY_NAMES[lowerCode] || code
 }
 
-export function CurrencySelector({ className, onChange }: CurrencySelectorProps) {
-  // Initialize with saved currency from localStorage, or default to USD
-  const [value, setValue] = React.useState(() => {
-    try {
-      const savedCurrency = typeof window !== 'undefined' ? localStorage.getItem('selected-currency') : null
-      if (savedCurrency && Object.keys(SUPPORTED_CURRENCIES).includes(savedCurrency)) {
-        return savedCurrency
-      }
-    } catch (error) {
-      console.error('Failed to load currency preference on init:', error)
-    }
-    return "USD"
-  })
+// Animation variants for hover text swap
+const textVariants = {
+  initial: { opacity: 0, y: 5 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -5 }
+}
+
+// Priority ordering for currency grid
+const priorityOrder = ["USD", "PKR", "GBP", "SAR", "INR", "RUB"]
+
+export function CurrencySelector({ value, onValueChange, className }: CurrencySelectorProps) {
   const [hoveredCurrency, setHoveredCurrency] = React.useState<string | null>(null)
 
-  // Convert currencies object to array for display
   const currencyArray = Object.values(SUPPORTED_CURRENCIES)
 
-  // Sort currencies to prioritize specific ones in custom order
-  const priorityOrder = ["USD", "PKR", "GBP", "SAR", "INR", "RUB"];
-
-  // Sort the currency array based on priority
   const sortedCurrencyArray = [...currencyArray].sort((a, b) => {
-    const aIndex = priorityOrder.indexOf(a.code);
-    const bIndex = priorityOrder.indexOf(b.code);
-
-    // If both currencies are in the priority list
-    if (aIndex !== -1 && bIndex !== -1) {
-      return aIndex - bIndex;
-    }
-
-    // If only a is in the priority list
-    if (aIndex !== -1) {
-      return -1;
-    }
-
-    // If only b is in the priority list
-    if (bIndex !== -1) {
-      return 1;
-    }
-
-    // If neither is in the priority list, maintain original order
-    return 0;
-  });
-
-  // Animation variants
-  const textVariants = {
-    initial: { opacity: 0, y: 5 },
-    animate: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: -5 }
-  }
-
-  const handleValueChange = (newValue: string) => {
-    console.log(`Currency selection: ${value} -> ${newValue}`)
-
-    if (newValue === value) {
-      console.log('Currency already selected, ignoring duplicate selection')
-      return
-    }
-
-    // Mark that we've now selected a currency at least once
-    try {
-      localStorage.setItem('has-selected-currency', 'true');
-    } catch (error) {
-      console.error('Failed to set currency selection flag:', error);
-    }
-
-    setValue(newValue)
-
-    // Call the onChange handler if provided
-    if (onChange) {
-      onChange(newValue)
-    }
-
-    // Store the selected currency
-    try {
-      localStorage.setItem('selected-currency', newValue)
-    } catch (error) {
-      console.error('Failed to save currency preference:', error)
-    }
-
-    // Perform currency change with hard reset
-    try {
-      const zakatStore = useZakatStore.getState()
-      if (zakatStore && typeof zakatStore.resetWithCurrencyChange === 'function') {
-        console.log('Performing hard reset with currency change from selector to:', newValue)
-
-        // Ensure we fetch exchange rates for the new currency before resetting
-        const currencyStore = useCurrencyStore.getState();
-        currencyStore.fetchRates(newValue)
-          .then(() => {
-            console.log('Successfully fetched exchange rates before reset');
-            zakatStore.resetWithCurrencyChange(newValue);
-          })
-          .catch((error: Error) => {
-            console.error('Failed to fetch exchange rates before reset:', error);
-            // Still perform the reset even if rate fetch fails
-            zakatStore.resetWithCurrencyChange(newValue);
-          });
-
-        // Don't dispatch an event or set localStorage directly since resetWithCurrencyChange does it
-        return
-      }
-    } catch (error) {
-      console.error('Failed to use resetWithCurrencyChange, falling back to event dispatch:', error)
-    }
-
-    // Fallback: Dispatch a currency change event for the app to handle
-    const event = new CustomEvent('currency-changed', {
-      detail: {
-        from: value,
-        to: newValue,
-        shouldForceReload: true,
-        isInitialLoad: false
-      }
-    })
-    window.dispatchEvent(event)
-
-    // Also store the selected currency
-    try {
-      localStorage.setItem('selected-currency', newValue)
-    } catch (error) {
-      console.error('Failed to save currency preference:', error)
-    }
-  }
-
-  // No need to load currency in useEffect since we initialize state with it
-  // This prevents race conditions and ensures currency is set before first render
+    const aIndex = priorityOrder.indexOf(a.code)
+    const bIndex = priorityOrder.indexOf(b.code)
+    if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex
+    if (aIndex !== -1) return -1
+    if (bIndex !== -1) return 1
+    return 0
+  })
 
   return (
     <div className={cn("w-full", className)}>
@@ -272,7 +155,7 @@ export function CurrencySelector({ className, onChange }: CurrencySelectorProps)
           <button
             key={currency.code}
             type="button"
-            onClick={() => handleValueChange(currency.code)}
+            onClick={() => onValueChange(currency.code)}
             onMouseEnter={() => setHoveredCurrency(currency.code)}
             onMouseLeave={() => setHoveredCurrency(null)}
             className={cn(

@@ -16,8 +16,11 @@ const POPULAR_CURRENCIES: Currency[] = [
   { code: 'USD', name: 'US Dollar', symbol: '$' },
   { code: 'EUR', name: 'Euro', symbol: '€' },
   { code: 'GBP', name: 'British Pound', symbol: '£' },
+  { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
+  { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
   { code: 'SAR', name: 'Saudi Riyal', symbol: 'SR' },
   { code: 'AED', name: 'UAE Dirham', symbol: 'د.إ' },
+  { code: 'QAR', name: 'Qatari Riyal', symbol: 'ر.ق' },
 ]
 
 interface CurrencySelectionProps {

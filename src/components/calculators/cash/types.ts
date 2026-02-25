@@ -1,18 +1,13 @@
-import { ForeignCurrencyEntry } from '@/store/types'
+import { ForeignCurrencyEntry, CashValues } from '@/store/types'
+import { CalculatorProps } from '@/types/calculator'
 
 // Define types for the Cash Calculator component
-export interface CashCalculatorProps {
-  currency: string
-  onCalculatorChange: (calculator: string) => void
+export interface CashCalculatorProps extends CalculatorProps {
   onUpdateValues: (values: Record<string, number | Array<{
     amount: number
     currency: string
     rawInput?: string
   }>>) => void
-  onHawlUpdate: (hawlMet: boolean) => void
-  onOpenSummary?: () => void
-  initialValues?: Record<string, number>
-  initialHawlMet?: boolean
 }
 
 export interface CashCategory {
@@ -69,7 +64,7 @@ export interface EventHandlerProps {
   onUpdateValues: (values: Record<string, number>) => void
   setInputValues: React.Dispatch<React.SetStateAction<InputValues>>
   cashHawlMet: boolean
-  cashValues: Record<string, number | Array<{ amount: number; currency: string }>>
+  cashValues: CashValues
   storeState: {
     getTotalCash: () => number
     getTotalZakatableCash: () => number

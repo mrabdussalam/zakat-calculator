@@ -103,13 +103,13 @@ export function CurrencyErrorDebugger() {
       if (fromCurrency === 'USD' && toCurrency === 'PKR') {
         // Test the nisab calculation for gold (85g)
         const goldGrams = 85;
-        const goldPriceUSD = 93.98; // USD per gram
+        const goldPriceUSD = 160.57; // USD per gram
         const goldNisabUSD = goldPriceUSD * goldGrams;
         const goldNisabPKR = goldNisabUSD * toRate;
         
-        // Test the nisab calculation for silver (595g)
-        const silverGrams = 595;
-        const silverPriceUSD = 1.02; // USD per gram
+        // Test the nisab calculation for silver (612.36g)
+        const silverGrams = 612.36;
+        const silverPriceUSD = 2.47; // USD per gram
         const silverNisabUSD = silverPriceUSD * silverGrams;
         const silverNisabPKR = silverNisabUSD * toRate;
         

@@ -20,7 +20,7 @@ import {
   SelectItem,
 } from '@/components/ui/select'
 import { useZakatStore } from '@/store/zakatStore'
-import { evaluateExpression } from '@/lib/utils'
+import { evaluateExpression, formatCurrency as formatCurrencyBase } from '@/lib/utils'
 import { NISAB } from '@/lib/assets/types'
 import { CalculatorSummary } from '@/components/ui/calculator-summary'
 import { FAQ } from '@/components/ui/faq'
@@ -31,8 +31,6 @@ import { CalculatorNav } from '@/components/ui/calculator-nav'
 import { cn } from '@/lib/utils'
 import { WEIGHT_UNITS, WeightUnit, toGrams, fromGrams, formatWeight } from '@/lib/utils/units'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useCurrencyContext } from '@/lib/context/CurrencyContext'
-import { useCurrencyStore } from '@/lib/services/currency'
 import { roundCurrency } from '@/lib/utils/currency'
 import { MetalPrices } from '@/store/modules/metals.types'
 // Remove the import from config
@@ -41,6 +39,8 @@ import { MetalPrices } from '@/store/modules/metals.types'
 // Import our new hooks and METAL_CATEGORIES from the hooks package
 import { useMetalsForm, useMetalsPrices, METAL_CATEGORIES, MetalCategory } from '@/hooks/calculators/metals'
 import { useStoreHydration } from '@/hooks/useStoreHydration'
+import { useCalculatorReset } from '@/hooks/useCalculatorReset'
+import { CalculatorProps } from '@/types/calculator'
 
 // Gold purity options
 const GOLD_PURITY_OPTIONS = [
@@ -50,16 +50,6 @@ const GOLD_PURITY_OPTIONS = [
   { value: '18K', label: '18K (75.0% pure)' }
 ];
 
-interface PersonalJewelryFormProps {
-  currency: string
-  onUpdateValues: (values: Record<string, number>) => void
-  onHawlUpdate: (hawlMet: boolean) => void
-  onCalculatorChange: (calculator: string) => void
-  onOpenSummary?: () => void
-  initialValues?: Record<string, number>
-  initialHawlMet?: boolean
-}
-
 export function PersonalJewelryForm({
   currency,
   onUpdateValues,
@@ -68,12 +58,20 @@ export function PersonalJewelryForm({
   onOpenSummary,
   initialValues = {},
   initialHawlMet = true
-}: PersonalJewelryFormProps) {
+}: CalculatorProps) {
   // Check if store is hydrated
   const isStoreHydrated = useStoreHydration()
 
   // Add state for selected gold purity
   const [selectedGoldPurity, setSelectedGoldPurity] = useState<'24K' | '22K' | '21K' | '18K'>('24K');
+
+  // Handle store resets
+  const handleStoreReset = useCallback(() => {
+    setSelectedGoldPurity('24K');
+    onUpdateValues({});
+  }, [onUpdateValues])
+
+  useCalculatorReset(isStoreHydrated, handleStoreReset)
 
   // Use our custom hooks
   const {
@@ -108,9 +106,6 @@ export function PersonalJewelryForm({
     getMetalsZakatable,
     getMetalsBreakdown
   } = useZakatStore();
-
-  // Get currency conversion state
-  const { isConverting } = useCurrencyContext();
 
   // Keep track of when the component mounts
   const [isComponentMounted, setIsComponentMounted] = useState(false);
@@ -164,68 +159,7 @@ export function PersonalJewelryForm({
   }
 
   // Update summary section to show monetary values
-  const formatCurrency = (value: number) => {
-    // Enhanced debug logging
-    console.log('formatCurrency call:', {
-      value,
-      currency,
-      metalPricesCurrency: metalPrices.currency,
-      metalPricesGold: metalPrices.gold,
-      metalPricesSilver: metalPrices.silver
-    });
-
-    // Check for currency mismatch and warn
-    if (metalPrices.currency && metalPrices.currency !== currency) {
-      console.warn('Currency mismatch in formatCurrency!', {
-        componentCurrency: currency,
-        priceCurrency: metalPrices.currency,
-        value
-      });
-
-      // If we're in the middle of a currency change, the value might be calculated
-      // with metalPrices in the wrong currency. Try to adjust if possible.
-      if (!isConverting && typeof useCurrencyStore !== 'undefined') {
-        try {
-          const currencyStore = useCurrencyStore.getState();
-          // Convert from the metal prices currency to the component currency
-          const convertedValue = currencyStore.convertAmount(
-            value,
-            metalPrices.currency,
-            currency
-          );
-          console.log(`Converting value from ${metalPrices.currency} to ${currency}:`, {
-            original: value,
-            converted: convertedValue
-          });
-          value = convertedValue;
-        } catch (error) {
-          console.error('Failed to convert value to correct currency:', error);
-        }
-      }
-    }
-
-    // IMPORTANT: Always use the component's currency prop directly
-    // This ensures consistency across all displays
-    if (!currency || typeof currency !== 'string') {
-      console.error('Invalid currency in formatCurrency:', currency);
-      // Fall back to USD if we somehow don't have a valid currency
-      return new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency: 'USD'
-      }).format(value);
-    }
-
-    try {
-      return new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency: currency // Always use the component's currency prop
-      }).format(value);
-    } catch (error) {
-      console.error('Error formatting currency:', error);
-      // Fall back to basic formatting if Intl fails
-      return `${currency} ${value.toFixed(2)}`;
-    }
-  }
+  const formatCurrency = (value: number) => formatCurrencyBase(value, currency)
 
   // Get the Nisab value in the user's selected unit
   const getNisabInUnit = () => {

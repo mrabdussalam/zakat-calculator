@@ -27,7 +27,7 @@ export const FeedbackFormModal = () => {
                 className="rounded-full hidden md:block"
                 onClick={handleOpen}
             >
-                Report a Bug
+                Feedback
             </Button>
 
             <Modal

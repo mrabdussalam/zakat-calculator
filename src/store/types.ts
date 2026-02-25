@@ -3,13 +3,16 @@ import { MetalsSlice } from './modules/metals'
 import { StocksSlice } from './modules/stocks'
 import { NisabSlice } from './modules/nisab'
 import { RetirementSlice } from './modules/retirement'
-import { RealEstateSlice } from './modules/realEstate'
-import { AssetBreakdown as LibAssetBreakdown, CompanyFinancials } from '@/lib/assets/types'
+import { RealEstateSlice, RealEstateValues as ModuleRealEstateValues } from './modules/realEstate'
+import { AssetBreakdown as LibAssetBreakdown, CompanyFinancials, Investment } from '@/lib/assets/types'
 import { StateCreator } from 'zustand'
-import { CryptoSlice, CryptoValues as CryptoValuesImport } from './modules/crypto.types'
+import { CryptoSlice, CryptoValues as CryptoValuesImport, CryptoHolding as CryptoHoldingImport } from './modules/crypto.types'
 import { StockHolding } from '@/lib/assets/stocks'
-import { WeightUnit } from '@/lib/utils/units'
 import { DistributionSlice } from './modules/distribution'
+import { DebtSlice } from './modules/debt.types'
+
+// Re-export canonical metal types from metals module
+export type { MetalPrices, MetalsPreferences, GoldPurity } from './modules/metals.types'
 
 // Re-export types with new names to avoid conflicts
 export type AssetBreakdown = LibAssetBreakdown
@@ -23,6 +26,7 @@ export interface HawlStatus {
   retirement: boolean
   real_estate: boolean
   crypto: boolean
+  debt: boolean
 }
 
 export interface NisabData {
@@ -35,16 +39,6 @@ export interface NisabData {
     gold: number;
     silver: number;
   };
-}
-
-// Metal Types
-export interface MetalPrices {
-  gold: number
-  silver: number
-  lastUpdated: Date
-  isCache: boolean
-  source?: string
-  currency: string
 }
 
 // Exported for tests and validation
@@ -60,56 +54,20 @@ export interface MetalValues extends Record<string, unknown> {
 // Keep old name for backward compatibility
 export type MetalsValues = MetalValues
 
-export interface MetalsPreferences {
-  weightUnit: WeightUnit
-}
+// Re-export canonical stock types
+export type { StockValues, StockPrices } from '@/lib/assets/stocks'
 
-// Stock Types
-export interface StockPrices {
-  currentMarketPrice: number
-  lastUpdated: Date
-}
-
-export interface PassiveInvestment {
-  id: string
-  name: string
-  shares: number
-  pricePerShare: number
-  marketValue: number
-}
+// Backward compat alias — identical to Investment from lib/assets/types
+export type PassiveInvestment = Investment
 
 export interface ActiveStock extends StockHolding {
-  lastUpdated?: string
   currency?: string
-  symbol: string
-  marketValue: number
-  zakatDue: number
-}
-
-export interface StockValues extends Record<string, unknown> {
-  active_shares: number
-  active_price_per_share: number
-  passive_shares: number
-  company_cash: number
-  company_receivables: number
-  company_inventory: number
-  total_shares_issued: number
-  total_dividend_earnings: number
-  dividend_per_share: number
-  dividend_shares: number
-  fund_value: number
-  is_passive_fund: boolean
-  activeStocks: ActiveStock[]
-  market_value: number
-  zakatable_value: number
-  price_per_share: number
-  passiveInvestments?: CurrentPassiveInvestmentState
 }
 
 export type CurrentPassiveInvestmentState = {
   version?: '1.0' | '2.0'
   method: 'quick' | 'detailed'
-  investments?: PassiveInvestment[]
+  investments?: Investment[]
   marketValue: number
   zakatableValue: number
   companyData?: CompanyFinancials
@@ -125,16 +83,9 @@ export type CurrentPassiveInvestmentState = {
   }
 }
 
-// Real Estate Types
-export interface RealEstateValues {
-  primary_residence_value: number
-  rental_income: number
-  rental_expenses: number
-  property_for_sale_value: number
-  property_for_sale_active: boolean
-  vacant_land_value: number
-  vacant_land_sold: boolean
-  sale_price: number
+// Real Estate Types - extends module type with index signature for dynamic access
+export interface RealEstateValues extends ModuleRealEstateValues {
+  [key: string]: number | boolean | undefined
 }
 
 // Retirement Types
@@ -164,6 +115,25 @@ export interface CashValues extends Record<string, unknown> {
   foreign_currency_entries?: ForeignCurrencyEntry[]
 }
 
+// Debt Types
+export interface DebtValues {
+  // Receivables (money owed to you)
+  receivables: number;
+  receivables_entries?: Array<{
+    description: string;
+    amount: number;
+  }>;
+
+  // Liabilities (money you owe)
+  short_term_liabilities: number; // Due within 12 months
+  long_term_liabilities_annual: number; // Annual payment for long-term debts
+  liabilities_entries?: Array<{
+    description: string;
+    amount: number;
+    is_short_term: boolean;
+  }>;
+}
+
 export interface ZakatBreakdown {
   total: number
   zakatable: number
@@ -180,7 +150,7 @@ export interface ZakatBreakdown {
   }>
 }
 
-export interface ZakatState extends CashSlice, MetalsSlice, StocksSlice, RetirementSlice, RealEstateSlice, CryptoSlice, NisabSlice, DistributionSlice {
+export interface ZakatState extends CashSlice, MetalsSlice, StocksSlice, RetirementSlice, RealEstateSlice, CryptoSlice, NisabSlice, DistributionSlice, DebtSlice {
   // Core properties
   currency: string
 
@@ -204,6 +174,7 @@ export interface ZakatState extends CashSlice, MetalsSlice, StocksSlice, Retirem
     retirement: ReturnType<RetirementSlice['getRetirementBreakdown']>
     realEstate: ReturnType<RealEstateSlice['getRealEstateBreakdown']>
     crypto: ReturnType<CryptoSlice['getCryptoBreakdown']>
+    debt: ReturnType<DebtSlice['getDebtBreakdown']>
     combined: {
       totalValue: number
       zakatableValue: number
@@ -223,12 +194,5 @@ export interface RootState {
   getRetirementBreakdown: () => AssetBreakdown
 }
 
-export interface CryptoHolding {
-  symbol: string
-  quantity: number
-  currentPrice: number
-  marketValue: number
-  zakatDue: number
-  currency?: string
-  isFallback?: boolean
-} 
+// Re-export CryptoHolding from canonical source
+export type CryptoHolding = CryptoHoldingImport 

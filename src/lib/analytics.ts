@@ -6,7 +6,6 @@ export interface AnalyticsEvent {
   action: string
   category: string
   label?: string
-  value?: number
   currency?: string
   assetType?: string
   calculatorType?: string
@@ -42,19 +41,18 @@ export const useAnalytics = () => {
     if (!window.gtag) return
 
     window.gtag('config', process.env.NEXT_PUBLIC_GA_ID, {
-      page_path: pathname + searchParams.toString(),
+      page_path: pathname + (searchParams?.toString() ?? ''),
     })
   }, [pathname, searchParams])
 }
 
 // Custom event tracking
-export const trackEvent = ({ action, category, label, value, currency, assetType, calculatorType }: AnalyticsEvent) => {
+export const trackEvent = ({ action, category, label, currency, assetType, calculatorType }: AnalyticsEvent) => {
   if (typeof window === 'undefined' || !window.gtag) return
 
   window.gtag('event', action, {
     event_category: category,
     event_label: label,
-    value: value,
     currency: currency,
     asset_type: assetType,
     calculator_type: calculatorType,

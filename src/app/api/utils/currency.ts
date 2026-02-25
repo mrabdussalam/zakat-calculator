@@ -133,25 +133,4 @@ export async function convertCurrency(
   const rate = await fetchExchangeRate(from, to)
   return amount * rate
 }
-
-export async function convertMultipleCurrencies(
-  amounts: { amount: number; from: string }[],
-  to: string
-): Promise<number[]> {
-  return Promise.all(
-    amounts.map(({ amount, from }) => convertCurrency(amount, from, to))
-  )
-}
-
-export function formatCurrency(
-  amount: number,
-  currency: string,
-  locale = 'en-US'
-): string {
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(amount)
-} 
+ 

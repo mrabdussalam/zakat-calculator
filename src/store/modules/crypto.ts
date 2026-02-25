@@ -6,17 +6,8 @@ import { getCryptoPrice, CryptoAPIError } from '@/lib/api/crypto'
 import { roundCurrency } from '@/lib/utils/currency'
 import { CryptoSlice, CryptoValues, CryptoHolding } from './crypto.types'
 import { getFallbackRate } from '@/lib/constants/currency'
-
-// Add environment detection for Replit
-const IS_REPLIT = typeof window !== 'undefined' &&
-  (window.location.hostname.includes('replit') ||
-    window.location.hostname.endsWith('.repl.co'));
-
-// Fallback prices for major cryptocurrencies
-const FALLBACK_PRICES: Record<string, number> = {
-  'BTC': 65000, // Fallback price for BTC
-  'ETH': 3500,  // Fallback price for ETH
-};
+import { FALLBACK_CRYPTO_PRICES as FALLBACK_PRICES } from '@/lib/constants/crypto'
+import { IS_REPLIT_CLIENT as IS_REPLIT } from '@/lib/utils/environment'
 
 // Initial state
 const initialCryptoValues: CryptoValues = {

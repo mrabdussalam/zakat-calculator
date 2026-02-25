@@ -1,9 +1,5 @@
 import { NextResponse } from 'next/server'
-
-const NISAB = {
-  GOLD: 85,    // grams
-  SILVER: 595  // grams
-}
+import { NISAB, ZAKAT_RATE } from '@/lib/constants'
 
 interface AssetValues {
   // Precious Metals
@@ -62,7 +58,7 @@ export async function POST(req: Request) {
     const totalAssets = preciousMetals.total + cashAndBank.total
     
     // Check eligibility - Cash is eligible if it meets Nisab
-    const cashMeetsNisab = cashAndBank.total >= (metalPrices.gold * NISAB.GOLD)
+    const cashMeetsNisab = cashAndBank.total >= (metalPrices.gold * NISAB.GOLD.GRAMS)
     const isEligible = hawlMet && (
       preciousMetals.meetsNisab || // Precious metals meet Nisab
       cashMeetsNisab // Cash meets Nisab
@@ -74,7 +70,7 @@ export async function POST(req: Request) {
     ) : 0
     
     // Calculate Zakat due
-    const zakatDue = isEligible ? finalZakatableAmount * 0.025 : 0
+    const zakatDue = isEligible ? finalZakatableAmount * ZAKAT_RATE : 0
     
     const result: ZakatCalculation = {
       totalAssets,
@@ -118,7 +114,7 @@ function calculatePreciousMetals(values: AssetValues, prices: MetalPrices) {
   // Check if meets Nisab
   const goldGrams = (values.gold_occasional || 0) + (values.gold_investment || 0)
   const silverGrams = (values.silver_occasional || 0) + (values.silver_investment || 0)
-  const meetsNisab = goldGrams >= NISAB.GOLD || silverGrams >= NISAB.SILVER
+  const meetsNisab = goldGrams >= NISAB.GOLD.GRAMS || silverGrams >= NISAB.SILVER.GRAMS
   
   return {
     total: goldRegular + goldOccasional + goldInvestment + silverRegular + silverOccasional + silverInvestment,

@@ -1,0 +1,90 @@
+import { AssetType, AssetBreakdown, ZAKAT_RATE } from './types';
+import { DebtValues } from '@/store/types';
+import { formatCurrency } from '@/lib/utils/currency';
+
+export const debt: AssetType = {
+    id: 'debt',
+    name: 'Debt & Liabilities',
+    color: '#8B5CF6', // Violet
+
+    calculateTotal: (values: DebtValues) => {
+        // Calculate net impact (receivables - liabilities)
+        const receivables = values.receivables || 0;
+        const shortTermLiabilities = values.short_term_liabilities || 0;
+        const longTermLiabilitiesAnnual = values.long_term_liabilities_annual || 0;
+
+        return receivables - (shortTermLiabilities + longTermLiabilitiesAnnual);
+    },
+
+    calculateZakatable: (values: DebtValues, prices: any, hawlMet: boolean) => {
+        if (!hawlMet) return 0;
+
+        // Only receivables are zakatable
+        const receivables = values.receivables || 0;
+
+        // Return only the receivables as zakatable
+        return receivables;
+    },
+
+    getBreakdown: (values: DebtValues, prices: any, hawlMet: boolean, currency: string = 'USD') => {
+        // Calculate totals
+        const receivables = values.receivables || 0;
+        const shortTermLiabilities = values.short_term_liabilities || 0;
+        const longTermLiabilitiesAnnual = values.long_term_liabilities_annual || 0;
+        const totalLiabilities = shortTermLiabilities + longTermLiabilitiesAnnual;
+
+        // Net impact is receivables minus liabilities
+        const netImpact = receivables - totalLiabilities;
+
+        // The net impact represents the overall effect on zakatable wealth
+        // Can be negative (liabilities exceed receivables = deduction from other assets)
+        const zakatable = hawlMet ? netImpact : 0;
+        const zakatDue = zakatable * ZAKAT_RATE;
+
+        // Create breakdown items
+        const items: Record<string, any> = {
+            receivables: {
+                value: receivables,
+                isZakatable: hawlMet,
+                zakatable: hawlMet ? receivables : 0,
+                zakatDue: hawlMet ? receivables * ZAKAT_RATE : 0,
+                label: 'Money Owed to You',
+                tooltip: `Money others owe you: ${formatCurrency(receivables, currency)}`
+            }
+        };
+
+        // Add liabilities as deduction items (only when > 0)
+        if (shortTermLiabilities > 0) {
+            items.short_term_liabilities = {
+                value: -shortTermLiabilities,
+                isZakatable: false,
+                zakatable: hawlMet ? -shortTermLiabilities : 0,
+                zakatDue: hawlMet ? -shortTermLiabilities * ZAKAT_RATE : 0,
+                label: 'Short-Term Debt',
+                tooltip: `Short-term debts: ${formatCurrency(shortTermLiabilities, currency)}`,
+                isExempt: true,
+                isLiability: true
+            };
+        }
+
+        if (longTermLiabilitiesAnnual > 0) {
+            items.long_term_liabilities_annual = {
+                value: -longTermLiabilitiesAnnual,
+                isZakatable: false,
+                zakatable: hawlMet ? -longTermLiabilitiesAnnual : 0,
+                zakatDue: hawlMet ? -longTermLiabilitiesAnnual * ZAKAT_RATE : 0,
+                label: 'Long-Term Debt (Annual)',
+                tooltip: `Annual payment for long-term debts: ${formatCurrency(longTermLiabilitiesAnnual, currency)}`,
+                isExempt: true,
+                isLiability: true
+            };
+        }
+
+        return {
+            total: netImpact,
+            zakatable,
+            zakatDue,
+            items
+        };
+    }
+};

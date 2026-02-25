@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getRequestCounter } from '../route'
+import { getRequestCounter } from '@/lib/services/apiCounter'
 
 export async function GET() {
   const counter = getRequestCounter()

@@ -152,6 +152,9 @@ export default function AboutPage() {
                             and should not replace scholarly advice for complex situations. For personalized guidance, please consult with a qualified
                             Islamic scholar or financial advisor.
                         </p>
+                        <p className="mt-2">
+                            <strong>Analytics:</strong> We use Google Analytics to understand general usage patterns such as page visits and geographic regions. No financial data, asset values, or calculation inputs are ever collected or transmitted.
+                        </p>
                     </motion.div>
 
                     {/* Contact Information */}

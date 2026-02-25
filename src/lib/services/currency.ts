@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { FALLBACK_RATES, getFallbackRate as getCanonicalFallbackRate } from '@/lib/constants/currency'
 
 interface ExchangeRates {
   [key: string]: number;
@@ -349,51 +350,14 @@ function getFallbackConversion(amount: number, from: string, to: string): number
   // Fetch new rate in background for next time
   fetchAndCacheRate(fromLower, toLower).catch(() => { });
 
-  // Fall back to static rates
-  const rates: Record<string, number> = {
-    'usd': 1,
-    'eur': 0.92,
-    'gbp': 0.78,
-    'jpy': 150.5,
-    'cad': 1.35,
-    'aud': 1.52,
-    'inr': 83.15,
-    'pkr': 278.5,
-    'aed': 3.67,
-    'sar': 3.75,
-    'myr': 4.65,
-    'sgd': 1.35,
-    'bdt': 110.5,
-    'egp': 30.9,
-    'idr': 15600,
-    'kwd': 0.31,
-    'ngn': 1550,
-    'qar': 3.64,
-    'zar': 18.5
-  };
+  // Fall back to canonical rates
+  const fallbackRate = getCanonicalFallbackRate(fromLower, toLower);
 
   console.log(`Static fallback conversion attempt: ${amount} ${fromLower} → ${toLower}`);
 
-  // If both currencies are in our rates list, we can do a conversion
-  if (rates[fromLower] && rates[toLower]) {
-    // Convert to USD first, then to target currency
-    const amountInUSD = amount / rates[fromLower];
-    const result = amountInUSD * rates[toLower];
-
-    console.warn(`Using static fallback conversion: ${amount} ${from} → ${result.toFixed(2)} ${to} (via USD)`);
-    return result;
-  }
-
-  // If we can't convert, try to use the inverse rate if available
-  if (rates[toLower] && fromLower === 'usd') {
-    const result = amount * rates[toLower];
-    console.warn(`Using direct USD static conversion: ${amount} USD → ${result.toFixed(2)} ${to}`);
-    return result;
-  }
-
-  if (rates[fromLower] && toLower === 'usd') {
-    const result = amount / rates[fromLower];
-    console.warn(`Using inverse static conversion to USD: ${amount} ${from} → ${result.toFixed(2)} USD`);
+  if (fallbackRate !== null) {
+    const result = amount * fallbackRate;
+    console.warn(`Using static fallback conversion: ${amount} ${from} → ${result.toFixed(2)} ${to} (via canonical rates)`);
     return result;
   }
 
@@ -408,15 +372,18 @@ function validateRates(rates: Record<string, number>, baseCurrency: string): Rec
   let validCount = 0;
   let invalidCount = 0;
 
-  // Define expected ranges for common currencies relative to USD
+  // Define expected ranges for common currencies relative to USD (updated Feb 2026)
   const expectedRangesUSD: Record<string, [number, number]> = {
-    'eur': [0.8, 1.0],
-    'gbp': [0.7, 0.9],
-    'jpy': [100, 160],
-    'inr': [70, 90],
-    'pkr': [250, 300],
-    'aed': [3.5, 3.8],
-    'sar': [3.6, 3.9]
+    'eur': [0.75, 0.95],
+    'gbp': [0.65, 0.85],
+    'jpy': [135, 170],
+    'cad': [1.2, 1.5],
+    'aud': [1.25, 1.6],
+    'inr': [80, 100],
+    'pkr': [250, 320],
+    'aed': [3.5, 3.9],
+    'sar': [3.6, 3.9],
+    'qar': [3.5, 3.8]
   };
 
   // Convert expected ranges to the base currency if not USD
@@ -735,28 +702,11 @@ export const useCurrencyStore = create<CurrencyState>((set, get) => ({
       // If all API calls fail, use static fallback rates
       console.log('All API calls failed, using static fallback rates');
 
-      // Create static fallback rates
-      const fallbackRates: Record<string, number> = {
-        'usd': 1,
-        'eur': 0.92,
-        'gbp': 0.78,
-        'jpy': 150.5,
-        'cad': 1.35,
-        'aud': 1.52,
-        'inr': 83.15,
-        'pkr': 278.5,
-        'aed': 3.67,
-        'sar': 3.75,
-        'myr': 4.65,
-        'sgd': 1.35,
-        'bdt': 110.5,
-        'egp': 30.9,
-        'idr': 15600,
-        'kwd': 0.31,
-        'ngn': 1550,
-        'qar': 3.64,
-        'zar': 18.5
-      };
+      // Build lowercase fallback rates from canonical source
+      const fallbackRates: Record<string, number> = {};
+      Object.entries(FALLBACK_RATES).forEach(([key, value]) => {
+        fallbackRates[key.toLowerCase()] = value;
+      });
 
       // Convert to the requested base currency if not USD
       const normalizedRates: Record<string, number> = {};
@@ -798,28 +748,11 @@ export const useCurrencyStore = create<CurrencyState>((set, get) => ({
       // Use static fallback rates if all APIs fail
       console.log('Using static fallback rates due to unexpected error');
 
-      // Create static fallback rates
-      const fallbackRates: Record<string, number> = {
-        'usd': 1,
-        'eur': 0.92,
-        'gbp': 0.78,
-        'jpy': 150.5,
-        'cad': 1.35,
-        'aud': 1.52,
-        'inr': 83.15,
-        'pkr': 278.5,
-        'aed': 3.67,
-        'sar': 3.75,
-        'myr': 4.65,
-        'sgd': 1.35,
-        'bdt': 110.5,
-        'egp': 30.9,
-        'idr': 15600,
-        'kwd': 0.31,
-        'ngn': 1550,
-        'qar': 3.64,
-        'zar': 18.5
-      };
+      // Build lowercase fallback rates from canonical source
+      const fallbackRates: Record<string, number> = {};
+      Object.entries(FALLBACK_RATES).forEach(([key, value]) => {
+        fallbackRates[key.toLowerCase()] = value;
+      });
 
       // Convert to the requested base currency if not USD
       const normalizedRates: Record<string, number> = {};
@@ -922,15 +855,8 @@ export const useCurrencyStore = create<CurrencyState>((set, get) => ({
         // Use fallback hardcoded exchange rates instead of throwing an error
         success = true;
 
-        // Fallback exchange rates with USD as base
-        const fallbackRates: Record<string, number> = {
-          USD: 1,
-          GBP: 0.78,
-          EUR: 0.91,
-          PKR: 278.5,
-          INR: 83.15,
-          SAR: 3.75
-        };
+        // Fallback exchange rates with USD as base from canonical source
+        const fallbackRates: Record<string, number> = { ...FALLBACK_RATES };
 
         // Create data structure that matches the expected format
         if (base.toUpperCase() === 'USD') {
@@ -1188,10 +1114,10 @@ function prePopulateCommonRates() {
   console.log('Pre-populating cache with common currency pairs...');
 
   // Define common base currencies
-  const commonBaseCurrencies = ['USD', 'EUR', 'GBP', 'SAR', 'PKR', 'INR'];
+  const commonBaseCurrencies = ['USD', 'EUR', 'GBP', 'SAR', 'PKR', 'INR', 'CAD', 'AUD', 'QAR'];
 
   // Define common target currencies
-  const commonTargetCurrencies = ['USD', 'EUR', 'GBP', 'SAR', 'PKR', 'INR', 'AED', 'CAD', 'AUD'];
+  const commonTargetCurrencies = ['USD', 'EUR', 'GBP', 'SAR', 'PKR', 'INR', 'AED', 'CAD', 'AUD', 'QAR'];
 
   // Create a queue of promises to fetch rates
   const fetchPromises: Promise<any>[] = [];

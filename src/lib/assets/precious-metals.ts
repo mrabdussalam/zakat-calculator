@@ -1,8 +1,8 @@
 /**
  * Precious Metals Calculator - Calculates Zakat on gold and silver holdings
  * - Distinguishes between regularly worn (exempt), occasionally worn, and investment metals
- * - Gold: 7.5 tolas (~87.48g) nisab threshold
- * - Silver: 52.5 tolas (~612.36g) nisab threshold
+ * - Gold: 85g (20 mithqals) nisab threshold
+ * - Silver: 612.36g (52.5 tolas) nisab threshold
  * - Uses current market prices for value calculation
  * - Only occasionally worn and investment metals are zakatable
  * - Applies standard 2.5% Zakat rate on zakatable amounts

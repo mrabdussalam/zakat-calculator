@@ -1,4 +1,5 @@
 import { useCurrencyStore } from './currency';
+import { FALLBACK_RATES, getFallbackRate } from '@/lib/constants/currency';
 
 /**
  * CurrencyConversionService provides a centralized way to handle currency conversions
@@ -140,18 +141,21 @@ export class CurrencyConversionService {
         // Check for suspiciously large or small conversions
         // This helps catch issues with incorrect exchange rates
 
-        // Define expected ranges for common currency pairs
+        // Define expected ranges for common currency pairs (updated Feb 2026)
         const expectedRanges: Record<string, Record<string, [number, number]>> = {
             'USD': {
-                'EUR': [0.8, 1.0],    // 1 USD should be between 0.8-1.0 EUR
-                'GBP': [0.7, 0.9],    // 1 USD should be between 0.7-0.9 GBP
-                'INR': [70, 90],      // 1 USD should be between 70-90 INR
-                'PKR': [250, 300],    // 1 USD should be between 250-300 PKR
-                'AED': [3.5, 3.8],    // 1 USD should be between 3.5-3.8 AED
-                'SAR': [3.6, 3.9]     // 1 USD should be between 3.6-3.9 SAR
+                'EUR': [0.75, 0.95],  // 1 USD should be between 0.75-0.95 EUR
+                'GBP': [0.65, 0.85],  // 1 USD should be between 0.65-0.85 GBP
+                'CAD': [1.2, 1.5],    // 1 USD should be between 1.2-1.5 CAD
+                'AUD': [1.25, 1.6],   // 1 USD should be between 1.25-1.6 AUD
+                'INR': [80, 100],     // 1 USD should be between 80-100 INR
+                'PKR': [250, 320],    // 1 USD should be between 250-320 PKR
+                'AED': [3.5, 3.9],    // 1 USD should be between 3.5-3.9 AED
+                'SAR': [3.6, 3.9],    // 1 USD should be between 3.6-3.9 SAR
+                'QAR': [3.5, 3.8]     // 1 USD should be between 3.5-3.8 QAR
             },
             'EUR': {
-                'USD': [1.0, 1.25]    // 1 EUR should be between 1.0-1.25 USD
+                'USD': [1.0, 1.35]    // 1 EUR should be between 1.0-1.35 USD
             }
         };
 
@@ -212,103 +216,25 @@ export class CurrencyConversionService {
 
     // Add a helper method to get hardcoded rates
     private static getHardcodedRate(fromCurrency: string, toCurrency: string): number {
-        // Normalize currency codes
-        const from = fromCurrency.toLowerCase();
-        const to = toCurrency.toLowerCase();
-
-        // Common currency conversion rates (approximate)
-        const rates: Record<string, number> = {
-            'usd': 1,
-            'eur': 0.92,
-            'gbp': 0.78,
-            'jpy': 150.5,
-            'cad': 1.35,
-            'aud': 1.52,
-            'inr': 83.15,
-            'pkr': 278.5,
-            'aed': 3.67,
-            'sar': 3.75,
-            'myr': 4.65,
-            'sgd': 1.35,
-            'bdt': 110.5,
-            'egp': 30.9,
-            'idr': 15600,
-            'kwd': 0.31,
-            'ngn': 1550,
-            'qar': 3.64,
-            'zar': 18.5
-        };
-
-        // If both currencies are in our rates list, we can calculate a rate
-        if (rates[from] && rates[to]) {
-            // Convert via USD
-            return rates[to] / rates[from];
-        }
-
-        // If one currency is USD, we can use the rate directly
-        if (from === 'usd' && rates[to]) {
-            return rates[to];
-        }
-
-        if (to === 'usd' && rates[from]) {
-            return 1 / rates[from];
-        }
-
-        // If we can't determine a rate, return 0
-        return 0;
+        const rate = getFallbackRate(fromCurrency, toCurrency);
+        return rate !== null ? rate : 0;
     }
 
     /**
      * Fallback conversion using hardcoded rates
      */
     private static hardcodedConversion(amount: number, fromCurrency: string, toCurrency: string): number {
-        // Common currency conversion rates (approximate)
-        const rates: Record<string, number> = {
-            'usd': 1,
-            'eur': 0.92,
-            'gbp': 0.78,
-            'jpy': 150.5,
-            'cad': 1.35,
-            'aud': 1.52,
-            'inr': 83.15,
-            'pkr': 278.5,
-            'aed': 3.67,
-            'sar': 3.75,
-            'myr': 4.65,
-            'sgd': 1.35,
-            'bdt': 110.5,
-            'egp': 30.9,
-            'idr': 15600,
-            'kwd': 0.31,
-            'ngn': 1550,
-            'qar': 3.64,
-            'zar': 18.5
-        };
-
         // Normalize currency codes
-        const from = fromCurrency.toLowerCase();
-        const to = toCurrency.toLowerCase();
+        const from = fromCurrency.toUpperCase();
+        const to = toCurrency.toUpperCase();
 
-        // If both currencies are in our rates list, we can do a conversion
-        if (rates[from] && rates[to]) {
+        // Use canonical fallback rates
+        if (FALLBACK_RATES[from] && FALLBACK_RATES[to]) {
             // Convert to USD first, then to target currency
-            const amountInUSD = amount / rates[from];
-            const result = amountInUSD * rates[to];
+            const amountInUSD = amount / FALLBACK_RATES[from];
+            const result = amountInUSD * FALLBACK_RATES[to];
 
             console.warn(`Using hardcoded conversion: ${amount} ${fromCurrency} → ${result.toFixed(2)} ${toCurrency}`);
-            return result;
-        }
-
-        // If we can't convert using the above method, try direct conversion if one currency is USD
-        if (from === 'usd' && rates[to]) {
-            const result = amount * rates[to];
-            console.warn(`Using direct USD conversion: ${amount} USD → ${result.toFixed(2)} ${toCurrency}`);
-            return result;
-        }
-
-        if (to === 'usd' && rates[from]) {
-            const result = amount / rates[from];
-            console.warn(`Using inverse conversion to USD: ${amount} ${fromCurrency} → ${result.toFixed(2)} USD`);
             return result;
         }
 

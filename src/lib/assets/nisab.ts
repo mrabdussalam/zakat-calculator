@@ -1,42 +1,6 @@
 import { NISAB } from '@/store/constants'
 import { useCurrencyStore } from '@/lib/services/currency'
 
-// Define a simple interface for the currency state we need
-interface SimpleCurrencyState {
-  selectedCurrency: string;
-  nisabType: 'gold' | 'silver';
-  silverPrice: Record<string, number>;
-  goldPrice: Record<string, number>;
-}
-
-/**
- * Calculates if the given value exceeds the nisab threshold
- * based on the current settings
- */
-export function isAboveNisab(
-  value: number, 
-  currencyInfo: SimpleCurrencyState,
-  isCrypto = false
-): boolean {
-  if (!currencyInfo || !value) return false
-  
-  const { selectedCurrency, nisabType, silverPrice, goldPrice } = currencyInfo
-  
-  // Get the base nisab value in the user's preferred currency
-  const nisabResult = getNisabValue(nisabType, goldPrice, silverPrice, selectedCurrency)
-  const nisabInUserCurrency = nisabResult.value
-  
-  // Special case for crypto with higher threshold
-  if (isCrypto && nisabInUserCurrency) {
-    // Some scholars argue that cryptocurrency should be calculated with a higher threshold
-    // This is a configurable multiplier
-    return value >= nisabInUserCurrency
-  }
-  
-  // Standard comparison
-  return value >= (nisabInUserCurrency || 0)
-}
-
 /**
  * Gets the nisab value in the user's selected currency
  * Returns an object with the value and a flag indicating if it's a direct price or converted

@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = params.id
+    const { id } = await params
 
     // Use currency param from request or default to USD
     const currency = request.nextUrl.searchParams.get('currency') || 'USD'

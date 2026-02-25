@@ -92,16 +92,16 @@ export const ASSET_CATEGORIES: Record<string, AssetCategory> = {
     }
   },
 
-  DEBT_RECEIVABLE: {
-    id: 'debt-receivable',
-    name: 'Debt Receivables',
-    description: 'Money owed to you by others',
-    subcategories: ['Good debt', 'Bad debt'],
+  DEBT: {
+    id: 'debt',
+    name: 'Debt & Liabilities',
+    description: 'Money owed to you and money you owe',
+    subcategories: ['Receivables', 'Short-term liabilities', 'Long-term liabilities'],
     zakatRate: 0.025,
     requiresNisab: true,
     metadata: {
       required: ['dateAdded'],
-      optional: ['maturityDate', 'interestRate', 'notes']
+      optional: ['maturityDate', 'notes']
     }
   }
 } 

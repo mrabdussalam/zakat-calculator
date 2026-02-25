@@ -4,7 +4,7 @@ import { useCurrencyStore } from '@/lib/services/currency'
 import { useCurrencyContext } from '@/lib/context/CurrencyContext'
 import { toast } from '@/components/ui/toast'
 import { roundCurrency } from '@/lib/utils/currency'
-import { CashValues } from '@/store/modules/cash'
+import { CashValues } from '@/store/types'
 import { RealEstateValues } from '@/store/modules/realEstate'
 import { RetirementValues, ActiveStock } from '@/store/types'
 
@@ -444,7 +444,6 @@ export function useDashboardCurrencyConversion({
           };
 
           prevConversionRef.current = newConversionRecord;
-          localStorage.setItem('currency-conversion-record', JSON.stringify(newConversionRecord));
 
           // Show success message
           toast({

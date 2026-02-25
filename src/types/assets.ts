@@ -1,4 +1,4 @@
-import { AssetIconType } from '@/components/ui/icons/icon-types'
+type AssetIconType = string
 
 export interface AssetMetadata {
   // Common metadata
@@ -41,15 +41,6 @@ export interface AssetMetadata {
   interestRate?: number
 }
 
-export interface Asset {
-  id: string
-  type: AssetIconType
-  name: string
-  value: number
-  currency: string
-  metadata: Partial<AssetMetadata>
-}
-
 export interface AssetCategory {
   id: string
   name: string
@@ -61,21 +52,4 @@ export interface AssetCategory {
     required: (keyof AssetMetadata)[]
     optional: (keyof AssetMetadata)[]
   }
-}
-
-export interface CalculationState {
-  assets: Asset[]
-  nisabThreshold: {
-    gold: number
-    silver: number
-  }
-  zakatDue: number
-  lastCalculated: string
-  exchangeRates: Record<string, number>
-}
-
-export interface AssetBreakdownProps {
-  values: Record<string, number>
-  currency: string
-  isLoading?: boolean
 } 

@@ -13,7 +13,7 @@ export function Analytics() {
 
     const url = pathname + (searchParams?.toString() ? `?${searchParams.toString()}` : '');
     
-    window.gtag('config', process.env.NEXT_PUBLIC_GA_ID || 'G-N5SFJ07P99', {
+    window.gtag('config', process.env.NEXT_PUBLIC_GA_ID, {
       page_location: window.location.origin + url,
       page_path: url
     });

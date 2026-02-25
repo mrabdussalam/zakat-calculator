@@ -7,6 +7,7 @@ export interface CryptoHolding {
   marketValue: number
   zakatDue: number
   currency?: string
+  isFallback?: boolean
 }
 
 export interface CryptoValues extends Record<string, unknown> {

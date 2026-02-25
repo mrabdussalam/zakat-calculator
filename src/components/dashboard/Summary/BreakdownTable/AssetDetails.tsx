@@ -1,5 +1,6 @@
 import { motion } from "framer-motion"
 import { formatCurrency } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 
 interface AssetDetailsProps {
   items: Record<string, {
@@ -10,12 +11,14 @@ interface AssetDetailsProps {
     label: string
     tooltip?: string
     isExempt?: boolean
+    isLiability?: boolean
   }>
   currency: string
   hawlMet: boolean
+  isDebtRow?: boolean
 }
 
-export function AssetDetails({ items, currency, hawlMet }: AssetDetailsProps) {
+export function AssetDetails({ items, currency, hawlMet, isDebtRow }: AssetDetailsProps) {
   return (
     <div className="pl-[58px] pr-2 pb-2 pt-1">
       <motion.div
@@ -30,7 +33,11 @@ export function AssetDetails({ items, currency, hawlMet }: AssetDetailsProps) {
           }
         }}
       >
-        {Object.entries(items).map(([key, item]) => (
+        {Object.entries(items).map(([key, item]) => {
+          const isLiability = item.isLiability || key.includes('liabilities') || item.label?.includes('Liabilities') || item.label?.includes('Debts')
+          const isNegativeValue = item.value < 0
+
+          return (
           <motion.div
             key={key}
             className="flex justify-between text-xs"
@@ -45,13 +52,13 @@ export function AssetDetails({ items, currency, hawlMet }: AssetDetailsProps) {
           >
             <div className="flex items-center gap-2">
               <span className="text-gray-500">{item.label}</span>
-              {item.isExempt && (
+              {!isNegativeValue && item.isExempt && !item.isLiability && (
                 <span className="text-xs text-green-600">(Exempt)</span>
               )}
             </div>
             <div className="flex items-center gap-2 sm:gap-4">
               <span className="w-[100px] sm:w-[140px] text-right text-gray-500">
-                {formatCurrency(item.value, currency)}
+                {isNegativeValue ? "-" : ""}{formatCurrency(Math.abs(item.value), currency)}
               </span>
               <span className="hidden sm:block w-[140px] text-right text-gray-500">
                 {formatCurrency(item.zakatable, currency)}
@@ -61,7 +68,8 @@ export function AssetDetails({ items, currency, hawlMet }: AssetDetailsProps) {
               </span>
             </div>
           </motion.div>
-        ))}
+          )
+        })}
       </motion.div>
     </div>
   )

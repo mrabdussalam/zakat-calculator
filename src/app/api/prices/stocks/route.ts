@@ -1,77 +1,16 @@
 import { NextResponse } from 'next/server'
-import { getExchangeRate } from '@/lib/services/exchangeRateService'
+import { getYahooSession, clearYahooSession, YAHOO_USER_AGENT } from '@/lib/api/yahooSession'
+import { getFallbackRate } from '@/lib/constants/currency'
 
 // Use multiple APIs for better reliability
-const YAHOO_FINANCE_API_URL = 'https://query2.finance.yahoo.com/v8/finance/chart'
+const YAHOO_FINANCE_API_URL = 'https://query1.finance.yahoo.com/v8/finance/chart'
+const YAHOO_QUOTE_API_URL = 'https://query1.finance.yahoo.com/v6/finance/quote'
 const ALPHA_VANTAGE_API_URL = 'https://www.alphavantage.co/query'
 const IEX_CLOUD_API_URL = 'https://cloud.iexapis.com/stable'
 
-// Add environment detection for Replit
-const IS_REPLIT = typeof window !== 'undefined' &&
-  (window.location.hostname.includes('replit') ||
-    window.location.hostname.endsWith('.repl.co'));
-
-// Comprehensive fallback exchange rates (approximate values as of 2025)
-// These are used when the Frankfurter API is unavailable
-const FALLBACK_RATES: { [key: string]: number } = {
-  // USD to other currencies
-  'USD-SAR': 3.75,    // Saudi Riyal (fixed peg)
-  'USD-PKR': 278.5,   // Pakistani Rupee
-  'USD-RUB': 91.5,    // Russian Ruble
-  'USD-INR': 84.0,    // Indian Rupee
-  'USD-GBP': 0.79,    // British Pound
-  // GBP to other currencies
-  'GBP-USD': 1.27,    // Inverse of USD-GBP
-  // EUR fallbacks (if needed in the future)
-  'USD-EUR': 0.93,
-  'EUR-USD': 1.08,
-};
-
-// Helper function to get fallback rate
-function getFallbackRate(from: string, to: string): number | null {
-  const fromUpper = from.toUpperCase();
-  const toUpper = to.toUpperCase();
-
-  // Direct lookup
-  const key = `${fromUpper}-${toUpper}`;
-  if (FALLBACK_RATES[key]) {
-    console.log(`Using fallback rate for ${from} to ${to}: ${FALLBACK_RATES[key]}`);
-    return FALLBACK_RATES[key];
-  }
-
-  // Try reverse lookup for inverse rate
-  const reverseKey = `${toUpper}-${fromUpper}`;
-  if (FALLBACK_RATES[reverseKey]) {
-    const inverseRate = 1 / FALLBACK_RATES[reverseKey];
-    console.log(`Using inverse fallback rate for ${from} to ${to}: ${inverseRate}`);
-    return inverseRate;
-  }
-
-  // Try triangulation through USD for cross-currency conversions
-  if (fromUpper !== 'USD' && toUpper !== 'USD') {
-    const fromToUSD = FALLBACK_RATES[`${fromUpper}-USD`];
-    const usdToTo = FALLBACK_RATES[`USD-${toUpper}`];
-
-    if (fromToUSD && usdToTo) {
-      const rate = fromToUSD * usdToTo;
-      console.log(`Using triangulated fallback rate for ${from} to ${to}: ${rate} (via USD)`);
-      return rate;
-    }
-
-    // Try inverse triangulation
-    const usdToFrom = FALLBACK_RATES[`USD-${fromUpper}`];
-    const toToUSD = FALLBACK_RATES[`${toUpper}-USD`];
-
-    if (usdToFrom && toToUSD) {
-      const rate = toToUSD / usdToFrom;
-      console.log(`Using inverse triangulated fallback rate for ${from} to ${to}: ${rate} (via USD)`);
-      return rate;
-    }
-  }
-
-  console.log(`No fallback rate available for ${from} to ${to}`);
-  return null;
-}
+// Check which API keys are available at startup
+const HAS_ALPHA_VANTAGE_KEY = !!process.env.ALPHA_VANTAGE_API_KEY
+const HAS_IEX_CLOUD_KEY = !!process.env.IEX_CLOUD_API_KEY
 
 // Helper function to get exchange rate with fallbacks
 async function getExchangeRate(from: string, to: string): Promise<number | null> {
@@ -94,7 +33,7 @@ async function getExchangeRate(from: string, to: string): Promise<number | null>
 
     console.log(`Frankfurter API failed for ${from} to ${to}, using fallbacks`);
 
-    // Use comprehensive fallback rates
+    // Use canonical fallback rates
     return getFallbackRate(from, to);
   } catch (error) {
     console.error(`Error fetching exchange rate from ${from} to ${to}:`, error);
@@ -104,69 +43,217 @@ async function getExchangeRate(from: string, to: string): Promise<number | null>
   }
 }
 
-// Try to fetch from Yahoo Finance API
+// Extract price from Yahoo Finance v8 chart response
+function extractYahooPrice(data: Record<string, unknown>): number | null {
+  if (data.error) {
+    console.warn(`Yahoo Finance API error:`, (data.error as Record<string, string>)?.description);
+    return null;
+  }
+
+  const result = (data as { chart?: { result?: Array<{ meta?: { regularMarketPrice?: number }; indicators?: { quote?: Array<{ close?: number[]; open?: number[] }> } }> } })?.chart?.result?.[0];
+  if (!result) return null;
+
+  const price = result.meta?.regularMarketPrice
+    || result.indicators?.quote?.[0]?.close?.[0]
+    || result.indicators?.quote?.[0]?.open?.[0];
+
+  return price || null;
+}
+
+// Try to fetch from Yahoo Finance v8 chart API
+// Strategy: try simple request first, then crumb-based auth as fallback
 async function fetchFromYahooFinance(symbol: string): Promise<number | null> {
   try {
-    console.log(`Trying Yahoo Finance API for ${symbol}`);
-    const response = await fetch(
+    console.log(`Trying Yahoo Finance v8 chart API for ${symbol}`);
+
+    // 1. Try simple request first (no crumb auth) — works most of the time
+    const simpleRes = await fetch(
       `${YAHOO_FINANCE_API_URL}/${encodeURIComponent(symbol)}?interval=1d&range=1d&includePrePost=false`,
       {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko)',
+          'User-Agent': YAHOO_USER_AGENT,
           'Accept': 'application/json',
           'Origin': 'https://finance.yahoo.com',
-          'Referer': 'https://finance.yahoo.com'
-        }
+          'Referer': 'https://finance.yahoo.com',
+        },
+        signal: AbortSignal.timeout(5000),
       }
     );
 
-    if (!response.ok) {
-      console.warn(`Yahoo Finance API returned ${response.status} for ${symbol}`);
-      return null;
+    if (simpleRes.ok) {
+      const data = await simpleRes.json();
+      const price = extractYahooPrice(data);
+      if (price) {
+        console.log(`Yahoo Finance price for ${symbol}: $${price} (simple request)`);
+        return price;
+      }
     }
 
-    const data = await response.json();
+    // 2. If simple request fails with auth error, try crumb-based auth
+    //    Skip crumb auth for 429 (rate limit) — it would generate even more requests
+    if (simpleRes.status === 401 || simpleRes.status === 403) {
+      console.log(`Yahoo Finance requires auth for ${symbol}, trying crumb-based session`);
+      try {
+        let session = await getYahooSession();
+        let crumbRes = await fetch(
+          `${YAHOO_FINANCE_API_URL}/${encodeURIComponent(symbol)}?interval=1d&range=1d&includePrePost=false&crumb=${encodeURIComponent(session.crumb)}`,
+          {
+            headers: {
+              'User-Agent': YAHOO_USER_AGENT,
+              'Accept': 'application/json',
+              'Cookie': session.cookie,
+            },
+            signal: AbortSignal.timeout(5000),
+          }
+        );
 
-    // Check for API-specific error messages
-    if (data.error) {
-      console.warn(`Yahoo Finance API error: ${data.error.description}`);
-      return null;
+        // If still unauthorized, refresh session and retry once
+        if (crumbRes.status === 401 || crumbRes.status === 403) {
+          clearYahooSession();
+          session = await getYahooSession();
+          crumbRes = await fetch(
+            `${YAHOO_FINANCE_API_URL}/${encodeURIComponent(symbol)}?interval=1d&range=1d&includePrePost=false&crumb=${encodeURIComponent(session.crumb)}`,
+            {
+              headers: {
+                'User-Agent': YAHOO_USER_AGENT,
+                'Accept': 'application/json',
+                'Cookie': session.cookie,
+              },
+              signal: AbortSignal.timeout(5000),
+            }
+          );
+        }
+
+        if (crumbRes.ok) {
+          const data = await crumbRes.json();
+          const price = extractYahooPrice(data);
+          if (price) {
+            console.log(`Yahoo Finance price for ${symbol}: $${price} (crumb auth)`);
+            return price;
+          }
+        }
+      } catch (crumbError) {
+        console.warn(`Crumb-based Yahoo auth failed for ${symbol}:`, crumbError);
+      }
     }
 
-    // Extract price from response using the v8 API structure
-    const result = data?.chart?.result?.[0];
-    if (!result) {
-      console.warn(`No data available for symbol: ${symbol}`);
-      return null;
-    }
-
-    const meta = result.meta;
-    const quote = result.indicators?.quote?.[0];
-
-    // Try different price sources in order of preference
-    let price = meta?.regularMarketPrice;
-    if (!price && quote?.close?.[0]) {
-      price = quote.close[0];
-    }
-    if (!price && quote?.open?.[0]) {
-      price = quote.open[0];
-    }
-
-    if (price) {
-      console.log(`Yahoo Finance price for ${symbol}: $${price}`);
-      return price;
-    }
-
-    console.warn(`No valid price found in Yahoo Finance response for ${symbol}`);
+    console.warn(`Yahoo Finance v8 API returned ${simpleRes.status} for ${symbol}`);
     return null;
   } catch (error) {
-    console.error(`Error fetching from Yahoo Finance for ${symbol}:`, error);
+    console.error(`Error fetching from Yahoo Finance v8 for ${symbol}:`, error);
     return null;
   }
 }
 
-// Try to fetch from Alpha Vantage API
+// Try Yahoo Finance v6 quote API as an alternative endpoint
+async function fetchFromYahooQuote(symbol: string): Promise<number | null> {
+  try {
+    console.log(`Trying Yahoo Finance v6 quote API for ${symbol}`);
+
+    // Try with crumb session
+    let session;
+    try {
+      session = await getYahooSession();
+    } catch {
+      console.warn('Could not establish Yahoo session for quote API');
+      return null;
+    }
+
+    const res = await fetch(
+      `${YAHOO_QUOTE_API_URL}?symbols=${encodeURIComponent(symbol)}&crumb=${encodeURIComponent(session.crumb)}`,
+      {
+        headers: {
+          'User-Agent': YAHOO_USER_AGENT,
+          'Accept': 'application/json',
+          'Cookie': session.cookie,
+        },
+        signal: AbortSignal.timeout(5000),
+      }
+    );
+
+    if (!res.ok) {
+      console.warn(`Yahoo Finance v6 quote API returned ${res.status} for ${symbol}`);
+      return null;
+    }
+
+    const data = await res.json();
+    const quote = (data as { quoteResponse?: { result?: Array<{ regularMarketPrice?: number }> } })
+      ?.quoteResponse?.result?.[0];
+
+    if (quote?.regularMarketPrice) {
+      console.log(`Yahoo Finance quote price for ${symbol}: $${quote.regularMarketPrice}`);
+      return quote.regularMarketPrice;
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`Error fetching from Yahoo Finance v6 quote for ${symbol}:`, error);
+    return null;
+  }
+}
+
+// Try to scrape price from Yahoo Finance website as last resort
+async function fetchFromYahooScraping(symbol: string): Promise<number | null> {
+  try {
+    console.log(`Trying Yahoo Finance page scraping for ${symbol}`);
+
+    const res = await fetch(
+      `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}/`,
+      {
+        headers: {
+          'User-Agent': YAHOO_USER_AGENT,
+          'Accept': 'text/html,application/xhtml+xml',
+        },
+        signal: AbortSignal.timeout(8000),
+      }
+    );
+
+    if (!res.ok) {
+      console.warn(`Yahoo Finance page returned ${res.status} for ${symbol}`);
+      return null;
+    }
+
+    const html = await res.text();
+
+    // Try to extract price from the page using several patterns.
+    // IMPORTANT: The page contains prices for many trending stocks in embedded JSON.
+    // We must use patterns that target the SPECIFIC stock's quote page price,
+    // not generic regularMarketPrice which matches the first trending stock.
+    const patterns = [
+      // Pattern 1 (most reliable): The primary quote-page price element
+      // Yahoo renders the stock's price in: <fin-streamer ... data-testid="qsp-price">640.16</fin-streamer>
+      /data-testid="qsp-price"[^>]*>([\d,]+\.?\d*)/,
+      // Pattern 2: fin-streamer with the specific symbol's data-symbol attribute
+      new RegExp(`data-symbol="${symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*data-field="regularMarketPrice"[^>]*data-value="([\\d.]+)"`),
+      // Pattern 3: Find the symbol in embedded JSON, then its regularMarketPrice nearby
+      new RegExp(`"symbol":"${symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^}]*?"regularMarketPrice":\\{[^}]*"raw":\\s*([\\d.]+)`),
+    ];
+
+    for (const pattern of patterns) {
+      const match = html.match(pattern);
+      if (match && match[1]) {
+        const price = parseFloat(match[1].replace(/,/g, ''));
+        if (!isNaN(price) && price > 0) {
+          console.log(`Yahoo Finance scraped price for ${symbol}: $${price}`);
+          return price;
+        }
+      }
+    }
+
+    console.warn(`Could not extract price from Yahoo Finance page for ${symbol}`);
+    return null;
+  } catch (error) {
+    console.error(`Error scraping Yahoo Finance for ${symbol}:`, error);
+    return null;
+  }
+}
+
+// Try to fetch from Alpha Vantage API (only if API key is configured)
 async function fetchFromAlphaVantage(symbol: string): Promise<number | null> {
+  if (!HAS_ALPHA_VANTAGE_KEY) {
+    return null;
+  }
+
   try {
     console.log(`Trying Alpha Vantage API for ${symbol}`);
     const response = await fetch(
@@ -194,8 +281,12 @@ async function fetchFromAlphaVantage(symbol: string): Promise<number | null> {
   }
 }
 
-// Try to fetch from IEX Cloud API
+// Try to fetch from IEX Cloud API (only if API key is configured)
 async function fetchFromIEXCloud(symbol: string): Promise<number | null> {
+  if (!HAS_IEX_CLOUD_KEY) {
+    return null;
+  }
+
   try {
     console.log(`Trying IEX Cloud API for ${symbol}`);
     const response = await fetch(
@@ -240,128 +331,68 @@ export async function GET(request: Request) {
     let price = null;
     let source = '';
 
-    // Determine which API to try first based on environment and randomization
-    const random = Math.random();
+    // Try APIs in order of reliability:
+    // 1. Yahoo Finance v8 chart API (most reliable, no key needed)
+    // 2. Yahoo Finance v6 quote API (alternative endpoint)
+    // 3. Alpha Vantage (if key configured)
+    // 4. IEX Cloud (if key configured)
+    // 5. Yahoo Finance page scraping (last resort)
 
-    // On Replit, we want to avoid APIs that might have rate limits
-    // Try APIs in different order based on random value
-    if (IS_REPLIT) {
-      // On Replit, try IEX Cloud first 50% of the time, Alpha Vantage first 50% of the time
-      if (random < 0.5) {
-        // Try IEX Cloud first
-        price = await fetchFromIEXCloud(symbol);
-        if (price !== null) {
-          source = 'iex-cloud';
-          console.log(`Successfully fetched price from IEX Cloud: ${price}`);
-        } else {
-          // Then try Alpha Vantage
-          price = await fetchFromAlphaVantage(symbol);
-          if (price !== null) {
-            source = 'alpha-vantage';
-            console.log(`Successfully fetched price from Alpha Vantage: ${price}`);
-          }
-        }
-      } else {
-        // Try Alpha Vantage first
-        price = await fetchFromAlphaVantage(symbol);
-        if (price !== null) {
-          source = 'alpha-vantage';
-          console.log(`Successfully fetched price from Alpha Vantage: ${price}`);
-        } else {
-          // Then try IEX Cloud
-          price = await fetchFromIEXCloud(symbol);
-          if (price !== null) {
-            source = 'iex-cloud';
-            console.log(`Successfully fetched price from IEX Cloud: ${price}`);
-          }
-        }
-      }
+    // 1. Yahoo Finance v8 chart API
+    price = await fetchFromYahooFinance(symbol);
+    if (price !== null) {
+      source = 'yahoo-finance';
+    }
 
-      // Only try Yahoo Finance as a last resort on Replit
-      if (price === null) {
-        price = await fetchFromYahooFinance(symbol);
-        if (price !== null) {
-          source = 'yahoo-finance';
-          console.log(`Successfully fetched price from Yahoo Finance: ${price}`);
-        }
-      }
-    } else {
-      // Not on Replit, distribute requests across all APIs
-      if (random < 0.33) {
-        // Try Yahoo Finance first
-        price = await fetchFromYahooFinance(symbol);
-        if (price !== null) {
-          source = 'yahoo-finance';
-          console.log(`Successfully fetched price from Yahoo Finance: ${price}`);
-        } else {
-          // Then try Alpha Vantage
-          price = await fetchFromAlphaVantage(symbol);
-          if (price !== null) {
-            source = 'alpha-vantage';
-            console.log(`Successfully fetched price from Alpha Vantage: ${price}`);
-          }
-        }
-
-        // Finally try IEX Cloud
-        if (price === null) {
-          price = await fetchFromIEXCloud(symbol);
-          if (price !== null) {
-            source = 'iex-cloud';
-            console.log(`Successfully fetched price from IEX Cloud: ${price}`);
-          }
-        }
-      } else if (random < 0.66) {
-        // Try Alpha Vantage first
-        price = await fetchFromAlphaVantage(symbol);
-        if (price !== null) {
-          source = 'alpha-vantage';
-          console.log(`Successfully fetched price from Alpha Vantage: ${price}`);
-        } else {
-          // Then try IEX Cloud
-          price = await fetchFromIEXCloud(symbol);
-          if (price !== null) {
-            source = 'iex-cloud';
-            console.log(`Successfully fetched price from IEX Cloud: ${price}`);
-          }
-        }
-
-        // Finally try Yahoo Finance
-        if (price === null) {
-          price = await fetchFromYahooFinance(symbol);
-          if (price !== null) {
-            source = 'yahoo-finance';
-            console.log(`Successfully fetched price from Yahoo Finance: ${price}`);
-          }
-        }
-      } else {
-        // Try IEX Cloud first
-        price = await fetchFromIEXCloud(symbol);
-        if (price !== null) {
-          source = 'iex-cloud';
-          console.log(`Successfully fetched price from IEX Cloud: ${price}`);
-        } else {
-          // Then try Yahoo Finance
-          price = await fetchFromYahooFinance(symbol);
-          if (price !== null) {
-            source = 'yahoo-finance';
-            console.log(`Successfully fetched price from Yahoo Finance: ${price}`);
-          }
-        }
-
-        // Finally try Alpha Vantage
-        if (price === null) {
-          price = await fetchFromAlphaVantage(symbol);
-          if (price !== null) {
-            source = 'alpha-vantage';
-            console.log(`Successfully fetched price from Alpha Vantage: ${price}`);
-          }
-        }
+    // 2. Yahoo Finance v6 quote API
+    if (price === null) {
+      price = await fetchFromYahooQuote(symbol);
+      if (price !== null) {
+        source = 'yahoo-quote';
       }
     }
 
-    // If all APIs fail, throw an error
+    // 3. Alpha Vantage (skipped if no key)
     if (price === null) {
-      throw new Error(`Failed to fetch stock price for ${symbol} from any API source`);
+      price = await fetchFromAlphaVantage(symbol);
+      if (price !== null) {
+        source = 'alpha-vantage';
+      }
+    }
+
+    // 4. IEX Cloud (skipped if no key)
+    if (price === null) {
+      price = await fetchFromIEXCloud(symbol);
+      if (price !== null) {
+        source = 'iex-cloud';
+      }
+    }
+
+    // 5. Yahoo Finance page scraping (last resort)
+    if (price === null) {
+      price = await fetchFromYahooScraping(symbol);
+      if (price !== null) {
+        source = 'yahoo-scraping';
+      }
+    }
+
+    // If all sources fail, return error
+    if (price === null) {
+      const triedSources = ['yahoo-finance-v8', 'yahoo-quote-v6'];
+      if (HAS_ALPHA_VANTAGE_KEY) triedSources.push('alpha-vantage');
+      if (HAS_IEX_CLOUD_KEY) triedSources.push('iex-cloud');
+      triedSources.push('yahoo-scraping');
+
+      console.error(`All stock price sources failed for ${symbol}. Tried: ${triedSources.join(', ')}`);
+
+      return NextResponse.json(
+        {
+          error: `Could not fetch stock price for ${symbol}. Please try again or enter the price manually.`,
+          symbol,
+          triedSources
+        },
+        { status: 502 }
+      );
     }
 
     // Convert currency if needed and different from USD
@@ -388,10 +419,10 @@ export async function GET(request: Request) {
     console.error('Stock API Error:', error);
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : 'Unknown error fetching stock price',
+        error: `Failed to fetch stock price for ${symbol}. Please try again or enter the price manually.`,
         symbol
       },
       { status: 500 }
     );
   }
-} 
+}

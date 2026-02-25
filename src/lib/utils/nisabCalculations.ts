@@ -1,19 +1,9 @@
 import { NISAB } from '@/store/constants';
 import { useCurrencyStore } from '@/lib/services/currency';
 import { CurrencyConversionService } from '@/lib/services/currencyConversion';
-import { CacheValidationService, MetalPriceEntry } from '@/lib/services/cacheValidation';
-
-// Default fallback values for common currencies when validation fails
-// These are conservative estimates that will be used when API data is suspicious
-const FALLBACK_METAL_PRICES: Record<string, { gold: number; silver: number }> = {
-    'USD': { gold: 85, silver: 1.2 },     // USD per gram
-    'EUR': { gold: 78, silver: 1.1 },     // EUR per gram
-    'GBP': { gold: 67, silver: 0.95 },    // GBP per gram
-    'INR': { gold: 7000, silver: 90 },    // INR per gram
-    'PKR': { gold: 24000, silver: 300 },  // PKR per gram
-    'AED': { gold: 310, silver: 4.4 },    // AED per gram - 310*85=26350, 4.4*595=2618 (within expected ranges)
-    'SAR': { gold: 320, silver: 4.5 }     // SAR per gram
-};
+import { CacheValidationService } from '@/lib/services/cacheValidation';
+import { FALLBACK_METAL_PRICES } from '@/lib/constants/metals';
+import { FALLBACK_RATES } from '@/lib/constants/currency';
 
 // Minimum acceptable metal prices per gram in USD to detect suspicious data
 const MIN_ACCEPTABLE_PRICES = {
@@ -216,16 +206,19 @@ export function calculateNisabThresholds(
 
     // Fallback for specific currencies with known issues
     if ((goldPriceInTargetCurrency <= 0 || silverPriceInTargetCurrency <= 0) &&
-        ['AED', 'INR', 'PKR', 'SAR'].includes(targetCurrency)) {
+        ['AED', 'INR', 'PKR', 'SAR', 'CAD', 'AUD', 'QAR'].includes(targetCurrency)) {
 
         console.warn(`Using hardcoded fallback for ${targetCurrency} due to zero or negative prices`);
 
         // Use hardcoded fallback values for these currencies
         const fallbackValues: Record<string, { gold: number; silver: number }> = {
-            'AED': { gold: 183.5, silver: 1.83 },
-            'INR': { gold: 4100, silver: 41 },
-            'PKR': { gold: 14000, silver: 140 },
-            'SAR': { gold: 187.5, silver: 1.88 }
+            'AED': { gold: 589, silver: 9.06 },
+            'INR': { gold: 13327, silver: 205 },
+            'PKR': { gold: 44719, silver: 688 },
+            'SAR': { gold: 602, silver: 9.26 },
+            'CAD': { gold: 218.86, silver: 3.37 },
+            'AUD': { gold: 226.56, silver: 3.49 },
+            'QAR': { gold: 584, silver: 8.99 }
         };
 
         if (goldPriceInTargetCurrency <= 0 && fallbackValues[targetCurrency]) {
@@ -246,7 +239,7 @@ export function calculateNisabThresholds(
 
     // Calculate nisab thresholds using the weights and prices
     const goldGrams = NISAB.GOLD.GRAMS; // 85g
-    const silverGrams = NISAB.SILVER.GRAMS; // 595g
+    const silverGrams = NISAB.SILVER.GRAMS; // 612.36g
 
     const goldThreshold = goldPriceInTargetCurrency * goldGrams;
     const silverThreshold = silverPriceInTargetCurrency * silverGrams;
@@ -276,13 +269,16 @@ export function calculateNisabThresholds(
 
         // Use hardcoded fallback values for these currencies
         const fallbackNisabValues: Record<string, { gold: number; silver: number }> = {
-            'USD': { gold: 8500, silver: 600 },
-            'AED': { gold: 31000, silver: 2200 },
-            'INR': { gold: 700000, silver: 50000 },
-            'PKR': { gold: 2400000, silver: 170000 },
-            'SAR': { gold: 32000, silver: 2300 },
-            'GBP': { gold: 6800, silver: 480 },
-            'EUR': { gold: 7900, silver: 560 }
+            'USD': { gold: 13648, silver: 1513 },
+            'AED': { gold: 50089, silver: 5553 },
+            'INR': { gold: 1132795, silver: 125570 },
+            'PKR': { gold: 3801115, silver: 421408 },
+            'SAR': { gold: 51182, silver: 5674 },
+            'GBP': { gold: 10837, silver: 1201 },
+            'EUR': { gold: 12556, silver: 1392 },
+            'CAD': { gold: 18603, silver: 2064 },
+            'AUD': { gold: 19258, silver: 2137 },
+            'QAR': { gold: 49680, silver: 5505 }
         };
 
         // If we have fallback values for this currency, use them directly
@@ -335,125 +331,17 @@ function getExpectedPriceInCurrency(usdPrice: number, fromCurrency: string, toCu
     } catch (error) {
         console.warn(`Failed to convert ${metal} price from ${fromCurrency} to ${toCurrency}:`, error);
 
-        // Fallback to hardcoded conversion rates for common currencies
-        const hardcodedRates: Record<string, number> = {
-            'AED': 3.67,  // 1 USD = 3.67 AED
-            'INR': 82.0,  // 1 USD = 82 INR
-            'PKR': 280.0, // 1 USD = 280 PKR
-            'SAR': 3.75,  // 1 USD = 3.75 SAR
-            'GBP': 0.8,   // 1 USD = 0.8 GBP
-            'EUR': 0.93   // 1 USD = 0.93 EUR
-        };
-
-        if (hardcodedRates[toCurrency]) {
-            const convertedPrice = usdPrice * hardcodedRates[toCurrency];
-            console.log(`Using hardcoded conversion: ${usdPrice} USD → ${convertedPrice.toFixed(2)} ${toCurrency}`);
+        // Fallback to canonical conversion rates for common currencies
+        const toCurrencyUpper = toCurrency.toUpperCase();
+        if (FALLBACK_RATES[toCurrencyUpper]) {
+            const convertedPrice = usdPrice * FALLBACK_RATES[toCurrencyUpper];
+            console.log(`Using canonical fallback conversion: ${usdPrice} USD → ${convertedPrice.toFixed(2)} ${toCurrency}`);
             return convertedPrice;
         }
 
         // If no hardcoded rate, return the original price as a last resort
         return usdPrice;
     }
-}
-
-/**
- * Check if we should use fallback values based on the metal prices data
- * This is a secondary check in addition to CacheValidationService
- */
-function shouldUseFallback(metalPrices: {
-    gold: number;
-    silver: number;
-    currency: string;
-    lastUpdated?: Date | string;
-    timestamp?: number;
-    isCache?: boolean;
-}): boolean {
-    // Check if the cache timestamp is in the future (invalid)
-    if (metalPrices.timestamp) {
-        if (CacheValidationService.isFutureTimestamp(metalPrices.timestamp)) {
-            console.warn('Detected future-dated timestamp', {
-                timestamp: metalPrices.timestamp,
-                now: Date.now(),
-                difference: (metalPrices.timestamp - Date.now()) / (1000 * 60 * 60 * 24) + ' days'
-            });
-            return true;
-        }
-    } else if (metalPrices.lastUpdated) {
-        if (CacheValidationService.isFutureTimestamp(metalPrices.lastUpdated)) {
-            console.warn('Detected future-dated lastUpdated', {
-                lastUpdated: metalPrices.lastUpdated,
-                now: new Date().toISOString()
-            });
-            return true;
-        }
-    }
-
-    // Check for suspiciously low prices
-    if (metalPrices.currency === 'USD') {
-        if (metalPrices.gold < MIN_ACCEPTABLE_PRICES.gold ||
-            metalPrices.silver < MIN_ACCEPTABLE_PRICES.silver) {
-            console.warn('Detected suspiciously low metal prices in USD', {
-                goldPrice: metalPrices.gold,
-                silverPrice: metalPrices.silver,
-                minAcceptableGold: MIN_ACCEPTABLE_PRICES.gold,
-                minAcceptableSilver: MIN_ACCEPTABLE_PRICES.silver
-            });
-            return true;
-        }
-    } else {
-        // For non-USD currencies, we need to check if the prices are suspiciously low
-        // based on the expected range for that currency
-
-        // Convert the minimum acceptable prices to the target currency
-        const minGoldPrice = CurrencyConversionService.convert(
-            MIN_ACCEPTABLE_PRICES.gold,
-            'USD',
-            metalPrices.currency,
-            {
-                logPrefix: 'NisabCalc-MinGoldCheck',
-                validateResult: false
-            }
-        );
-
-        const minSilverPrice = CurrencyConversionService.convert(
-            MIN_ACCEPTABLE_PRICES.silver,
-            'USD',
-            metalPrices.currency,
-            {
-                logPrefix: 'NisabCalc-MinSilverCheck',
-                validateResult: false
-            }
-        );
-
-        if (metalPrices.gold < minGoldPrice * 0.5 ||
-            metalPrices.silver < minSilverPrice * 0.5) {
-            console.warn(`Detected suspiciously low metal prices in ${metalPrices.currency}`, {
-                goldPrice: metalPrices.gold,
-                silverPrice: metalPrices.silver,
-                minAcceptableGold: minGoldPrice,
-                minAcceptableSilver: minSilverPrice
-            });
-            return true;
-        }
-    }
-
-    // Check for invalid or zero prices
-    if (!isValidPrice(metalPrices.gold) || !isValidPrice(metalPrices.silver)) {
-        console.warn('Detected invalid metal prices', {
-            goldPrice: metalPrices.gold,
-            silverPrice: metalPrices.silver
-        });
-        return true;
-    }
-
-    return false;
-}
-
-/**
- * Check if a price is valid (non-zero, finite, positive)
- */
-function isValidPrice(price: number): boolean {
-    return typeof price === 'number' && isFinite(price) && price > 0;
 }
 
 /**
@@ -465,35 +353,49 @@ export function validateNisabValues(
     silverThreshold: number,
     currency: string
 ): { isValid: boolean; reason?: string } {
-    // Define expected value ranges for common currencies
+    // Define expected value ranges for common currencies (updated Feb 2026)
+    // Based on: Gold ~$160.57/g, Silver ~$2.47/g
+    // Gold nisab = 85g, Silver nisab = 612.36g
     const expectedRanges: Record<string, { gold: [number, number], silver: [number, number] }> = {
         'USD': {
-            gold: [7000, 10000],     // Expected range for 85g gold in USD
-            silver: [500, 800]        // Expected range for 595g silver in USD
+            gold: [10000, 20000],     // Expected range for 85g gold in USD (~$13,648)
+            silver: [900, 2500]       // Expected range for 612.36g silver in USD (~$1,513)
         },
         'PKR': {
-            gold: [2000000, 3000000], // Expected range for 85g gold in PKR
-            silver: [150000, 250000]  // Expected range for 595g silver in PKR
+            gold: [2500000, 6000000], // Expected range for 85g gold in PKR (~$3,800,868)
+            silver: [250000, 700000]  // Expected range for 612.36g silver in PKR (~$421,371)
         },
         'EUR': {
-            gold: [6000, 9000],      // Expected range for 85g gold in EUR
-            silver: [400, 700]        // Expected range for 595g silver in EUR
+            gold: [8000, 18000],     // Expected range for 85g gold in EUR (~$11,520)
+            silver: [800, 2200]       // Expected range for 612.36g silver in EUR (~$1,277)
         },
         'GBP': {
-            gold: [5500, 8500],      // Expected range for 85g gold in GBP
-            silver: [350, 650]        // Expected range for 595g silver in GBP
+            gold: [7000, 16000],     // Expected range for 85g gold in GBP (~$10,005)
+            silver: [700, 2000]       // Expected range for 612.36g silver in GBP (~$1,109)
         },
         'INR': {
-            gold: [550000, 850000],  // Expected range for 85g gold in INR
-            silver: [40000, 70000]   // Expected range for 595g silver in INR
+            gold: [800000, 1800000], // Expected range for 85g gold in INR (~$1,238,443)
+            silver: [80000, 200000]  // Expected range for 612.36g silver in INR (~$137,274)
         },
         'AED': {
-            gold: [24000, 36000],    // Updated range for 85g gold in AED (widened)
-            silver: [1500, 3500]      // Updated range for 595g silver in AED (widened)
+            gold: [35000, 75000],    // Expected range for 85g gold in AED (~$50,088)
+            silver: [3500, 9000]      // Expected range for 612.36g silver in AED (~$5,553)
         },
         'SAR': {
-            gold: [26000, 36000],    // Expected range for 85g gold in SAR
-            silver: [1600, 3100]      // Expected range for 595g silver in SAR
+            gold: [35000, 75000],    // Expected range for 85g gold in SAR (~$51,180)
+            silver: [3800, 9000]      // Expected range for 612.36g silver in SAR (~$5,674)
+        },
+        'CAD': {
+            gold: [13000, 28000],    // Expected range for 85g gold in CAD (~$18,603)
+            silver: [1400, 3500]      // Expected range for 612.36g silver in CAD (~$2,064)
+        },
+        'AUD': {
+            gold: [13500, 29000],    // Expected range for 85g gold in AUD (~$19,258)
+            silver: [1500, 3600]      // Expected range for 612.36g silver in AUD (~$2,137)
+        },
+        'QAR': {
+            gold: [34000, 74000],    // Expected range for 85g gold in QAR (~$49,680)
+            silver: [3500, 8800]      // Expected range for 612.36g silver in QAR (~$5,505)
         }
     };
 
@@ -586,7 +488,7 @@ export async function refreshNisabCalculations(
     // First, try to refresh the exchange rates
     const currencyStore = useCurrencyStore.getState();
     let refreshed = false;
-    let refreshErrors = [];
+    const refreshErrors = [];
 
     try {
         // Force refresh the rates for both the source and target currencies

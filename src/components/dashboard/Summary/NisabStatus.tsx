@@ -31,7 +31,7 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
     if (isOfflineMode || isFetching) {
       return "Using local metal price data for nisab calculations. Live prices unavailable.";
     }
-    return "Nisab is the minimum amount of wealth that must be owned before Zakat becomes obligatory. It is calculated based on the value of either gold (85g) or silver (595g), whichever is lower.";
+    return "Nisab is the minimum amount of wealth that must be owned before Zakat becomes obligatory. It is calculated based on the value of either gold (85g) or silver (612.36g), whichever is lower.";
   }, [isOfflineMode, isFetching]);
   const { metalPrices, isFetchingNisab } = useZakatStore();
 
@@ -242,7 +242,7 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
                   className="rounded-lg p-3 bg-white/50 backdrop-blur-sm"
                 >
                   <div className="text-xs text-gray-500 mb-1 flex items-center">
-                    Silver Nisab (595g)
+                    Silver Nisab (612.36g)
                     {!convertedValues.isDirectSilverPrice && (
                       <span className="ml-1 text-amber-500 text-[10px] px-1 py-0.5 rounded bg-amber-100/60">converted</span>
                     )}

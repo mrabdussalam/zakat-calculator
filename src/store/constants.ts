@@ -1,17 +1,8 @@
 import { RetirementValues } from './types'
 import { StockValues, StockPrices } from '@/lib/assets/stocks'
 
-// Nisab thresholds in grams
-export const NISAB = {
-  GOLD: {
-    GRAMS: 85,    // 85 grams of gold
-    DESCRIPTION: '85 grams of gold'
-  },
-  SILVER: {
-    GRAMS: 595,   // 595 grams of silver
-    DESCRIPTION: '595 grams of silver'
-  }
-}
+// Re-export from canonical source
+export { NISAB, ZAKAT_RATE } from '@/lib/constants'
 
 // Add default Hawl status
 export const DEFAULT_HAWL_STATUS = {
@@ -21,7 +12,7 @@ export const DEFAULT_HAWL_STATUS = {
   retirement: true,
   real_estate: true,
   crypto: true,
-  debt_receivable: true
+  debt: true
 } as const
 
 export const initialRetirementValues: RetirementValues = {
@@ -43,4 +34,4 @@ export const initialStockPrices = {
   prices: {},
   lastUpdated: new Date(),
   currency: 'USD'
-} 
+}

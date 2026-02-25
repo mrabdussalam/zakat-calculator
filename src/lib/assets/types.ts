@@ -8,6 +8,7 @@ export interface AssetBreakdownItem {
   tooltip: string
   percentage?: number
   isExempt?: boolean
+  isLiability?: boolean
   displayProperties?: Record<string, any>
 }
 
@@ -28,20 +29,11 @@ export interface AssetType {
   getBreakdown: (values: any, prices: any | undefined, hawlMet: boolean, currency?: string) => AssetBreakdown
 }
 
-// Constants for Zakat calculations
-export const ZAKAT_RATE = 0.025 // 2.5%
+// Re-export constants from canonical source for backward compatibility
+export { ZAKAT_RATE, NISAB } from '@/lib/constants'
 
-// Export NISAB constant
-export const NISAB = {
-  GOLD: {
-    GRAMS: 85,
-    DESCRIPTION: 'Gold Nisab (85g)'
-  },
-  SILVER: {
-    GRAMS: 595,
-    DESCRIPTION: 'Silver Nisab (595g)'
-  }
-} as const
+// Import for local use
+import { ZAKAT_RATE as _ZAKAT_RATE } from '@/lib/constants'
 
 // Helper for safe calculations
 export const safeCalculate = (value: number | undefined | null): number => {
@@ -51,7 +43,7 @@ export const safeCalculate = (value: number | undefined | null): number => {
 
 // Helper for calculating zakat due
 export const calculateZakatDue = (zakatableAmount: number): number => {
-  return zakatableAmount * ZAKAT_RATE
+  return zakatableAmount * _ZAKAT_RATE
 }
 
 /**
@@ -87,31 +79,4 @@ export interface PassiveCalculations {
   method: 'quick' | 'detailed';
 }
 
-export interface RealEstateValues {
-  // Primary Residence (exempt)
-  primary_residence_value?: number
-  
-  // Rental Property
-  rental_income?: number
-  rental_expenses?: number
-  
-  // Property for Sale
-  property_for_sale_value?: number
-  property_for_sale_active?: number // 1 for active, 0 for inactive
-  
-  // Vacant Land
-  vacant_land_value?: number
-  vacant_land_sold?: number // 1 for sold, 0 for not sold
-  sale_price?: number
-}
-
-export interface RealEstateCalculations extends AssetBreakdown {
-  totalAssets: number;
-  zakatableAmount: number;
-  zakatDue: number;
-  items: Record<string, AssetBreakdownItem & {
-    label: string;
-    isExempt?: boolean;
-    zakatable: number;
-  }>;
-} 
+ 

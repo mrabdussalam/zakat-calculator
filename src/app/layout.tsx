@@ -12,20 +12,12 @@ import { HydrationGuard } from '@/components/ui/HydrationGuard'
 import { HydrationStatus } from '@/components/ui/HydrationStatus'
 import { HydrationTester } from '@/components/ui/HydrationTester'
 import { PageTransition } from '@/components/ui/PageTransition'
-import { cn } from "@/lib/utils";
 
-const GA_ID = process.env.NEXT_PUBLIC_GA_ID || 'G-N5SFJ07P99';
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 const isDevelopment =
   process.env.NODE_ENV === "development" ||
   process.env.NEXT_PUBLIC_VERCEL_ENV === "development" ||
   process.env.NEXT_PUBLIC_VERCEL_ENV === "preview";
-
-// Log fonts for debugging
-console.log('Font variables:', {
-  inter: inter.variable,
-  syne: syne.variable,
-  anglecia: anglecia.variable
-});
 
 export const metadata: Metadata = {
   title: "Zakat Guide | Calculate your Zakat",
@@ -39,27 +31,30 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <Script
-          strategy="afterInteractive"
-          src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
-        />
-        <Script
-          id="gtag-init"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', '${GA_ID}', {
-                page_path: window.location.pathname,
-              });
-            `,
-          }}
-        />
-      </head>
+      <head />
       <body className={`${inter.variable} ${syne.variable} ${anglecia.variable} antialiased`}>
+        {GA_ID && (
+          <>
+            <Script
+              strategy="afterInteractive"
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+            />
+            <Script
+              id="gtag-init"
+              strategy="afterInteractive"
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('js', new Date());
+                  gtag('config', '${GA_ID}', {
+                    page_path: window.location.pathname,
+                  });
+                `,
+              }}
+            />
+          </>
+        )}
         <ClientHydration />
         <HydrationGuard fallback={
           <div className="flex h-screen w-full items-center justify-center">

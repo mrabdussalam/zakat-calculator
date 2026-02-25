@@ -328,7 +328,7 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
             (s: ActiveStock) => s.symbol.toUpperCase() === symbol.toUpperCase()
           )
 
-          let updatedStocks = [...state.stockValues.activeStocks]
+          const updatedStocks = [...state.stockValues.activeStocks]
 
           if (existingIndex >= 0) {
             // Update existing stock
@@ -353,10 +353,14 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
             })
           }
 
+          const totalValue = updatedStocks.reduce((sum, s) => sum + (s.marketValue || 0), 0)
+
           return {
             stockValues: {
               ...state.stockValues,
-              activeStocks: updatedStocks
+              activeStocks: updatedStocks,
+              market_value: totalValue,
+              zakatable_value: state.stockHawlMet ? totalValue : 0
             }
           }
         })
@@ -373,7 +377,7 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
             (s: ActiveStock) => s.symbol.toUpperCase() === symbol.toUpperCase()
           )
 
-          let updatedStocks = [...state.stockValues.activeStocks]
+          const updatedStocks = [...state.stockValues.activeStocks]
 
           if (existingIndex >= 0) {
             // Update existing stock
@@ -398,10 +402,14 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
             })
           }
 
+          const totalValue = updatedStocks.reduce((sum, s) => sum + (s.marketValue || 0), 0)
+
           return {
             stockValues: {
               ...state.stockValues,
-              activeStocks: updatedStocks
+              activeStocks: updatedStocks,
+              market_value: totalValue,
+              zakatable_value: state.stockHawlMet ? totalValue : 0
             }
           }
         })
@@ -460,12 +468,19 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
   },
 
   removeActiveStock: (symbol: string) => {
-    set((state) => ({
-      stockValues: {
-        ...state.stockValues,
-        activeStocks: state.stockValues.activeStocks.filter(s => s.symbol !== symbol)
+    set((state) => {
+      const updatedStocks = state.stockValues.activeStocks.filter(s => s.symbol !== symbol)
+      const totalValue = updatedStocks.reduce((sum, s) => sum + (s.marketValue || 0), 0)
+
+      return {
+        stockValues: {
+          ...state.stockValues,
+          activeStocks: updatedStocks,
+          market_value: totalValue,
+          zakatable_value: state.stockHawlMet ? totalValue : 0
+        }
       }
-    }))
+    })
   },
 
   updateStockPrices: async (targetCurrency?: string, fromCurrency?: string) => {
@@ -591,10 +606,14 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
 
         console.log(`Stock update results: ${successCount} fetched, ${conversionCount} converted, ${failureCount} failed`);
 
+        const totalValue = updatedStocks.reduce((sum: number, s: ActiveStock) => sum + (s.marketValue || 0), 0)
+
         return {
           stockValues: {
             ...state.stockValues,
-            activeStocks: updatedStocks
+            activeStocks: updatedStocks,
+            market_value: totalValue,
+            zakatable_value: state.stockHawlMet ? totalValue : 0
           },
           currency: currentCurrency // Update global currency
         };
@@ -758,8 +777,8 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
       }
     }
 
-    // Add passive investments
-    if (state.stockValues?.passiveInvestments) {
+    // Add passive investments (only if they have a non-zero value)
+    if (state.stockValues?.passiveInvestments && state.stockValues.passiveInvestments.marketValue > 0) {
       const passiveValue = state.stockValues.passiveInvestments.marketValue
       const passiveZakatable = state.stockValues.passiveInvestments.zakatableValue
       const method = state.stockValues.passiveInvestments.method
@@ -917,8 +936,8 @@ export const createStocksSlice: StateCreator<ZakatState, [], [], any> = (set, ge
     const metalPrices = state.metalPrices || { gold: 0, silver: 0 }
 
     // Calculate nisab thresholds
-    const goldNisab = NISAB.GOLD * metalPrices.gold
-    const silverNisab = NISAB.SILVER * metalPrices.silver
+    const goldNisab = NISAB.GOLD.GRAMS * metalPrices.gold
+    const silverNisab = NISAB.SILVER.GRAMS * metalPrices.silver
 
     // Use the lower of the two nisab values
     const nisabThreshold = Math.min(goldNisab, silverNisab)

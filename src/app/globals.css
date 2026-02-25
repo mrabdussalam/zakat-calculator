@@ -133,20 +133,18 @@ body {
     @apply text-sm text-orange-500;
   }
 
-  /* Section titles with Anglecia font */
+  /* Section titles with Inter font */
   .section-title {
-    @apply text-2xl font-medium text-gray-900 tracking-tight;
-    font-family: var(--font-anglecia), serif !important;
-    font-weight: 400 !important;
-    font-style: italic !important;
+    @apply text-2xl font-semibold text-gray-900 tracking-tight;
+    font-family: var(--font-inter), sans-serif !important;
+    font-style: normal !important;
     letter-spacing: -0.01em;
   }
 
   .page-title {
-    @apply text-2xl font-medium text-gray-900 tracking-tight;
-    font-family: var(--font-anglecia), serif !important;
-    font-weight: 400 !important;
-    font-style: italic !important;
+    @apply text-2xl font-semibold text-gray-900 tracking-tight;
+    font-family: var(--font-inter), sans-serif !important;
+    font-style: normal !important;
     letter-spacing: -0.01em;
   }
 }

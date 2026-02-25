@@ -131,13 +131,6 @@ export default function HomePage() {
     if (zakatStore && typeof zakatStore.resetWithCurrencyChange === 'function') {
       console.log('Performing hard reset with currency change to:', currentCurrency)
       zakatStore.resetWithCurrencyChange(currentCurrency)
-    } else {
-      console.warn('resetWithCurrencyChange function not available, using fallback')
-      // Fallback: Store the currency selection in localStorage for the dashboard to use
-      localStorage.setItem('zakatState', JSON.stringify({
-        currency: currentCurrency,
-        setupCompleted: true
-      }))
     }
 
     // Small delay to show loading state
@@ -190,7 +183,14 @@ export default function HomePage() {
               <p className="text-sm text-gray-600">Choose the currency you'll use for calculations</p>
             </div>
 
-            <CurrencySelector />
+            <CurrencySelector
+              value={selectedCurrency}
+              onValueChange={(value) => {
+                setSelectedCurrency(value)
+                localStorage.setItem('selected-currency', value)
+                window.dispatchEvent(new CustomEvent('currency-changed', { detail: { from: selectedCurrency, to: value } }))
+              }}
+            />
 
             {/* CTA Button */}
             <div className="pt-2">

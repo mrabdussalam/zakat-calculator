@@ -13,10 +13,12 @@ export const SUPPORTED_CURRENCIES = {
   USD: { code: "USD", locale: "en-US", symbol: "$", name: "US Dollar" },
   GBP: { code: "GBP", locale: "en-GB", symbol: "£", name: "British Pound" },
   SAR: { code: "SAR", locale: "ar-SA", symbol: "﷼", name: "Saudi Riyal" },
-  // Temporarily removed AED until we fix currency conversion issues
-  // AED: { code: "AED", locale: "ar-AE", symbol: "د.إ", name: "UAE Dirham" },
+  AED: { code: "AED", locale: "ar-AE", symbol: "د.إ", name: "UAE Dirham" },
   INR: { code: "INR", locale: "en-IN", symbol: "₹", name: "Indian Rupee" },
   PKR: { code: "PKR", locale: "ur-PK", symbol: "₨", name: "Pakistani Rupee" },
+  CAD: { code: "CAD", locale: "en-CA", symbol: "C$", name: "Canadian Dollar" },
+  AUD: { code: "AUD", locale: "en-AU", symbol: "A$", name: "Australian Dollar" },
+  QAR: { code: "QAR", locale: "ar-QA", symbol: "ر.ق", name: "Qatari Riyal" },
   RUB: {code: "RUB", locale: "ru-RU", symbol: "₽", name: "Russian Ruble"},
 }
 

@@ -32,7 +32,8 @@ import { debounce } from 'lodash'
 import { CheckIcon } from '@radix-ui/react-icons'
 import { BrokerInfo } from '@/components/ui/broker-info'
 import { InfoIcon as LucideInfoIcon } from 'lucide-react'
-import { ExtendedWindow } from '@/types'
+import { useStoreHydration } from '@/hooks/useStoreHydration'
+import { useCalculatorReset } from '@/hooks/useCalculatorReset'
 
 // Constants for validation
 const MAX_SHARE_VALUE = 999999999999
@@ -319,120 +320,59 @@ export function PassiveInvestmentsTab({
     method
   })
 
-  // Add a state to track if store has been hydrated
-  const [storeHydrated, setStoreHydrated] = useState(false)
+  // Track if store has been hydrated
+  const isHydrated = useStoreHydration()
 
-  // Add a listener for the store hydration event
-  useEffect(() => {
-    const handleHydrationComplete = () => {
-      console.log('PassiveInvestmentsTab: Store hydration complete event received')
-      setStoreHydrated(true)
-    }
+  // Handle store resets
+  const handleStoreReset = useCallback(() => {
+    setRawInputValues({
+      total_market_value: '',
+      passive_shares: '',
+      price_per_share: '',
+      company_cash: '',
+      company_receivables: '',
+      company_inventory: '',
+      total_shares_issued: ''
+    })
 
-    // Listen for the custom hydration event
-    window.addEventListener('store-hydration-complete', handleHydrationComplete)
+    setInvestments([{
+      id: Date.now().toString(),
+      name: '',
+      shares: 0,
+      pricePerShare: 0,
+      marketValue: 0
+    }])
 
-    // Check if hydration already happened
-    if (typeof window !== 'undefined') {
-      // Safe way to check for custom property without TypeScript errors
-      const win = window as ExtendedWindow;
-      if (win.hasDispatchedHydrationEvent) {
-        handleHydrationComplete()
+    setErrors([])
+    setMethod('quick')
+    updatePassiveInvestments(createDefaultState(currency))
+
+    onCalculate({
+      totalMarketValue: 0,
+      zakatableValue: 0,
+      method: 'quick',
+      breakdown: {
+        marketValue: 0,
+        liquidValue: 0,
+        items: []
+      },
+      displayProperties: {
+        currency,
+        method: '30% Rule',
+        totalLabel: 'Total Investments'
       }
-    }
+    })
 
-    return () => {
-      window.removeEventListener('store-hydration-complete', handleHydrationComplete)
-    }
-  }, [])
+    const emptyEvent = { target: { value: '' } } as React.ChangeEvent<HTMLInputElement>
+    onValueChange('passive_shares', emptyEvent)
+    onValueChange('price_per_share', emptyEvent)
+    onValueChange('company_cash', emptyEvent)
+    onValueChange('company_receivables', emptyEvent)
+    onValueChange('company_inventory', emptyEvent)
+    onValueChange('total_shares_issued', emptyEvent)
+  }, [currency, updatePassiveInvestments, onCalculate, onValueChange])
 
-  // Add a listener to detect store resets
-  useEffect(() => {
-    // Only process resets after hydration is complete to prevent false resets
-    if (!storeHydrated) return
-
-    const handleReset = (event?: Event) => {
-      console.log('PassiveInvestmentsTab: Store reset event detected')
-
-      // Check if this is still during initial page load
-      if (typeof window !== 'undefined') {
-        // Safe way to check for custom property without TypeScript errors
-        const win = window as any
-        if (win.isInitialPageLoad) {
-          console.log('PassiveInvestmentsTab: Ignoring reset during initial page load')
-          return
-        }
-      }
-
-      // This is a user-initiated reset, so clear all local state
-      console.log('PassiveInvestmentsTab: Clearing local state due to user-initiated reset')
-
-      // Clear all input values
-      setRawInputValues({
-        total_market_value: '',
-        passive_shares: '',
-        price_per_share: '',
-        company_cash: '',
-        company_receivables: '',
-        company_inventory: '',
-        total_shares_issued: ''
-      })
-
-      // Reset investments to default
-      setInvestments([{
-        id: Date.now().toString(),
-        name: '',
-        shares: 0,
-        pricePerShare: 0,
-        marketValue: 0
-      }])
-
-      // Clear errors
-      setErrors([])
-
-      // Reset method to quick
-      setMethod('quick')
-
-      // Update the store with empty values
-      updatePassiveInvestments(createDefaultState(currency))
-
-      // Notify parent component of reset
-      onCalculate({
-        totalMarketValue: 0,
-        zakatableValue: 0,
-        method: 'quick',
-        breakdown: {
-          marketValue: 0,
-          liquidValue: 0,
-          items: []
-        },
-        displayProperties: {
-          currency,
-          method: '30% Rule',
-          totalLabel: 'Total Investments'
-        }
-      })
-
-      // Clear all input values in parent component
-      const emptyEvent = { target: { value: '' } } as React.ChangeEvent<HTMLInputElement>
-      onValueChange('passive_shares', emptyEvent)
-      onValueChange('price_per_share', emptyEvent)
-      onValueChange('company_cash', emptyEvent)
-      onValueChange('company_receivables', emptyEvent)
-      onValueChange('company_inventory', emptyEvent)
-      onValueChange('total_shares_issued', emptyEvent)
-    }
-
-    // Listen for both possible reset event names
-    window.addEventListener('store-reset', handleReset)
-    window.addEventListener('zakat-store-reset', handleReset)
-
-    // Cleanup
-    return () => {
-      window.removeEventListener('store-reset', handleReset)
-      window.removeEventListener('zakat-store-reset', handleReset)
-    }
-  }, [storeHydrated, currency, updatePassiveInvestments, onCalculate, onValueChange])
+  useCalculatorReset(isHydrated, handleStoreReset)
 
   // Memoize total market value calculation
   const totalMarketValue = useMemo(() =>

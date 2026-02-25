@@ -6,12 +6,7 @@ import { useCurrencyStore } from '@/lib/services/currency';
 import { formatCurrency } from '@/lib/utils';
 import { calculateNisabThresholds } from '@/lib/utils/nisabCalculations';
 import { useStoreHydration } from '@/hooks/useStoreHydration';
-
-// Environment detection for Replit
-const IS_REPLIT =
-  typeof window !== 'undefined' &&
-  (window.location.hostname.includes('replit') ||
-    window.location.hostname.endsWith('.repl.co'));
+import { IS_REPLIT_CLIENT as IS_REPLIT } from '@/lib/utils/environment';
 
 // Add a Replit-specific timeout that's longer than local to account for slower network
 const REPLIT_API_TIMEOUT = IS_REPLIT ? 15000 : 8000;
@@ -376,16 +371,6 @@ export function useNisabStatus(
             isCache: extendedPrices.isCache || false,
             source: extendedPrices.source || 'manual-update'
           });
-
-          // Dispatch an event to tell other components we have new prices
-          const event = new CustomEvent('metals-updated', {
-            detail: {
-              currency: newCurrency,
-              fresh: true,
-              source: 'manual-update'
-            }
-          });
-          window.dispatchEvent(event);
         }
 
         // CRITICAL FIX: Use a try/catch block and don't wait for the promise to complete
@@ -467,15 +452,6 @@ export function useNisabStatus(
           source: response.source || 'immediate-fallback'
         });
       }
-
-      // Dispatch event for other components
-      window.dispatchEvent(new CustomEvent('metals-updated', {
-        detail: {
-          currency: currency,
-          fresh: true,
-          source: 'immediate-fallback'
-        }
-      }));
 
       // Force a UI update
       setComponentKey(Date.now());
@@ -649,6 +625,12 @@ export function useNisabStatus(
           console.log('useNisabStatus: Using existing prices for initial load');
           // Use dynamic calculation instead of stored values
           updateLocalNisabValues(currentPrices);
+
+          // Also populate the store's nisabData so getNisabStatus() returns correct values.
+          // This is the one-time init by the owner hook, not a reactive cascade.
+          if (typeof currentState.updateNisabWithPrices === 'function') {
+            currentState.updateNisabWithPrices(currentPrices);
+          }
         } else {
           // Otherwise fetch new prices for the current currency
           console.log('useNisabStatus: Fetching fresh prices for initial load');
@@ -746,34 +728,17 @@ export function useNisabStatus(
   // Effect to track metalPrices changes and update UI
   useEffect(() => {
     if (metalPrices && !isFetching) {
-      console.log('useNisabStatus: Metal prices updated, refreshing calculations', {
+      console.log('useNisabStatus: Metal prices updated, refreshing local calculations', {
         gold: metalPrices.gold,
         silver: metalPrices.silver,
-        lastUpdated: metalPrices.lastUpdated,
         currency: metalPrices.currency,
         displayCurrency: currency
       });
 
-      // Always recalculate nisab values dynamically with the current currency
-      // This ensures we're always showing values in the user's selected currency
+      // Recalculate local nisab threshold values for the UI display.
+      // Store-level nisab updates are handled by whichever hook actually fetched the prices
+      // (either this hook's init or useMetalsPrices), avoiding redundant cascading writes.
       updateLocalNisabValues(metalPrices);
-
-      // Force a refresh of the nisab threshold in the store
-      // This ensures the nisab threshold is always in sync with the metal prices
-      const currentState = useZakatStore.getState();
-      if (typeof currentState.updateNisabWithPrices === 'function') {
-        console.log('useNisabStatus: Forcing nisab update with current metal prices');
-        currentState.updateNisabWithPrices(metalPrices);
-      } else if (typeof currentState.forceRefreshNisabForCurrency === 'function' && metalPrices.currency) {
-        console.log('useNisabStatus: Forcing nisab refresh with current currency:', metalPrices.currency);
-        currentState.forceRefreshNisabForCurrency(metalPrices.currency)
-          .then(success => {
-            console.log('useNisabStatus: Nisab refresh result:', success ? 'success' : 'failed');
-          })
-          .catch(error => {
-            console.error('useNisabStatus: Error refreshing nisab data:', error);
-          });
-      }
     }
   }, [metalPrices, currency, isFetching, updateLocalNisabValues]);
 

@@ -1,5 +1,5 @@
 import { createCalculatorValidation } from '../templates/calculatorValidation'
-import { StockValues } from '@/store/types'
+import { StockValues } from '@/lib/assets/stocks'
 import '@testing-library/jest-dom'
 import { Investment, CompanyFinancials } from '@/lib/assets/types'
 
@@ -23,21 +23,11 @@ describe('Stocks Calculator Validation', () => {
         zakatDue: 375
       }
     ],
-    active_shares: 100,
-    active_price_per_share: 150,
-    passive_shares: 50,
-    company_cash: 10000,
-    company_receivables: 5000,
-    company_inventory: 20000,
-    total_shares_issued: 1000,
     total_dividend_earnings: 1000,
     fund_value: 50000,
     is_passive_fund: false,
-    dividend_per_share: 1,
-    dividend_shares: 1000,
     market_value: 15000,
     zakatable_value: 15000,
-    price_per_share: 150,
     passiveInvestments: {
       version: "2.0" as const,
       method: 'quick',
@@ -62,31 +52,18 @@ describe('Stocks Calculator Validation', () => {
     }
   }
 
-  const stocksValidation = createCalculatorValidation<StockValues>({
+  // Use 'any' for the generic since createCalculatorValidation requires Record<string, unknown>
+  // but the canonical StockValues has typed properties. The validation logic operates at runtime.
+  const stocksValidation = createCalculatorValidation<any>({
     name: 'Stocks Calculator',
     requiredFields: [
       'activeStocks',
-      'active_shares',
-      'active_price_per_share',
-      'passive_shares',
-      'company_cash',
-      'company_receivables',
-      'company_inventory',
-      'total_shares_issued',
-      'total_dividend_earnings',
-      'fund_value',
-      'is_passive_fund'
+      'market_value',
+      'zakatable_value'
     ],
     numericalFields: [
-      'active_shares',
-      'active_price_per_share',
-      'passive_shares',
-      'company_cash',
-      'company_receivables',
-      'company_inventory',
-      'total_shares_issued',
-      'total_dividend_earnings',
-      'fund_value'
+      'market_value',
+      'zakatable_value'
     ],
     booleanFields: ['is_passive_fund'],
     customValidations: [
@@ -162,21 +139,11 @@ describe('Stocks Calculator Validation', () => {
     it('should validate zero values', () => {
       const zeroValues: StockValues = {
         activeStocks: [],
-        active_shares: 0,
-        active_price_per_share: 0,
-        passive_shares: 0,
-        company_cash: 0,
-        company_receivables: 0,
-        company_inventory: 0,
-        total_shares_issued: 0,
         total_dividend_earnings: 0,
         fund_value: 0,
         is_passive_fund: false,
-        dividend_per_share: 0,
-        dividend_shares: 0,
         market_value: 0,
-        zakatable_value: 0,
-        price_per_share: 0
+        zakatable_value: 0
       }
 
       expect(stocksValidation.validateValues(zeroValues)).toBe(true)
@@ -193,21 +160,11 @@ describe('Stocks Calculator Validation', () => {
             zakatDue: 375
           }
         ],
-        active_shares: 100,
-        active_price_per_share: 150,
-        passive_shares: 50,
-        company_cash: 10000,
-        company_receivables: 5000,
-        company_inventory: 20000,
-        total_shares_issued: 1000,
         total_dividend_earnings: 1000,
         fund_value: 50000,
         is_passive_fund: false,
-        dividend_per_share: 1,
-        dividend_shares: 1000,
         market_value: 15000,
-        zakatable_value: 15000,
-        price_per_share: 150
+        zakatable_value: 15000
       }
 
       expect(stocksValidation.validateValues(negativeValues)).toBe(false)
@@ -215,9 +172,8 @@ describe('Stocks Calculator Validation', () => {
 
     it('should reject missing required fields', () => {
       const missingFields: Partial<StockValues> = {
-        activeStocks: [],
-        active_shares: 100
-        // Missing other required fields
+        activeStocks: []
+        // Missing market_value, zakatable_value
       }
 
       expect(stocksValidation.validateValues(missingFields as StockValues)).toBe(false)
@@ -233,21 +189,11 @@ describe('Stocks Calculator Validation', () => {
             // Missing marketValue and zakatDue
           } as any
         ],
-        active_shares: 100,
-        active_price_per_share: 150,
-        passive_shares: 50,
-        company_cash: 10000,
-        company_receivables: 5000,
-        company_inventory: 20000,
-        total_shares_issued: 1000,
         total_dividend_earnings: 1000,
         fund_value: 50000,
         is_passive_fund: false,
-        dividend_per_share: 1,
-        dividend_shares: 1000,
         market_value: 15000,
-        zakatable_value: 15000,
-        price_per_share: 150
+        zakatable_value: 15000
       }
 
       expect(stocksValidation.validateValues(invalidStructure)).toBe(false)
@@ -341,7 +287,7 @@ describe('Stocks Calculator Validation', () => {
       expect(stocksValidation.validateValues({
         ...validValues,
         passiveInvestments: {
-          version: "2.0" as const,
+          version: "2.0",
           method: 'detailed' as const,
           marketValue: 35000,
           zakatableValue: 35000,
@@ -362,7 +308,7 @@ describe('Stocks Calculator Validation', () => {
             method: 'CRI Method',
             totalLabel: 'Total Company Assets'
           }
-        }
+        } as any
       })).toBe(true)
     })
 
@@ -426,7 +372,7 @@ describe('Stocks Calculator Validation', () => {
       expect(stocksValidation.validateZakatableAmount({
         ...validValues,
         passiveInvestments: {
-          version: "2.0" as const,
+          version: "2.0",
           method: 'detailed' as const,
           marketValue: 35000,
           zakatableValue: 35000, // Full value of liquid assets
@@ -447,7 +393,7 @@ describe('Stocks Calculator Validation', () => {
             method: 'CRI Method',
             totalLabel: 'Total Company Assets'
           }
-        }
+        } as any
       }, true)).toBe(true)
     })
 
@@ -479,21 +425,11 @@ describe('Stocks Calculator Validation', () => {
     it('should validate reset to initial state', () => {
       const initialState: StockValues = {
         activeStocks: [],
-        active_shares: 0,
-        active_price_per_share: 0,
-        passive_shares: 0,
-        company_cash: 0,
-        company_receivables: 0,
-        company_inventory: 0,
-        total_shares_issued: 0,
         total_dividend_earnings: 0,
         fund_value: 0,
         is_passive_fund: false,
-        dividend_per_share: 0,
-        dividend_shares: 0,
         market_value: 0,
         zakatable_value: 0,
-        price_per_share: 0,
         passiveInvestments: {
           version: "2.0" as const,
           method: 'quick' as const,
@@ -578,8 +514,8 @@ describe('Stocks Calculator Validation', () => {
         passiveInvestments: {
           version: "2.0" as const,
           method: 'quick' as const,
-          marketValue: oldState.fund_value,
-          zakatableValue: oldState.fund_value * 0.3,
+          marketValue: oldState.fund_value || 0,
+          zakatableValue: (oldState.fund_value || 0) * 0.3,
           investments: [],
           hawlStatus: {
             isComplete: false,

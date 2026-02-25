@@ -4,6 +4,7 @@ import { useCurrencyContext } from '@/lib/context/CurrencyContext'
 import { useCurrencyStore } from '@/lib/services/currency'
 import { MetalPrices } from '@/store/modules/metals.types'
 import { toGrams, WeightUnit } from '@/lib/utils/units'
+import { DEFAULT_METAL_PRICES } from '@/lib/constants/metals'
 
 // Constants for conversion rates and purity levels
 const CONVERSION_RATES = {
@@ -62,8 +63,8 @@ interface UseMetalsPricesProps {
 export function useMetalsPrices({ currency }: UseMetalsPricesProps) {
     const {
         metalPrices = {
-            gold: 93.98,  // Updated default gold price per gram to match fallback
-            silver: 1.02, // Updated default silver price per gram to match fallback
+            gold: DEFAULT_METAL_PRICES.gold,
+            silver: DEFAULT_METAL_PRICES.silver,
             lastUpdated: new Date(),
             isCache: true,
             currency: currency
@@ -105,13 +106,13 @@ export function useMetalsPrices({ currency }: UseMetalsPricesProps) {
 
                 // Convert the prices
                 const convertedGoldPrice = currencyStore.convertAmount(
-                    prices.gold || 65.52,
+                    prices.gold || DEFAULT_METAL_PRICES.gold,
                     sourceCurrency,
                     targetCurrency
                 )
 
                 const convertedSilverPrice = currencyStore.convertAmount(
-                    prices.silver || 0.85,
+                    prices.silver || DEFAULT_METAL_PRICES.silver,
                     sourceCurrency,
                     targetCurrency
                 )
@@ -137,8 +138,8 @@ export function useMetalsPrices({ currency }: UseMetalsPricesProps) {
                 console.error('Failed to convert prices:', error)
                 // Fall back to using original prices but with correct currency
                 setMetalPrices({
-                    gold: prices.gold || 65.52,
-                    silver: prices.silver || 0.85,
+                    gold: prices.gold || DEFAULT_METAL_PRICES.gold,
+                    silver: prices.silver || DEFAULT_METAL_PRICES.silver,
                     lastUpdated: new Date(prices.lastUpdated || new Date()),
                     isCache: true,
                     currency: targetCurrency // Always use the right currency even if conversion failed
@@ -147,8 +148,8 @@ export function useMetalsPrices({ currency }: UseMetalsPricesProps) {
         } else {
             // No conversion needed, just set the prices
             setMetalPrices({
-                gold: prices.gold || 65.52,
-                silver: prices.silver || 0.85,
+                gold: prices.gold || DEFAULT_METAL_PRICES.gold,
+                silver: prices.silver || DEFAULT_METAL_PRICES.silver,
                 lastUpdated: new Date(prices.lastUpdated || new Date()),
                 isCache: prices.isCache || false,
                 currency: targetCurrency // Always use the explicitly provided currency
@@ -189,8 +190,8 @@ export function useMetalsPrices({ currency }: UseMetalsPricesProps) {
             if (!response.ok) {
                 console.warn(`Using fallback prices. API returned: ${response.status}`)
                 updateMetalPrices({
-                    gold: 93.98,
-                    silver: 1.02,
+                    gold: DEFAULT_METAL_PRICES.gold,
+                    silver: DEFAULT_METAL_PRICES.silver,
                     lastUpdated: new Date(),
                     isCache: true,
                     currency: 'USD'
@@ -316,16 +317,16 @@ export function useMetalsPrices({ currency }: UseMetalsPricesProps) {
             console.error('Error fetching metal prices:', error)
             // Even on error, make sure we update with correct currency
             updateMetalPrices({
-                gold: 93.98,
-                silver: 1.02,
+                gold: DEFAULT_METAL_PRICES.gold,
+                silver: DEFAULT_METAL_PRICES.silver,
                 lastUpdated: new Date(),
                 isCache: true,
                 currency: 'USD'
             }, 'USD', currency)
 
             // Set fallback extended prices
-            const goldPriceG = 93.98
-            const silverPriceG = 1.02
+            const goldPriceG = DEFAULT_METAL_PRICES.gold
+            const silverPriceG = DEFAULT_METAL_PRICES.silver
 
             // Calculate gold prices in different units and purities
             const goldPriceOZ = goldPriceG * CONVERSION_RATES.OZ_TO_GRAM

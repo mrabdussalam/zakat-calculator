@@ -9,6 +9,7 @@ import { createRetirementSlice } from './modules/retirement'
 import { createRealEstateSlice } from './modules/realEstate'
 import { createCryptoSlice } from './modules/crypto'
 import { createDistributionSlice } from './modules/distribution'
+import { createDebtSlice } from './modules/debt'
 import { DEFAULT_HAWL_STATUS } from './constants'
 
 // Initial state
@@ -74,12 +75,20 @@ const initialState: Partial<ZakatState> = {
     total_value: 0,
     zakatable_value: 0
   },
+  debtValues: {
+    receivables: 0,
+    short_term_liabilities: 0,
+    long_term_liabilities_annual: 0,
+    receivables_entries: [],
+    liabilities_entries: []
+  },
   cashHawlMet: DEFAULT_HAWL_STATUS.cash,
   metalsHawlMet: DEFAULT_HAWL_STATUS.metals,
   stockHawlMet: DEFAULT_HAWL_STATUS.stocks,
   retirementHawlMet: DEFAULT_HAWL_STATUS.retirement,
   realEstateHawlMet: DEFAULT_HAWL_STATUS.real_estate,
-  cryptoHawlMet: DEFAULT_HAWL_STATUS.crypto
+  cryptoHawlMet: DEFAULT_HAWL_STATUS.crypto,
+  debtHawlMet: DEFAULT_HAWL_STATUS.debt
 }
 
 // Enhanced hydration function with better error handling and validation
@@ -197,6 +206,7 @@ export const useZakatStore = create<ZakatState>()(
       const cryptoSlice = createCryptoSlice(set, get, store)
       const nisabSlice = createNisabSlice(set, get, store)
       const distributionSlice = createDistributionSlice(set, get, store)
+      const debtSlice = createDebtSlice(set, get, store)
 
       return {
         ...initialState,
@@ -208,6 +218,7 @@ export const useZakatStore = create<ZakatState>()(
         ...cryptoSlice,
         ...nisabSlice,
         ...distributionSlice,
+        ...debtSlice,
 
         // Reset all slices
         reset: () => {
@@ -233,6 +244,7 @@ export const useZakatStore = create<ZakatState>()(
           setTimeout(() => retirementSlice.resetRetirement?.(), 40)
           setTimeout(() => realEstateSlice.resetRealEstateValues?.(), 50)
           setTimeout(() => cryptoSlice.resetCryptoValues?.(), 60)
+          setTimeout(() => debtSlice.resetDebtValues?.(), 70)
 
           // Update localStorage properly without removing the structure
           try {
@@ -260,6 +272,8 @@ export const useZakatStore = create<ZakatState>()(
                 retirementHawlMet: initialState.retirementHawlMet,
                 realEstateHawlMet: initialState.realEstateHawlMet,
                 ...('cryptoHawlMet' in initialState ? { cryptoHawlMet: initialState.cryptoHawlMet } : {}),
+                debtValues: initialState.debtValues,
+                debtHawlMet: initialState.debtHawlMet,
                 // Do not preserve nisab data or metal prices
                 nisabData: undefined
               };
@@ -340,11 +354,11 @@ export const useZakatStore = create<ZakatState>()(
                     }
 
                     // ENHANCEMENT: Force UI refresh for all calculators
-                    // Create a synthetic state update to trigger component re-renders
-                    // without adding new properties
+                    // Zustand uses shallow equality for selectors. When the user
+                    // re-selects the same currency (e.g., after a reset), subscribers
+                    // won't re-render because the value hasn't changed. This briefly
+                    // sets a different value to force a re-render cycle.
                     const currentState = get();
-                    // Temporarily modify and restore a property to force state update
-                    // without adding new properties
                     const originalCurrency = currentState.currency;
 
                     // First update with temporary value
@@ -448,15 +462,6 @@ export const useZakatStore = create<ZakatState>()(
                 });
             }
 
-            // Dispatch metals-updated event after the immediate update
-            const immediateEvent = new CustomEvent('metals-updated', {
-              detail: {
-                currency: newCurrency,
-                immediate: true
-              }
-            });
-            window.dispatchEvent(immediateEvent);
-
             // Now fetch the latest prices in the new currency
             console.log('Fetching fresh metal prices for new currency:', newCurrency);
 
@@ -500,15 +505,6 @@ export const useZakatStore = create<ZakatState>()(
                     source: data.source
                   });
 
-                  // Dispatch another event after we've updated with fresh data
-                  const freshEvent = new CustomEvent('metals-updated', {
-                    detail: {
-                      currency: newCurrency,
-                      immediate: false
-                    }
-                  });
-                  window.dispatchEvent(freshEvent);
-
                   console.log('Updated metal prices with fresh data:', data);
                 })
                 .catch(error => {
@@ -546,16 +542,6 @@ export const useZakatStore = create<ZakatState>()(
                       isCache: true,
                       source: 'Fallback Values'
                     });
-
-                    // Dispatch event for fallback values
-                    const fallbackEvent = new CustomEvent('metals-updated', {
-                      detail: {
-                        currency: newCurrency,
-                        immediate: false,
-                        fallback: true
-                      }
-                    });
-                    window.dispatchEvent(fallbackEvent);
                   }
                   // We already updated with the converted values, so the UI is still correct
                 });
@@ -606,7 +592,8 @@ export const useZakatStore = create<ZakatState>()(
               stockHawlMet: DEFAULT_HAWL_STATUS.stocks,
               retirementHawlMet: DEFAULT_HAWL_STATUS.retirement,
               realEstateHawlMet: DEFAULT_HAWL_STATUS.real_estate,
-              cryptoHawlMet: DEFAULT_HAWL_STATUS.crypto
+              cryptoHawlMet: DEFAULT_HAWL_STATUS.crypto,
+              debtHawlMet: DEFAULT_HAWL_STATUS.debt
             });
 
             // Also reset the slices
@@ -616,13 +603,7 @@ export const useZakatStore = create<ZakatState>()(
             retirementSlice.resetRetirement?.();
             realEstateSlice.resetRealEstateValues?.();
             cryptoSlice.resetCryptoValues?.();
-
-            // Set the new currency in localStorage
-            try {
-              localStorage.setItem('zakat-currency', newCurrency);
-            } catch (error) {
-              console.error('Failed to store currency in localStorage:', error instanceof Error ? error.message : String(error));
-            }
+            debtSlice.resetDebtValues?.();
 
             // Update metal prices immediately and in the background
             updateMetalPricesForCurrency();
@@ -735,6 +716,14 @@ export const useZakatStore = create<ZakatState>()(
               roth_ira: 0,
               pension: 0,
               other_retirement: 0
+            },
+            // Reset debt values
+            debtValues: {
+              receivables: 0,
+              short_term_liabilities: 0,
+              long_term_liabilities_annual: 0,
+              receivables_entries: [],
+              liabilities_entries: []
             }
           }));
 
@@ -756,21 +745,32 @@ export const useZakatStore = create<ZakatState>()(
         // Get complete breakdown
         getBreakdown: () => {
           const state = get()
+          const debtBreakdown = state.getDebtBreakdown()
+          const totalReceivables = state.getTotalReceivables()
+          const totalLiabilities = state.getTotalLiabilities()
+
           const totalValue =
             state.getTotalCash() +
             state.getMetalsTotal() +
             state.getTotalStocks() +
             state.getRetirementTotal() +
             state.getRealEstateTotal() +
-            state.getTotalCrypto()
+            state.getTotalCrypto() +
+            totalReceivables -
+            totalLiabilities
 
-          const zakatableValue =
+          const rawZakatableValue = Math.max(0,
             state.getTotalZakatableCash() +
             state.getMetalsZakatable() +
             state.getTotalZakatableStocks() +
             state.getRetirementZakatable() +
             state.getRealEstateZakatable() +
-            state.getTotalZakatableCrypto()
+            state.getTotalZakatableCrypto() +
+            debtBreakdown.zakatable
+          )
+
+          // Safety cap: zakatable can never exceed total assets
+          const zakatableValue = Math.min(rawZakatableValue, Math.max(0, totalValue))
 
           return {
             cash: state.getCashBreakdown(),
@@ -779,6 +779,7 @@ export const useZakatStore = create<ZakatState>()(
             retirement: state.getRetirementBreakdown(),
             realEstate: state.getRealEstateBreakdown(),
             crypto: state.getCryptoBreakdown(),
+            debt: debtBreakdown,
             combined: {
               totalValue,
               zakatableValue,
@@ -813,12 +814,14 @@ export const useZakatStore = create<ZakatState>()(
                 retirement: state.retirement,
                 realEstateValues: state.realEstateValues,
                 cryptoValues: state.cryptoValues,
+                debtValues: state.debtValues,
                 cashHawlMet: state.cashHawlMet,
                 metalsHawlMet: state.metalsHawlMet,
                 stockHawlMet: state.stockHawlMet,
                 retirementHawlMet: state.retirementHawlMet,
                 realEstateHawlMet: state.realEstateHawlMet,
                 cryptoHawlMet: state.cryptoHawlMet,
+                debtHawlMet: state.debtHawlMet,
                 metalPrices: state.metalPrices,
                 // Add distribution state to manual persistence
                 allocations: state.allocations,

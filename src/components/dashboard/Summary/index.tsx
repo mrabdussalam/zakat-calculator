@@ -25,6 +25,7 @@ const adaptBreakdown = (
       label: string
       tooltip?: string
       isExempt?: boolean
+      isLiability?: boolean
     }>
   },
   currency: string = 'USD'
@@ -47,7 +48,8 @@ const adaptBreakdown = (
           zakatDue,
           label: item.label,
           tooltip,
-          isExempt: item.isExempt
+          isExempt: item.isExempt,
+          isLiability: item.isLiability
         }
       }
     }, {})
@@ -70,7 +72,6 @@ export function Summary({ currency }: { currency: string }) {
     metalPrices,
     stockValues,
     stockPrices,
-    retirementValues,
     retirementHawlMet,
     realEstateValues,
     realEstateHawlMet,
@@ -83,7 +84,11 @@ export function Summary({ currency }: { currency: string }) {
     reset,
     getStocksBreakdown,
     metalsPreferences,
-    getMetalsTotal
+    getMetalsTotal,
+    getDebtBreakdown,
+    debtHawlMet,
+    getTotalReceivables,
+    getTotalLiabilities
   } = useZakatStore()
 
   const breakdown = getBreakdown()
@@ -94,7 +99,6 @@ export function Summary({ currency }: { currency: string }) {
     trackEvent({
       ...AnalyticsEvents.ZAKAT_CALCULATION,
       currency: currency,
-      value: breakdown.combined.zakatDue,
       label: nisabStatus.meetsNisab ? 'eligible' : 'not_eligible'
     })
   }, [breakdown.combined.zakatDue, currency, nisabStatus.meetsNisab])
@@ -103,7 +107,6 @@ export function Summary({ currency }: { currency: string }) {
   useEffect(() => {
     trackEvent({
       ...AnalyticsEvents.NISAB_CHECK,
-      value: nisabStatus.totalValue,
       label: nisabStatus.meetsNisab ? 'above' : 'below',
       currency: currency
     })
@@ -144,10 +147,14 @@ export function Summary({ currency }: { currency: string }) {
   const cryptoBreakdown = getCryptoBreakdown()
   const cashBreakdown = getCashBreakdown()
   const retirementBreakdown = getRetirementBreakdown()
+  const debtBreakdown = getDebtBreakdown()
+  const totalReceivables = getTotalReceivables()
+  const totalLiabilities = getTotalLiabilities()
 
   // Calculate total assets
   const totalAssets = totalMetals + totalCash + totalStocks +
-    retirementBreakdown.total + realEstateBreakdown.total + totalCrypto
+    retirementBreakdown.total + realEstateBreakdown.total + totalCrypto +
+    totalReceivables - totalLiabilities
 
   // Prepare asset breakdowns with consistent format
   const assetBreakdowns: Record<string, AssetBreakdownWithHawl> = {
@@ -184,6 +191,11 @@ export function Summary({ currency }: { currency: string }) {
       total: totalCrypto,
       hawlMet: cryptoHawlMet,
       breakdown: adaptBreakdown(cryptoBreakdown, currency)
+    },
+    debt: {
+      total: debtBreakdown.total,
+      hawlMet: debtHawlMet,
+      breakdown: adaptBreakdown(debtBreakdown, currency)
     }
   }
 
@@ -210,7 +222,8 @@ export function Summary({ currency }: { currency: string }) {
             stocks: totalStocks,
             retirement: retirementBreakdown.total,
             'real-estate': realEstateBreakdown.total,
-            crypto: totalCrypto
+            crypto: totalCrypto,
+            debt: debtBreakdown.total
           }}
           totalAssets={totalAssets}
         />

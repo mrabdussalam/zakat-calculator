@@ -13,10 +13,11 @@ import { SidebarToggle } from '@/components/ui/sidebar-toggle'
 import { LockIcon } from '@/components/ui/icons/lock'
 import { RetirementValues, StockValues, ActiveStock } from '@/store/types'
 import { useDashboardCurrencyConversion } from '@/hooks/dashboard/useDashboardCurrencyConversion'
-import { useDashboardState, DashboardState, DEFAULT_STATE } from '@/hooks/dashboard/useDashboardState'
+import { useDashboardState } from '@/hooks/dashboard/useDashboardState'
 import { FeedbackFormModal } from '@/components/ui/FeedbackFormModal'
 import { RefreshIcon } from '@/components/ui/icons'
 import Link from 'next/link'
+import { trackEvent, AnalyticsEvents } from '@/lib/analytics'
 
 // Local types not exported from the hook
 interface ConvertedStock {
@@ -41,13 +42,11 @@ export default function DashboardPage() {
   const {
     state,
     isHydrated,
-    prevCurrency,
     handleAssetSelect,
     handleUpdateValues,
     handleHawlUpdate,
     handleNisabUpdate,
     handleReset,
-    isEligible
   } = useDashboardState()
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -139,6 +138,124 @@ export default function DashboardPage() {
     }
   }, [isHydrated, state.currency, isConvertingCurrency]);
 
+  // CSV export functionality
+  const handleExportCSV = () => {
+    try {
+      const zakatStore = useZakatStore.getState();
+
+      // Get all the values needed
+      const breakdown = zakatStore.getBreakdown();
+
+      const stockBreakdown = zakatStore.getStocksBreakdown();
+      const metalsBreakdown = zakatStore.getMetalsBreakdown();
+      const realEstateBreakdown = zakatStore.getRealEstateBreakdown();
+      const cryptoBreakdown = zakatStore.getCryptoBreakdown();
+      const cashBreakdown = zakatStore.getCashBreakdown();
+      const retirementBreakdown = zakatStore.getRetirementBreakdown();
+      const debtBreakdown = zakatStore.getDebtBreakdown();
+
+      // Create CSV header row with consistent formatting
+      let csvContent = "Asset Type,Subcategory,Value,Zakatable Value,Zakat Due,Hawl Status,Currency\n";
+
+      // Function to ensure consistent empty line after each asset section
+      const addEmptyLine = () => {
+        if (!csvContent.endsWith("\n\n")) {
+          csvContent += "\n";
+        }
+      };
+
+      // Helper function to add an asset type to the CSV
+      const addAssetToCSV = (
+        assetType: string,
+        breakdown: { items?: Record<string, { value: number; zakatable?: number; zakatDue?: number; label?: string }> },
+        hawlMet: boolean
+      ) => {
+        if (!breakdown || !breakdown.items) return;
+
+        const hawlStatus = hawlMet ? "Met" : "Not Met";
+
+        Object.entries(breakdown.items).forEach(([itemKey, itemData]) => {
+          if (!itemData || typeof itemData.value !== 'number') return;
+
+          const value = itemData.value;
+          const zakatable = typeof itemData.zakatable === 'number' ? itemData.zakatable : 0;
+          const zakatDue = typeof itemData.zakatDue === 'number' ? itemData.zakatDue : 0;
+          const label = itemData.label || itemKey;
+
+          csvContent += `${assetType},${label},${value.toFixed(2)},${zakatable.toFixed(2)},${zakatDue.toFixed(2)},${hawlStatus},${state.currency}\n`;
+        });
+
+        addEmptyLine();
+      };
+
+      // Add all asset types
+      if (cashBreakdown) addAssetToCSV("Cash & Bank", cashBreakdown, zakatStore.cashHawlMet);
+      if (metalsBreakdown && metalsBreakdown.items) {
+        const hawlStatus = zakatStore.metalsHawlMet ? "Met" : "Not Met";
+
+        const metalNameMap: Record<string, string> = {
+          "gold_regular": "Gold (Regular Use)",
+          "gold_occasional": "Gold (Occasional Use)",
+          "gold_investment": "Gold Investment",
+          "silver_regular": "Silver (Regular Use)",
+          "silver_occasional": "Silver (Occasional Use)",
+          "silver_investment": "Silver Investment"
+        };
+
+        Object.entries(metalsBreakdown.items).forEach(([itemKey, itemData]) => {
+          if (!itemData || typeof itemData.value !== 'number') return;
+
+          const value = itemData.value;
+          const zakatable = typeof itemData.zakatable === 'number' ? itemData.zakatable : 0;
+          const zakatDue = typeof itemData.zakatDue === 'number' ? itemData.zakatDue : 0;
+          const label = metalNameMap[itemKey] || itemKey;
+
+          csvContent += `Precious Metals,${label},${value.toFixed(2)},${zakatable.toFixed(2)},${zakatDue.toFixed(2)},${hawlStatus},${state.currency}\n`;
+        });
+
+        addEmptyLine();
+      }
+      if (stockBreakdown) addAssetToCSV("Stocks & Investments", stockBreakdown, zakatStore.stockHawlMet);
+      if (retirementBreakdown) addAssetToCSV("Retirement Accounts", retirementBreakdown, zakatStore.retirementHawlMet);
+      if (realEstateBreakdown) addAssetToCSV("Real Estate", realEstateBreakdown, zakatStore.realEstateHawlMet);
+      if (cryptoBreakdown) addAssetToCSV("Cryptocurrency", cryptoBreakdown, zakatStore.cryptoHawlMet);
+      if (debtBreakdown) addAssetToCSV("Debt & Liabilities", debtBreakdown, zakatStore.debtHawlMet);
+
+      // Ensure consistent spacing before summary section
+      if (!csvContent.endsWith("\n\n")) {
+        csvContent += "\n";
+      }
+
+      // Add summary row
+      csvContent += `Summary,Total,${breakdown.combined.totalValue.toFixed(2)},${breakdown.combined.zakatableValue.toFixed(2)},${breakdown.combined.zakatDue.toFixed(2)},,${state.currency}\n`;
+
+      // Get formatted date for filename
+      const date = new Date();
+      const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+      // Create a blob and trigger download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+
+      link.setAttribute('href', url);
+      link.setAttribute('download', `zakat-calculation-${formattedDate}.csv`);
+      link.style.visibility = 'hidden';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Track export event
+      trackEvent({
+        ...AnalyticsEvents.SUMMARY_EXPORT,
+        currency: state.currency
+      });
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+    }
+  };
+
   // Animation variants
   const containerVariants = {
     hidden: {
@@ -173,44 +290,6 @@ export default function DashboardPage() {
     hidden: { opacity: 1 },
     visible: { opacity: 1 }
   }
-
-  // Add debugging for localStorage on component mount
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // Log localStorage contents on mount
-      try {
-        const savedState = localStorage.getItem('zakatState')
-        console.log('🌟 Dashboard component mounted, localStorage state check:', {
-          exists: !!savedState,
-          keys: Object.keys(localStorage),
-          hasZakatState: 'zakatState' in localStorage,
-          stateSize: savedState ? savedState.length : 0
-        })
-
-        if (savedState) {
-          try {
-            const parsed = JSON.parse(savedState)
-            const hasValues = parsed && parsed.assetValues ?
-              Object.entries(parsed.assetValues).some(([type, values]) =>
-                Object.keys(values || {}).length > 0
-              ) : false
-
-            console.log('🌟 Dashboard localStorage content check:', {
-              hasAssetValues: !!parsed?.assetValues,
-              hasValues,
-              assetCount: parsed && parsed.assetValues ?
-                Object.keys(parsed.assetValues).length : 0,
-              currency: parsed?.currency
-            })
-          } catch (e) {
-            console.error('❌ Error parsing zakatState in dashboard component:', e)
-          }
-        }
-      } catch (error) {
-        console.error('❌ Error checking localStorage in dashboard component:', error)
-      }
-    }
-  }, [])
 
   // Don't render until hydration is complete
   if (!isHydrated) {
@@ -268,6 +347,14 @@ export default function DashboardPage() {
                   className="rounded-full"
                 >
                   Reset
+                </Button>
+                <Button
+                  onClick={handleExportCSV}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full hidden lg:flex"
+                >
+                  Export CSV
                 </Button>
                 <motion.div
                   whileHover={{ scale: 1.05 }}
@@ -508,6 +595,14 @@ export default function DashboardPage() {
                       className="rounded-full"
                     >
                       Reset
+                    </Button>
+                    <Button
+                      onClick={handleExportCSV}
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full"
+                    >
+                      Export CSV
                     </Button>
                   </div>
                 </div>

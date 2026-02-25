@@ -1,4 +1,6 @@
 import { MetalsValues, MetalPrices, GoldPurity } from '../modules/metals.types'
+import { ZAKAT_RATE } from '@/lib/constants'
+import { DEFAULT_METAL_PRICES } from '@/lib/constants/metals'
 
 // Cache for metals calculations to prevent excessive recalculations
 interface CacheEntry {
@@ -18,11 +20,6 @@ const PURITY = {
   '21K': 0.8750, // 87.5% pure gold
   '18K': 0.7500  // 75% pure gold
 };
-
-// Helper function to safely reduce numbers
-export const safeReduce = (values: number[]): number => {
-  return values.reduce((sum: number, value: number) => sum + (value || 0), 0)
-}
 
 // Helper function to get gold price based on purity
 const getGoldPriceForPurity = (basePrice: number, purity: GoldPurity): number => {
@@ -104,8 +101,8 @@ export const computeMetalsResults = (
 
     // During transitions, use fallback prices but log it as a transition rather than error
     priceValid = false;
-    safetyPrices.gold = 93.98; // Updated fallback value
-    safetyPrices.silver = 1.02; // Updated fallback value
+    safetyPrices.gold = DEFAULT_METAL_PRICES.gold; // Updated fallback value
+    safetyPrices.silver = DEFAULT_METAL_PRICES.silver; // Updated fallback value
   } else {
     // Validate prices are positive numbers and provide detailed error context
     if (!Number.isFinite(safetyPrices?.gold) || safetyPrices?.gold <= 0) {
@@ -116,7 +113,7 @@ export const computeMetalsResults = (
         `Context: Currency=${safetyPrices?.currency}, Timestamp=${currentTimestamp}, ` +
         `Values present: ${JSON.stringify(values)}`
       );
-      safetyPrices.gold = 93.98; // Updated fallback value
+      safetyPrices.gold = DEFAULT_METAL_PRICES.gold; // Updated fallback value
     }
 
     if (!Number.isFinite(safetyPrices?.silver) || safetyPrices?.silver <= 0) {
@@ -127,7 +124,7 @@ export const computeMetalsResults = (
         `Context: Currency=${safetyPrices?.currency}, Timestamp=${currentTimestamp}, ` +
         `Values present: ${JSON.stringify(values)}`
       );
-      safetyPrices.silver = 1.02; // Updated fallback value
+      safetyPrices.silver = DEFAULT_METAL_PRICES.silver; // Updated fallback value
     }
   }
 
@@ -220,7 +217,7 @@ export const computeMetalsResults = (
   // Calculate final values with safety checks
   const total = goldTotal.value + silverTotal.value
   const zakatable = goldZakatable.value + silverZakatable.value
-  const zakatDue = zakatable * 0.025
+  const zakatDue = zakatable * ZAKAT_RATE
 
   // Get purity values with defaults
   const goldRegularPurity = getValidPurity(values.gold_regular_purity);
@@ -286,41 +283,4 @@ export const computeMetalsResults = (
 export const clearMetalsCalculationCache = () => {
   metalsCalculationCache.clear();
   console.log('Metals calculation cache cleared');
-};
-
-export function calculateNisabThreshold(
-  prices: { gold: number; silver: number },
-  metal: 'gold' | 'silver' = 'silver'
-): { threshold: number; type: 'gold' | 'silver' } {
-  // Create a copy of the prices object to avoid mutating the input
-  const safetyPrices = { ...prices };
-
-  // More detailed validation and logging
-  if (!Number.isFinite(safetyPrices?.gold) || safetyPrices?.gold <= 0) {
-    console.error(
-      `Invalid gold price: ${safetyPrices?.gold}, using fallback. ` +
-      `This might happen during currency transitions or API failures. ` +
-      `Context: Current timestamp: ${new Date().toISOString()}`
-    );
-    safetyPrices.gold = 93.98; // Updated fallback value
-  }
-
-  if (!Number.isFinite(safetyPrices?.silver) || safetyPrices?.silver <= 0) {
-    console.error(
-      `Invalid silver price: ${safetyPrices?.silver}, using fallback. ` +
-      `This might happen during currency transitions or API failures. ` +
-      `Context: Current timestamp: ${new Date().toISOString()}`
-    );
-    safetyPrices.silver = 1.02; // Updated fallback value
-  }
-
-  // Use the copied and validated prices for calculation
-  const goldNisab = safetyPrices.gold * 85;
-  const silverNisab = safetyPrices.silver * 595;
-
-  // Return the requested threshold type
-  return {
-    threshold: metal === 'gold' ? goldNisab : silverNisab,
-    type: metal,
-  };
-} 
+}; 

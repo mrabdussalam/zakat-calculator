@@ -2,13 +2,13 @@ import { AssetBreakdown } from "./types"
 import { WeightUnit, fromGrams, WEIGHT_UNITS } from '@/lib/utils/units'
 import { GoldPurity } from '@/store/modules/metals.types'
 
-type AssetBreakdownItem = {
+type MetalsBreakdownItem = {
   value: number
   isZakatable: boolean
   zakatable: number
   zakatDue: number
   label: string
-  tooltip?: string
+  tooltip: string
   isExempt?: boolean
   purity?: string
 }
@@ -37,7 +37,7 @@ export function adaptMetalsBreakdown(
     total: breakdown.total,
     zakatable: breakdown.zakatable,
     zakatDue: breakdown.zakatDue,
-    items: Object.entries(breakdown.items).reduce<Record<string, AssetBreakdownItem>>((acc, [key, item]) => {
+    items: Object.entries(breakdown.items).reduce<Record<string, MetalsBreakdownItem>>((acc, [key, item]) => {
       // Convert weight from grams to selected unit
       const convertedWeight = fromGrams(item.weight, weightUnit)
       const formattedWeight = convertedWeight.toFixed(2)
@@ -81,7 +81,7 @@ export function adaptRealEstateBreakdown(breakdown: {
 }, currency: string = 'USD'): AssetBreakdown {
   // Transform real estate items to standard format
   const adaptedItems = Object.entries(breakdown.items).reduce((acc, [key, item]) => {
-    const isZakatable = item.isZakatable ?? !item.isExempt ?? true
+    const isZakatable = item.isZakatable ?? (!item.isExempt)
     const zakatable = item.zakatable ?? (isZakatable ? item.value : 0)
     const zakatDue = zakatable * 0.025 // 2.5% Zakat rate
 

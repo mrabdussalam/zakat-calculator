@@ -60,6 +60,30 @@ export const SOURCES = {
     name: 'Joe Bradford - Nisab Guide',
     icon: '',
     url: 'https://joebradford.net/nisab-for-zakat-on-gold-and-silver/'
+  },
+  ISLAMIC_RELIEF: {
+    id: 'islamic_relief',
+    name: 'Islamic Relief - Zakat FAQ',
+    icon: '',
+    url: 'https://islamic-relief.org/zakat-faq/'
+  },
+  NZF_CANADA: {
+    id: 'nzf_canada',
+    name: 'NZF Canada - Zakat on Debts',
+    icon: '',
+    url: 'https://www.nzfcanada.com/zakat-faq/zakat-on-debts-how-to-handle-owed-money-and-its-impact-on-zakat-calculation'
+  },
+  UM_RELIEF: {
+    id: 'um_relief',
+    name: 'UM Relief - Zakat with Loans',
+    icon: '',
+    url: 'https://www.umrelief.org/do-you-pay-zakat-if-you-have-loans/'
+  },
+  NZF_UK: {
+    id: 'nzf_uk',
+    name: 'NZF UK - Deductible Liabilities',
+    icon: '',
+    url: 'https://nzf.org.uk/knowledge/payment-of-zakat-deductible-liabilities/'
   }
 } as const
 

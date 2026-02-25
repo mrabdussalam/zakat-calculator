@@ -2,33 +2,16 @@ import { NISAB } from '../constants'
 // Import the currency conversion utility
 import { convertCurrency } from '../../app/api/utils/currency'
 import { NisabData } from '../types';
+import { DEFAULT_METAL_PRICES } from '@/lib/constants/metals'
+import { FALLBACK_RATES, getFallbackRate as getCanonicalFallbackRate } from '@/lib/constants/currency'
+import { IS_REPLIT_CLIENT as IS_REPLIT } from '@/lib/utils/environment'
 
-// Add environment detection for Replit
-const IS_REPLIT = typeof window !== 'undefined' &&
-  (window.location.hostname.includes('replit') ||
-    window.location.hostname.endsWith('.repl.co'));
-
-// Add offline fallback prices that will be used when API calls fail
+// Use canonical fallback metal prices
 export const OFFLINE_FALLBACK_PRICES = {
-  gold: 93.98, // USD per gram (updated to match other fallback values)
-  silver: 1.02, // USD per gram (updated to match other fallback values)
+  gold: DEFAULT_METAL_PRICES.gold,
+  silver: DEFAULT_METAL_PRICES.silver,
   lastUpdated: new Date().toISOString(),
   currency: 'USD', // Explicitly mark these as USD values
-  rates: {
-    USD: 1,
-    EUR: 0.92,
-    GBP: 0.78,
-    CAD: 1.36,
-    AUD: 1.51,
-    JPY: 149.8,
-    CHF: 0.90,
-    CNY: 7.24,
-    INR: 83.15,
-    MYR: 4.65,
-    SGD: 1.35,
-    IDR: 15650,
-    PKR: 278.5
-  }
 };
 
 // Maximum number of consecutive fetch errors before considering the API as unavailable
@@ -71,75 +54,9 @@ export function calculateNisabThreshold(goldPrice: number, silverPrice: number):
 // Create a local cache of successful nisab fetches to use when API fails
 const nisabLocalCache: { data: NisabData | null, lastUpdated: number } = { data: null, lastUpdated: 0 };
 
-// Common exchange rates to be used as a last-resort fallback
-// These values should be updated periodically to stay reasonably accurate
-export const FALLBACK_EXCHANGE_RATES: Record<string, Record<string, number>> = {
-  'USD': {
-    'USD': 1,
-    'EUR': 0.85,
-    'GBP': 0.75,
-    'JPY': 110,
-    'CAD': 1.25,
-    'AUD': 1.35,
-    'INR': 73,
-    'AED': 3.67,
-    'SAR': 3.75,
-    'PKR': 155
-  },
-  'EUR': {
-    'USD': 1.18,
-    'EUR': 1,
-    'GBP': 0.88,
-    'JPY': 129.5,
-    'CAD': 1.47,
-    'AUD': 1.59,
-    'INR': 86,
-    'AED': 4.33,
-    'SAR': 4.41
-  },
-  'GBP': {
-    'USD': 1.33,
-    'EUR': 1.14,
-    'GBP': 1,
-    'JPY': 147,
-    'CAD': 1.67,
-    'AUD': 1.81,
-    'INR': 97.5,
-    'AED': 4.9,
-    'SAR': 4.99
-  }
-};
-
 // Function to get a fallback exchange rate when API fails
 export function getFallbackExchangeRate(from: string, to: string): number | null {
-  // If currencies are the same, return 1
-  if (from === to) return 1;
-
-  // Check if we have a direct rate from source to target
-  if (FALLBACK_EXCHANGE_RATES[from]?.[to]) {
-    return FALLBACK_EXCHANGE_RATES[from][to];
-  }
-
-  // If we have rates for target to source, use the inverse
-  if (FALLBACK_EXCHANGE_RATES[to]?.[from]) {
-    return 1 / FALLBACK_EXCHANGE_RATES[to][from];
-  }
-
-  // Try to triangulate through USD if we have rates for both currencies to/from USD
-  if (from !== 'USD' && to !== 'USD') {
-    const fromToUsd = FALLBACK_EXCHANGE_RATES['USD']?.[from] ?
-      (1 / FALLBACK_EXCHANGE_RATES['USD'][from]) :
-      FALLBACK_EXCHANGE_RATES[from]?.['USD'];
-
-    const usdToTarget = FALLBACK_EXCHANGE_RATES['USD']?.[to];
-
-    if (fromToUsd && usdToTarget) {
-      return fromToUsd * usdToTarget;
-    }
-  }
-
-  // No fallback rate available
-  return null;
+  return getCanonicalFallbackRate(from, to);
 }
 
 // Fetch nisab data from API with retry logic
@@ -364,24 +281,11 @@ export async function getOfflineFallbackNisabData(state: any, customCurrency?: s
               return amount * fallbackRate;
             }
 
-            // Use a fallback conversion based on common currencies if possible
-            // This is a basic fallback in case the API is down
-            const commonRates: Record<string, number> = {
-              'USD': 1,
-              'EUR': 0.85,
-              'GBP': 0.75,
-              'JPY': 110,
-              'CAD': 1.25,
-              'AUD': 1.35,
-              'INR': 73,
-              'AED': 3.67,
-              'SAR': 3.75,
-              'PKR': 290 // Adding explicit rate for PKR (~290 PKR per USD as of latest)
-            };
-
-            if (from === 'USD' && commonRates[to]) {
-              console.log(`Using fallback rate for ${to}: ${commonRates[to]}`);
-              return amount * commonRates[to];
+            // Use canonical fallback rates via FALLBACK_RATES
+            const canonicalRate = getCanonicalFallbackRate(from, to);
+            if (canonicalRate !== null) {
+              console.log(`Using canonical fallback rate for ${to}: ${canonicalRate}`);
+              return amount * canonicalRate;
             }
 
             // If all else fails, use unconverted amount but log a warning

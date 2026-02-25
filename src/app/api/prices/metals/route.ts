@@ -4,6 +4,9 @@ import path from 'path'
 import { CacheValidationService, MetalPriceEntry } from '@/lib/services/cacheValidation'
 import { CurrencyConversionService } from '@/lib/services/currencyConversion'
 import { getExchangeRate } from '@/lib/api/exchange-rates'
+import { DEFAULT_METAL_PRICES } from '@/lib/constants/metals'
+import { FALLBACK_RATES } from '@/lib/constants/currency'
+import { getRequestCounter } from '@/lib/services/apiCounter'
 
 const CONVERSION_RATES = {
   TROY_OUNCE_TO_GRAMS: 31.1034768 // 1 troy ounce = 31.1034768 grams
@@ -52,6 +55,23 @@ interface PriceSource {
 
 // Price sources configuration with proper types
 const PRICE_SOURCES: PriceSource[] = [
+  {
+    name: 'gold-api',
+    url: 'https://api.gold-api.com/price/XAU',
+    parser: (data: unknown) => {
+      // gold-api.com returns { name, price, symbol, updatedAt } with price in USD per troy ounce
+      // We need to fetch both gold and silver separately, but the PRICE_SOURCES pattern
+      // only supports a single URL. We'll fetch gold here and handle silver in the fetch loop.
+      const typedData = data as { price: number; symbol: string };
+      if (typedData && typeof typedData.price === 'number' && typedData.price > 0) {
+        return {
+          gold: typedData.price / CONVERSION_RATES.TROY_OUNCE_TO_GRAMS,
+          silver: 0 // Will be fetched separately
+        };
+      }
+      return { gold: 0, silver: 0 };
+    }
+  },
   {
     name: 'goldprice',
     url: 'https://data-asg.goldprice.org/dbXRates/USD',
@@ -110,57 +130,15 @@ const PRICE_SOURCES: PriceSource[] = [
   }
 ];
 
-// Make these available to other files
-export const COUNTER_FILE = path.join(process.cwd(), 'data', 'metal-api-counter.json')
-
-export interface RequestCounter {
-  count: number
-  month: number
-  year: number
-}
-
 // Ensure data directory exists
 if (!fs.existsSync(path.join(process.cwd(), 'data'))) {
   fs.mkdirSync(path.join(process.cwd(), 'data'), { recursive: true })
 }
 
-// Initialize or read counter
-export function getRequestCounter(): RequestCounter {
-  try {
-    if (fs.existsSync(COUNTER_FILE)) {
-      const data = JSON.parse(fs.readFileSync(COUNTER_FILE, 'utf8'))
-      const now = new Date()
-
-      // Reset counter if it's a new month
-      if (data.month !== now.getMonth() || data.year !== now.getFullYear()) {
-        const newCounter = {
-          count: 0,
-          month: now.getMonth(),
-          year: now.getFullYear()
-        }
-        fs.writeFileSync(COUNTER_FILE, JSON.stringify(newCounter))
-        return newCounter
-      }
-
-      return data
-    }
-  } catch (error) {
-    console.error('Error reading counter file:', error)
-  }
-
-  // Default counter if file doesn't exist or error occurs
-  const now = new Date()
-  return {
-    count: 0,
-    month: now.getMonth(),
-    year: now.getFullYear()
-  }
-}
-
-// Default fallback prices - updated to recent market values
+// Default fallback prices - using canonical metal price constants
 const FALLBACK_PRICES = {
-  gold: 93.98,  // USD per gram (updated from goldprice.org)
-  silver: 1.02, // USD per gram (updated from goldprice.org)
+  gold: DEFAULT_METAL_PRICES.gold,
+  silver: DEFAULT_METAL_PRICES.silver,
   lastUpdated: new Date().toISOString(),
   isCache: true,
   source: 'fallback',
@@ -288,15 +266,49 @@ async function fetchMetalPrices() {
   for (const source of PRICE_SOURCES) {
     try {
       console.log(`Attempting to fetch prices from ${source.name}...`)
-      const response = await fetch(source.url)
 
-      if (!response.ok) {
-        console.warn(`${source.name} returned status ${response.status}`)
-        continue
+      let parsedPrices: { gold: number; silver: number };
+
+      // Special handling for gold-api.com which requires separate requests for gold and silver
+      if (source.name === 'gold-api') {
+        try {
+          const [goldResponse, silverResponse] = await Promise.all([
+            fetch('https://api.gold-api.com/price/XAU', { signal: AbortSignal.timeout(5000) }),
+            fetch('https://api.gold-api.com/price/XAG', { signal: AbortSignal.timeout(5000) })
+          ]);
+
+          if (!goldResponse.ok || !silverResponse.ok) {
+            console.warn(`gold-api returned status gold:${goldResponse.status} silver:${silverResponse.status}`);
+            continue;
+          }
+
+          const goldData = await goldResponse.json() as { price: number };
+          const silverData = await silverResponse.json() as { price: number };
+
+          if (!goldData?.price || !silverData?.price) {
+            console.warn('gold-api returned invalid data:', { goldData, silverData });
+            continue;
+          }
+
+          parsedPrices = {
+            gold: goldData.price / CONVERSION_RATES.TROY_OUNCE_TO_GRAMS,
+            silver: silverData.price / CONVERSION_RATES.TROY_OUNCE_TO_GRAMS
+          };
+        } catch (goldApiError) {
+          console.error('Error fetching from gold-api:', goldApiError);
+          continue;
+        }
+      } else {
+        const response = await fetch(source.url)
+
+        if (!response.ok) {
+          console.warn(`${source.name} returned status ${response.status}`)
+          continue
+        }
+
+        const data = await response.json()
+        parsedPrices = source.parser(data)
       }
-
-      const data = await response.json()
-      const parsedPrices = source.parser(data)
 
       // Validate the parsed prices
       if (!validatePrices(parsedPrices)) {
@@ -394,16 +406,46 @@ interface MetalPricesData {
   };
 }
 
-// Add new API URLs
+// API URLs for metal price sources
+const GOLD_API_URL = 'https://api.gold-api.com/price'
 const GOLDPRICE_API_URL = 'https://data-asg.goldprice.org/dbXRates'
 const METALS_API_URL = 'https://api.metals.live/v1/spot'
-const KITCO_API_URL = 'https://www.kitco.com/gold-price-today-usa'
-const GOLDSILVERPRO_API_URL = 'https://www.goldsilverpro.com/api/v1/spot'
 
-// Add environment detection for Replit
-const IS_REPLIT = typeof window !== 'undefined' &&
-  (window.location.hostname.includes('replit') ||
-    window.location.hostname.endsWith('.repl.co'));
+// Try to fetch from Gold API (gold-api.com) - free, no auth required
+async function fetchFromGoldApi(currency: string): Promise<{ gold: number | null, silver: number | null }> {
+  try {
+    console.log(`Trying Gold API for ${currency}`);
+    const [goldResponse, silverResponse] = await Promise.all([
+      fetch(`${GOLD_API_URL}/XAU`, { cache: 'no-store', signal: AbortSignal.timeout(5000) }),
+      fetch(`${GOLD_API_URL}/XAG`, { cache: 'no-store', signal: AbortSignal.timeout(5000) })
+    ]);
+
+    if (!goldResponse.ok || !silverResponse.ok) {
+      console.warn(`Gold API returned gold:${goldResponse.status} silver:${silverResponse.status}`);
+      return { gold: null, silver: null };
+    }
+
+    const goldData = await goldResponse.json() as { price: number };
+    const silverData = await silverResponse.json() as { price: number };
+
+    if (!goldData?.price || !silverData?.price || goldData.price <= 0 || silverData.price <= 0) {
+      console.warn('Gold API returned invalid price data:', { goldData, silverData });
+      return { gold: null, silver: null };
+    }
+
+    // Prices from gold-api.com are in USD per troy ounce
+    const goldPrice = goldData.price / CONVERSION_RATES.TROY_OUNCE_TO_GRAMS;
+    const silverPrice = silverData.price / CONVERSION_RATES.TROY_OUNCE_TO_GRAMS;
+
+    console.log(`Gold API prices: Gold=${goldPrice.toFixed(2)}/g, Silver=${silverPrice.toFixed(2)}/g (USD)`);
+
+    // If currency is not USD, we'll need conversion downstream
+    return { gold: goldPrice, silver: silverPrice };
+  } catch (error) {
+    console.error(`Error fetching from Gold API:`, error);
+    return { gold: null, silver: null };
+  }
+}
 
 // Try to fetch from Goldprice API
 async function fetchFromGoldprice(currency: string): Promise<{ gold: number | null, silver: number | null }> {
@@ -473,68 +515,6 @@ async function fetchFromMetalsAPI(currency: string): Promise<{ gold: number | nu
   }
 }
 
-// Try to fetch from Kitco API
-async function fetchFromKitco(currency: string): Promise<{ gold: number | null, silver: number | null }> {
-  try {
-    console.log(`Trying Kitco API for ${currency}`);
-    const response = await fetch(`${KITCO_API_URL}/${currency.toLowerCase()}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      },
-      cache: 'no-store'
-    });
-
-    if (!response.ok) {
-      console.warn(`Kitco API returned ${response.status} for ${currency}`);
-      return { gold: null, silver: null };
-    }
-
-    const data = await response.json();
-    if (!data.gold || !data.silver) {
-      console.warn(`No price data found in Kitco response for ${currency}`);
-      return { gold: null, silver: null };
-    }
-
-    const goldPrice = data.gold / CONVERSION_RATES.TROY_OUNCE_TO_GRAMS;
-    const silverPrice = data.silver / CONVERSION_RATES.TROY_OUNCE_TO_GRAMS;
-
-    console.log(`Kitco API prices for ${currency}: Gold=${goldPrice}, Silver=${silverPrice}`);
-    return { gold: goldPrice, silver: silverPrice };
-  } catch (error) {
-    console.error(`Error fetching from Kitco for ${currency}:`, error);
-    return { gold: null, silver: null };
-  }
-}
-
-// Try to fetch from GoldSilverPro API
-async function fetchFromGoldSilverPro(currency: string): Promise<{ gold: number | null, silver: number | null }> {
-  try {
-    console.log(`Trying GoldSilverPro API for ${currency}`);
-    const response = await fetch(`${GOLDSILVERPRO_API_URL}/${currency.toLowerCase()}`, {
-      cache: 'no-store'
-    });
-
-    if (!response.ok) {
-      console.warn(`GoldSilverPro API returned ${response.status} for ${currency}`);
-      return { gold: null, silver: null };
-    }
-
-    const data = await response.json();
-    if (!data.gold || !data.silver) {
-      console.warn(`No price data found in GoldSilverPro response for ${currency}`);
-      return { gold: null, silver: null };
-    }
-
-    const goldPrice = data.gold / CONVERSION_RATES.TROY_OUNCE_TO_GRAMS;
-    const silverPrice = data.silver / CONVERSION_RATES.TROY_OUNCE_TO_GRAMS;
-
-    console.log(`GoldSilverPro API prices for ${currency}: Gold=${goldPrice}, Silver=${silverPrice}`);
-    return { gold: goldPrice, silver: silverPrice };
-  } catch (error) {
-    console.error(`Error fetching from GoldSilverPro for ${currency}:`, error);
-    return { gold: null, silver: null };
-  }
-}
 
 // Helper function to get base prices
 async function getBasePrices(currency: string): Promise<{ gold: number; silver: number }> {
@@ -557,16 +537,12 @@ async function getBasePrices(currency: string): Promise<{ gold: number; silver: 
         };
       } else {
         console.warn(`Failed to get exchange rate for ${currency}, using fallback rates`);
-        // Fallback to hardcoded rates only if exchange rate service fails
-        if (currency === 'SAR') {
+        // Use canonical fallback rates for any supported currency
+        const fallbackRate = FALLBACK_RATES[currency];
+        if (fallbackRate) {
           return {
-            gold: Number((basePrices.gold * 3.75).toFixed(2)),
-            silver: Number((basePrices.silver * 3.75).toFixed(2))
-          };
-        } else if (currency === 'PKR') {
-          return {
-            gold: Number((basePrices.gold * 278.5).toFixed(2)),
-            silver: Number((basePrices.silver * 278.5).toFixed(2))
+            gold: Number((basePrices.gold * fallbackRate).toFixed(2)),
+            silver: Number((basePrices.silver * fallbackRate).toFixed(2))
           };
         }
       }
@@ -592,232 +568,42 @@ export async function GET(request: Request): Promise<Response> {
     let goldPrice = null;
     let silverPrice = null;
     let source = '';
+    // Track the actual currency of the obtained prices
+    // gold-api and metals-api always return USD; goldprice returns the requested currency
+    let priceCurrency = 'USD';
 
-    // Determine which API to try first based on environment and randomization
-    const random = Math.random();
+    // Sequential fallback chain: gold-api → goldprice → metals-api → fallback
+    // gold-api is tried first as the most reliable source
+    const goldApiPrices = await fetchFromGoldApi(currency);
+    if (goldApiPrices.gold !== null && goldApiPrices.silver !== null) {
+      goldPrice = goldApiPrices.gold;
+      silverPrice = goldApiPrices.silver;
+      source = 'gold-api';
+      priceCurrency = 'USD'; // gold-api always returns USD
+      console.log(`Successfully fetched prices from Gold API (USD)`);
+    }
 
-    // On Replit, we want to avoid APIs that might have rate limits
-    // Try APIs in different order based on random value
-    if (IS_REPLIT) {
-      // On Replit, try GoldSilverPro first 50% of the time, Kitco first 50% of the time
-      if (random < 0.5) {
-        // Try GoldSilverPro first
-        const goldSilverProPrices = await fetchFromGoldSilverPro(currency);
-        if (goldSilverProPrices.gold !== null && goldSilverProPrices.silver !== null) {
-          goldPrice = goldSilverProPrices.gold;
-          silverPrice = goldSilverProPrices.silver;
-          source = 'goldsilverpro';
-          console.log(`Successfully fetched prices from GoldSilverPro`);
-        } else {
-          // Then try Kitco
-          const kitcoPrices = await fetchFromKitco(currency);
-          if (kitcoPrices.gold !== null && kitcoPrices.silver !== null) {
-            goldPrice = kitcoPrices.gold;
-            silverPrice = kitcoPrices.silver;
-            source = 'kitco';
-            console.log(`Successfully fetched prices from Kitco`);
-          }
-        }
-      } else {
-        // Try Kitco first
-        const kitcoPrices = await fetchFromKitco(currency);
-        if (kitcoPrices.gold !== null && kitcoPrices.silver !== null) {
-          goldPrice = kitcoPrices.gold;
-          silverPrice = kitcoPrices.silver;
-          source = 'kitco';
-          console.log(`Successfully fetched prices from Kitco`);
-        } else {
-          // Then try GoldSilverPro
-          const goldSilverProPrices = await fetchFromGoldSilverPro(currency);
-          if (goldSilverProPrices.gold !== null && goldSilverProPrices.silver !== null) {
-            goldPrice = goldSilverProPrices.gold;
-            silverPrice = goldSilverProPrices.silver;
-            source = 'goldsilverpro';
-            console.log(`Successfully fetched prices from GoldSilverPro`);
-          }
-        }
+    // Try Goldprice API as second source
+    if (goldPrice === null || silverPrice === null) {
+      const goldpricePrices = await fetchFromGoldprice(currency);
+      if (goldpricePrices.gold !== null && goldpricePrices.silver !== null) {
+        goldPrice = goldpricePrices.gold;
+        silverPrice = goldpricePrices.silver;
+        source = 'goldprice';
+        priceCurrency = currency; // goldprice returns prices in the requested currency
+        console.log(`Successfully fetched prices from Goldprice (${currency})`);
       }
+    }
 
-      // Only try Goldprice and Metals API as last resorts on Replit
-      if (goldPrice === null || silverPrice === null) {
-        const goldpricePrices = await fetchFromGoldprice(currency);
-        if (goldpricePrices.gold !== null && goldpricePrices.silver !== null) {
-          goldPrice = goldpricePrices.gold;
-          silverPrice = goldpricePrices.silver;
-          source = 'goldprice';
-          console.log(`Successfully fetched prices from Goldprice`);
-        } else {
-          const metalsPrices = await fetchFromMetalsAPI(currency);
-          if (metalsPrices.gold !== null && metalsPrices.silver !== null) {
-            goldPrice = metalsPrices.gold;
-            silverPrice = metalsPrices.silver;
-            source = 'metals-api';
-            console.log(`Successfully fetched prices from Metals API`);
-          }
-        }
-      }
-    } else {
-      // Not on Replit, distribute requests across all APIs
-      if (random < 0.25) {
-        // Try Goldprice first
-        const goldpricePrices = await fetchFromGoldprice(currency);
-        if (goldpricePrices.gold !== null && goldpricePrices.silver !== null) {
-          goldPrice = goldpricePrices.gold;
-          silverPrice = goldpricePrices.silver;
-          source = 'goldprice';
-          console.log(`Successfully fetched prices from Goldprice`);
-        } else {
-          // Then try Metals API
-          const metalsPrices = await fetchFromMetalsAPI(currency);
-          if (metalsPrices.gold !== null && metalsPrices.silver !== null) {
-            goldPrice = metalsPrices.gold;
-            silverPrice = metalsPrices.silver;
-            source = 'metals-api';
-            console.log(`Successfully fetched prices from Metals API`);
-          }
-        }
-
-        // Then try GoldSilverPro
-        if (goldPrice === null || silverPrice === null) {
-          const goldSilverProPrices = await fetchFromGoldSilverPro(currency);
-          if (goldSilverProPrices.gold !== null && goldSilverProPrices.silver !== null) {
-            goldPrice = goldSilverProPrices.gold;
-            silverPrice = goldSilverProPrices.silver;
-            source = 'goldsilverpro';
-            console.log(`Successfully fetched prices from GoldSilverPro`);
-          }
-        }
-
-        // Finally try Kitco
-        if (goldPrice === null || silverPrice === null) {
-          const kitcoPrices = await fetchFromKitco(currency);
-          if (kitcoPrices.gold !== null && kitcoPrices.silver !== null) {
-            goldPrice = kitcoPrices.gold;
-            silverPrice = kitcoPrices.silver;
-            source = 'kitco';
-            console.log(`Successfully fetched prices from Kitco`);
-          }
-        }
-      } else if (random < 0.5) {
-        // Try Metals API first
-        const metalsPrices = await fetchFromMetalsAPI(currency);
-        if (metalsPrices.gold !== null && metalsPrices.silver !== null) {
-          goldPrice = metalsPrices.gold;
-          silverPrice = metalsPrices.silver;
-          source = 'metals-api';
-          console.log(`Successfully fetched prices from Metals API`);
-        } else {
-          // Then try Goldprice
-          const goldpricePrices = await fetchFromGoldprice(currency);
-          if (goldpricePrices.gold !== null && goldpricePrices.silver !== null) {
-            goldPrice = goldpricePrices.gold;
-            silverPrice = goldpricePrices.silver;
-            source = 'goldprice';
-            console.log(`Successfully fetched prices from Goldprice`);
-          }
-        }
-
-        // Then try Kitco
-        if (goldPrice === null || silverPrice === null) {
-          const kitcoPrices = await fetchFromKitco(currency);
-          if (kitcoPrices.gold !== null && kitcoPrices.silver !== null) {
-            goldPrice = kitcoPrices.gold;
-            silverPrice = kitcoPrices.silver;
-            source = 'kitco';
-            console.log(`Successfully fetched prices from Kitco`);
-          }
-        }
-
-        // Finally try GoldSilverPro
-        if (goldPrice === null || silverPrice === null) {
-          const goldSilverProPrices = await fetchFromGoldSilverPro(currency);
-          if (goldSilverProPrices.gold !== null && goldSilverProPrices.silver !== null) {
-            goldPrice = goldSilverProPrices.gold;
-            silverPrice = goldSilverProPrices.silver;
-            source = 'goldsilverpro';
-            console.log(`Successfully fetched prices from GoldSilverPro`);
-          }
-        }
-      } else if (random < 0.75) {
-        // Try GoldSilverPro first
-        const goldSilverProPrices = await fetchFromGoldSilverPro(currency);
-        if (goldSilverProPrices.gold !== null && goldSilverProPrices.silver !== null) {
-          goldPrice = goldSilverProPrices.gold;
-          silverPrice = goldSilverProPrices.silver;
-          source = 'goldsilverpro';
-          console.log(`Successfully fetched prices from GoldSilverPro`);
-        } else {
-          // Then try Kitco
-          const kitcoPrices = await fetchFromKitco(currency);
-          if (kitcoPrices.gold !== null && kitcoPrices.silver !== null) {
-            goldPrice = kitcoPrices.gold;
-            silverPrice = kitcoPrices.silver;
-            source = 'kitco';
-            console.log(`Successfully fetched prices from Kitco`);
-          }
-        }
-
-        // Then try Goldprice
-        if (goldPrice === null || silverPrice === null) {
-          const goldpricePrices = await fetchFromGoldprice(currency);
-          if (goldpricePrices.gold !== null && goldpricePrices.silver !== null) {
-            goldPrice = goldpricePrices.gold;
-            silverPrice = goldpricePrices.silver;
-            source = 'goldprice';
-            console.log(`Successfully fetched prices from Goldprice`);
-          }
-        }
-
-        // Finally try Metals API
-        if (goldPrice === null || silverPrice === null) {
-          const metalsPrices = await fetchFromMetalsAPI(currency);
-          if (metalsPrices.gold !== null && metalsPrices.silver !== null) {
-            goldPrice = metalsPrices.gold;
-            silverPrice = metalsPrices.silver;
-            source = 'metals-api';
-            console.log(`Successfully fetched prices from Metals API`);
-          }
-        }
-      } else {
-        // Try Kitco first
-        const kitcoPrices = await fetchFromKitco(currency);
-        if (kitcoPrices.gold !== null && kitcoPrices.silver !== null) {
-          goldPrice = kitcoPrices.gold;
-          silverPrice = kitcoPrices.silver;
-          source = 'kitco';
-          console.log(`Successfully fetched prices from Kitco`);
-        } else {
-          // Then try GoldSilverPro
-          const goldSilverProPrices = await fetchFromGoldSilverPro(currency);
-          if (goldSilverProPrices.gold !== null && goldSilverProPrices.silver !== null) {
-            goldPrice = goldSilverProPrices.gold;
-            silverPrice = goldSilverProPrices.silver;
-            source = 'goldsilverpro';
-            console.log(`Successfully fetched prices from GoldSilverPro`);
-          }
-        }
-
-        // Then try Metals API
-        if (goldPrice === null || silverPrice === null) {
-          const metalsPrices = await fetchFromMetalsAPI(currency);
-          if (metalsPrices.gold !== null && metalsPrices.silver !== null) {
-            goldPrice = metalsPrices.gold;
-            silverPrice = metalsPrices.silver;
-            source = 'metals-api';
-            console.log(`Successfully fetched prices from Metals API`);
-          }
-        }
-
-        // Finally try Goldprice
-        if (goldPrice === null || silverPrice === null) {
-          const goldpricePrices = await fetchFromGoldprice(currency);
-          if (goldpricePrices.gold !== null && goldpricePrices.silver !== null) {
-            goldPrice = goldpricePrices.gold;
-            silverPrice = goldpricePrices.silver;
-            source = 'goldprice';
-            console.log(`Successfully fetched prices from Goldprice`);
-          }
-        }
+    // Try Metals API as third source
+    if (goldPrice === null || silverPrice === null) {
+      const metalsPrices = await fetchFromMetalsAPI(currency);
+      if (metalsPrices.gold !== null && metalsPrices.silver !== null) {
+        goldPrice = metalsPrices.gold;
+        silverPrice = metalsPrices.silver;
+        source = 'metals-api';
+        priceCurrency = 'USD'; // metals-api always returns USD
+        console.log(`Successfully fetched prices from Metals API (USD)`);
       }
     }
 
@@ -828,6 +614,39 @@ export async function GET(request: Request): Promise<Response> {
       goldPrice = fallbackPrices.gold;
       silverPrice = fallbackPrices.silver;
       source = 'fallback';
+      priceCurrency = currency; // getBasePrices already converts to the requested currency
+    }
+
+    // Convert prices to the requested currency if needed
+    if (priceCurrency !== currency) {
+      console.log(`Converting prices from ${priceCurrency} to ${currency}`);
+      try {
+        const rate = await getExchangeRate(priceCurrency, currency);
+        if (rate) {
+          goldPrice = goldPrice * rate;
+          silverPrice = silverPrice * rate;
+          console.log(`Converted prices using exchange rate ${rate}: Gold=${goldPrice.toFixed(2)}, Silver=${silverPrice.toFixed(2)} ${currency}`);
+        } else {
+          // Use fallback rates if exchange rate API fails
+          const fallbackRate = FALLBACK_RATES[currency];
+          if (fallbackRate && priceCurrency === 'USD') {
+            goldPrice = goldPrice * fallbackRate;
+            silverPrice = silverPrice * fallbackRate;
+            console.log(`Converted prices using fallback rate ${fallbackRate}: Gold=${goldPrice.toFixed(2)}, Silver=${silverPrice.toFixed(2)} ${currency}`);
+          } else {
+            console.warn(`No exchange rate available for ${priceCurrency} → ${currency}, returning USD prices`);
+          }
+        }
+      } catch (error) {
+        console.error(`Error converting prices from ${priceCurrency} to ${currency}:`, error);
+        // Try fallback rates as last resort
+        const fallbackRate = FALLBACK_RATES[currency];
+        if (fallbackRate && priceCurrency === 'USD') {
+          goldPrice = goldPrice * fallbackRate;
+          silverPrice = silverPrice * fallbackRate;
+          console.log(`Converted prices using fallback rate after error: Gold=${goldPrice.toFixed(2)}, Silver=${silverPrice.toFixed(2)} ${currency}`);
+        }
+      }
     }
 
     // Create response with safe timestamp

@@ -5,27 +5,21 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/form/input'
 import { Label } from '@/components/ui/label'
 import { useZakatStore } from '@/store/zakatStore'
+import { CryptoHolding } from '@/store/types'
 import { CalculatorSummary } from '@/components/ui/calculator-summary'
 import { FAQ } from '@/components/ui/faq'
 import { ASSET_FAQS } from '@/config/faqs'
 import { motion, AnimatePresence } from 'framer-motion'
 import { RefreshIcon } from '@/components/ui/icons/refresh'
-import { cn } from '@/lib/utils'
+import { cn, formatCurrency as formatCurrencyBase } from '@/lib/utils'
 import { CalculatorNav } from '@/components/ui/calculator-nav'
 import { Loader2, Trash2 } from 'lucide-react'
 import { Info } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-
-interface CryptoCalculatorProps {
-  currency: string
-  onUpdateValues: (values: Record<string, number>) => void
-  onHawlUpdate: (hawlMet: boolean) => void
-  onCalculatorChange: (calculator: string) => void
-  onOpenSummary?: () => void
-  initialValues?: Record<string, number>
-  initialHawlMet?: boolean
-}
+import { CalculatorProps } from '@/types/calculator'
+import { useStoreHydration } from '@/hooks/useStoreHydration'
+import { useCalculatorReset } from '@/hooks/useCalculatorReset'
 
 export function CryptoCalculator({
   currency,
@@ -35,7 +29,7 @@ export function CryptoCalculator({
   onOpenSummary,
   initialValues = {},
   initialHawlMet = true
-}: CryptoCalculatorProps) {
+}: CalculatorProps) {
   const {
     cryptoValues,
     cryptoHawlMet,
@@ -50,109 +44,45 @@ export function CryptoCalculator({
     getCryptoBreakdown
   } = useZakatStore()
 
-  // Add a state to track if store has been hydrated
-  const [storeHydrated, setStoreHydrated] = useState(false)
+  const isHydrated = useStoreHydration()
 
   const [newSymbol, setNewSymbol] = useState('')
   const [newQuantity, setNewQuantity] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  // Add a listener for the store hydration event
+  // Post-hydration initialization
   useEffect(() => {
-    const handleHydrationComplete = () => {
-      console.log('CryptoCalculator: Store hydration complete event received')
-      setStoreHydrated(true)
-
-      // After hydration, safely initialize form values from store with a small delay
-      setTimeout(() => {
-        console.log('CryptoCalculator: Initializing values from store after hydration');
-
-        // Set hawl status first
-        setCryptoHawl(cryptoHawlMet);
-        onHawlUpdate(cryptoHawlMet);
-
-        // Notify parent component of current values
-        if (onUpdateValues) {
-          onUpdateValues({
-            total_crypto_value: getTotalCrypto(),
-            zakatable_crypto_value: getTotalZakatableCrypto()
-          });
-        }
-
-        console.log('CryptoCalculator: Values initialized from store after hydration');
-      }, 50); // Small delay to ensure store is fully ready
+    if (!isHydrated) return
+    setCryptoHawl(cryptoHawlMet)
+    onHawlUpdate(cryptoHawlMet)
+    if (onUpdateValues) {
+      onUpdateValues({
+        total_crypto_value: getTotalCrypto(),
+        zakatable_crypto_value: getTotalZakatableCrypto()
+      })
     }
-
-    // Listen for the custom hydration event
-    window.addEventListener('zakatStoreHydrated', handleHydrationComplete)
-
-    // Check if hydration already happened
-    if (typeof window !== 'undefined') {
-      // Safe way to check for custom property without TypeScript errors
-      const win = window as typeof window & { zakatStoreHydrationComplete?: boolean };
-      if (win.zakatStoreHydrationComplete) {
-        handleHydrationComplete();
-      }
-    }
-
-    return () => {
-      window.removeEventListener('zakatStoreHydrated', handleHydrationComplete)
-    }
-  }, [cryptoHawlMet, getTotalCrypto, getTotalZakatableCrypto, onHawlUpdate, onUpdateValues, setCryptoHawl])
+  }, [isHydrated, cryptoHawlMet, getTotalCrypto, getTotalZakatableCrypto, onHawlUpdate, onUpdateValues, setCryptoHawl])
 
   // Initialize component - only run after hydration is complete
   useEffect(() => {
-    // Skip initialization during hydration to prevent overwriting store values
-    if (!storeHydrated) return;
-
+    if (!isHydrated) return;
     setCryptoHawl(initialHawlMet)
-  }, [initialHawlMet, setCryptoHawl, storeHydrated])
+  }, [initialHawlMet, setCryptoHawl, isHydrated])
 
-  // Add a listener to detect store resets
-  useEffect(() => {
-    // Only process resets after hydration is complete to prevent false resets
-    if (!storeHydrated) return;
+  // Handle store resets
+  const handleStoreReset = useCallback(() => {
+    setNewSymbol('');
+    setNewQuantity('');
+    setError(null);
+    setTimeout(() => {
+      onUpdateValues({
+        total_crypto_value: 0,
+        zakatable_crypto_value: 0
+      });
+    }, 100);
+  }, [onUpdateValues])
 
-    const handleReset = () => {
-      console.log('CryptoCalculator: Store reset event detected');
-
-      // Check if this is still during initial page load
-      if (typeof window !== 'undefined') {
-        // Safe way to check for custom property without TypeScript errors
-        const win = window as typeof window & { isInitialPageLoad?: boolean };
-        if (win.isInitialPageLoad) {
-          console.log('CryptoCalculator: Ignoring reset during initial page load');
-          return;
-        }
-      }
-
-      // This is a user-initiated reset, so clear all local state
-      console.log('CryptoCalculator: Clearing local state due to user-initiated reset');
-
-      // Clear form inputs
-      setNewSymbol('');
-      setNewQuantity('');
-      setError(null);
-
-      // Ensure the total is updated after reset
-      setTimeout(() => {
-        onUpdateValues({
-          total_crypto_value: 0,
-          zakatable_crypto_value: 0
-        });
-      }, 100);
-    };
-
-    // Listen for both possible reset event names
-    window.addEventListener('store-reset', handleReset);
-    window.addEventListener('zakat-store-reset', handleReset);
-
-    // Cleanup
-    return () => {
-      window.removeEventListener('store-reset', handleReset);
-      window.removeEventListener('zakat-store-reset', handleReset);
-    };
-  }, [storeHydrated, onUpdateValues]);
+  useCalculatorReset(isHydrated, handleStoreReset)
 
   // Handle adding new coin
   const handleAddCoin = async (e: React.FormEvent) => {
@@ -209,13 +139,8 @@ export function CryptoCalculator({
 
   // Format currency helper
   const formatCurrency = (value: number | undefined) => {
-    if (value === undefined || isNaN(value)) return `${currency} 0.00`
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value)
+    if (value === undefined || isNaN(value)) return formatCurrencyBase(0, currency)
+    return formatCurrencyBase(value, currency)
   }
 
   // Get breakdown for summary
@@ -275,17 +200,6 @@ export function CryptoCalculator({
           }))
       }
     ]
-  }
-
-  // Update the CryptoHolding type to include isFallback
-  interface CryptoHolding {
-    symbol: string
-    quantity: number
-    currentPrice: number
-    marketValue: number
-    zakatDue: number
-    currency?: string
-    isFallback?: boolean
   }
 
   return (

@@ -13,7 +13,7 @@ import {
   TooltipProvider
 } from "@/components/ui/tooltip"
 import { useZakatStore } from '@/store/zakatStore'
-import { evaluateExpression } from '@/lib/utils'
+import { evaluateExpression, formatCurrency as formatCurrencyBase } from '@/lib/utils'
 import type { StockValues } from '@/lib/assets/stocks'
 import type { PassiveInvestment } from '@/store/types'
 import { Tabs } from '@/components/ui/tabs'
@@ -24,16 +24,9 @@ import { CalculatorSummary } from '@/components/ui/calculator-summary'
 import { getAssetType } from '@/lib/assets/registry'
 import { CalculatorNav } from '@/components/ui/calculator-nav'
 import { ExtendedWindow } from '@/types'
-
-interface StockCalculatorProps {
-  currency: string
-  onUpdateValues: (values: Record<string, number>) => void
-  onHawlUpdate: (hawlMet: boolean) => void
-  onCalculatorChange: (calculator: string) => void
-  onOpenSummary?: () => void
-  initialValues?: Record<string, number>
-  initialHawlMet?: boolean
-}
+import { CalculatorProps } from '@/types/calculator'
+import { useStoreHydration } from '@/hooks/useStoreHydration'
+import { useCalculatorReset } from '@/hooks/useCalculatorReset'
 
 interface StockHolding {
   ticker: string
@@ -88,7 +81,7 @@ export function StockCalculator({
   onOpenSummary,
   initialValues = {},
   initialHawlMet = true
-}: StockCalculatorProps) {
+}: CalculatorProps) {
   const {
     stockValues,
     stockHawlMet,
@@ -115,101 +108,62 @@ export function StockCalculator({
   const [error, setError] = useState<string | null>(null)
   const [passiveCalculations, setPassiveCalculations] = useState<PassiveCalculations | null>(null)
 
-  // Add a state to track if store has been hydrated
-  const [storeHydrated, setStoreHydrated] = useState(false)
+  const isHydrated = useStoreHydration()
 
-  // Add a listener for the store hydration event
+  // Post-hydration initialization
   useEffect(() => {
-    const handleHydrationComplete = () => {
-      console.log('StockCalculator: Store hydration complete event received')
-      setStoreHydrated(true)
+    if (!isHydrated) return
+    if (stockValues) {
+      setStockHawl(stockHawlMet)
+      onHawlUpdate(stockHawlMet)
 
-      // After hydration, safely initialize form values from store with a small delay
-      setTimeout(() => {
-        console.log('StockCalculator: Initializing values from store after hydration');
-
-        // Set initial values from store
-        if (stockValues) {
-          // Set Hawl status first
-          setStockHawl(stockHawlMet);
-          onHawlUpdate(stockHawlMet);
-
-          // Initialize form with empty values - we don't need to try to access non-existent properties
-          // The actual stock values are stored in activeStocks array
-          console.log('StockCalculator: Using activeStocks from store:', stockValues.activeStocks);
-        }
-
-        console.log('StockCalculator: Values initialized from store after hydration');
-      }, 50); // Small delay to ensure store is fully ready
-    }
-
-    // Listen for the custom hydration event
-    window.addEventListener('store-hydration-complete', handleHydrationComplete)
-
-    // Check if hydration already happened
-    if (typeof window !== 'undefined') {
-      // Safe way to check for custom property without TypeScript errors
-      const win = window as ExtendedWindow;
-      if (win.hasDispatchedHydrationEvent) {
-        handleHydrationComplete();
+      // Restore passiveCalculations from persisted store so summary shows correct values
+      const pi = stockValues.passiveInvestments
+      if (pi && pi.marketValue > 0 && !passiveCalculations) {
+        setPassiveCalculations({
+          totalMarketValue: pi.marketValue,
+          zakatableValue: pi.zakatableValue,
+          method: pi.method,
+          breakdown: {
+            marketValue: pi.marketValue,
+            liquidValue: pi.zakatableValue,
+            items: (pi.investments || []).map(inv => ({
+              id: inv.id,
+              label: inv.name || 'Unnamed Investment',
+              value: inv.marketValue,
+              zakatableValue: inv.marketValue * 0.3,
+              percentage: pi.marketValue > 0 ? (inv.marketValue / pi.marketValue) * 100 : 0,
+              isExempt: false,
+              displayProperties: {
+                shares: inv.shares,
+                pricePerShare: inv.pricePerShare,
+                currency
+              }
+            }))
+          },
+          displayProperties: pi.displayProperties
+        })
       }
     }
+  }, [isHydrated]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    return () => {
-      window.removeEventListener('store-hydration-complete', handleHydrationComplete)
-    }
-  }, [stockValues, setStockHawl, onHawlUpdate, stockHawlMet])
+  // Handle store resets
+  const handleStoreReset = useCallback(() => {
+    setNewTicker('');
+    setNewShares('');
+    setNewPricePerShare('');
+    setError(null);
+    setPassiveCalculations(null);
+    resetStockValues();
+    onUpdateValues({
+      total_stock_value: 0,
+      zakatable_stock_value: 0,
+      passive_total_value: 0,
+      passive_zakatable_value: 0
+    });
+  }, [onUpdateValues, resetStockValues])
 
-  // Add a listener to detect store resets
-  useEffect(() => {
-    // Only process resets after hydration is complete to prevent false resets
-    if (!storeHydrated) return;
-
-    const handleReset = (event?: Event) => {
-      console.log('StockCalculator: Store reset event detected');
-
-      // Check if this is still during initial page load
-      if (typeof window !== 'undefined') {
-        // Safe way to check for custom property without TypeScript errors
-        const win = window as any;
-        if (win.isInitialPageLoad) {
-          console.log('StockCalculator: Ignoring reset during initial page load');
-          return;
-        }
-      }
-
-      // This is a user-initiated reset, so clear all local state
-      console.log('StockCalculator: Clearing local state due to user-initiated reset');
-
-      // Clear input fields
-      setNewTicker('');
-      setNewShares('');
-      setNewPricePerShare('');
-      setError(null);
-      setPassiveCalculations(null);
-
-      // Use the resetStockValues function from the store
-      resetStockValues();
-
-      // Update parent with zeroed values
-      onUpdateValues({
-        total_stock_value: 0,
-        zakatable_stock_value: 0,
-        passive_total_value: 0,
-        passive_zakatable_value: 0
-      });
-    };
-
-    // Listen for both possible reset event names
-    window.addEventListener('store-reset', handleReset);
-    window.addEventListener('zakat-store-reset', handleReset);
-
-    // Cleanup
-    return () => {
-      window.removeEventListener('store-reset', handleReset);
-      window.removeEventListener('zakat-store-reset', handleReset);
-    };
-  }, [storeHydrated, onUpdateValues, resetStockValues]);
+  useCalculatorReset(isHydrated, handleStoreReset)
 
   // Handle value changes for passive/dividend/fund tabs
   const handleValueChange = (fieldId: string, event: React.ChangeEvent<HTMLInputElement>) => {
@@ -365,9 +319,10 @@ export function StockCalculator({
       setNewTicker('')
       setNewShares('')
 
-      // Get updated totals using the asset type system
-      const total = stockAsset.calculateTotal(stockValues, stockPrices)
-      const zakatable = stockAsset.calculateZakatable(stockValues, stockPrices, stockHawlMet)
+      // Get fresh state from store after async update (closure-captured stockValues is stale)
+      const freshState = useZakatStore.getState()
+      const total = stockAsset.calculateTotal(freshState.stockValues, freshState.stockPrices)
+      const zakatable = stockAsset.calculateZakatable(freshState.stockValues, freshState.stockPrices, freshState.stockHawlMet)
 
       // Update parent with new totals
       onUpdateValues({
@@ -388,9 +343,10 @@ export function StockCalculator({
 
     removeActiveStock(ticker)
 
-    // Get updated totals using the asset type system
-    const total = stockAsset.calculateTotal(stockValues, stockPrices)
-    const zakatable = stockAsset.calculateZakatable(stockValues, stockPrices, stockHawlMet)
+    // Get fresh state from store after update (closure-captured stockValues is stale)
+    const freshState = useZakatStore.getState()
+    const total = stockAsset.calculateTotal(freshState.stockValues, freshState.stockPrices)
+    const zakatable = stockAsset.calculateZakatable(freshState.stockValues, freshState.stockPrices, freshState.stockHawlMet)
 
     // Update parent with new totals
     onUpdateValues({
@@ -409,9 +365,10 @@ export function StockCalculator({
       // Pass currency to the update function
       await updateStockPrices(currency)
 
-      // Get updated totals using the asset type system
-      const total = stockAsset.calculateTotal(stockValues, stockPrices)
-      const zakatable = stockAsset.calculateZakatable(stockValues, stockPrices, stockHawlMet)
+      // Get fresh state from store after async update (closure-captured stockValues is stale)
+      const freshState = useZakatStore.getState()
+      const total = stockAsset.calculateTotal(freshState.stockValues, freshState.stockPrices)
+      const zakatable = stockAsset.calculateZakatable(freshState.stockValues, freshState.stockPrices, freshState.stockHawlMet)
 
       // Update parent with new totals
       onUpdateValues({
@@ -439,7 +396,7 @@ export function StockCalculator({
   ) : 0
 
   // Format currency helper
-  const formatCurrency = (value: number) => `${currency} ${value.toLocaleString()}`
+  const formatCurrency = (value: number) => formatCurrencyBase(value, currency)
 
   // Prepare summary sections
   const summaryData = {

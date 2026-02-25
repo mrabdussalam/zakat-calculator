@@ -230,7 +230,7 @@ To add a new calculator:
 8. Add to navigation
 9. Create tests
 
-See `ASSET_CALCULATOR_GUIDELINES.md` for detailed instructions.
+See `docs/ASSET_CALCULATOR_GUIDELINES.md` for detailed instructions.
 
 ## Testing Guidelines
 

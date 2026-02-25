@@ -11,6 +11,7 @@ import { AssetType, AssetBreakdown, AssetBreakdownItem, ZAKAT_RATE, safeCalculat
 import { formatCurrency } from '@/lib/utils/currency'
 import { RetirementValues } from '@/store/types'
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface RetirementPrices {
   // No additional prices needed for retirement accounts
 }

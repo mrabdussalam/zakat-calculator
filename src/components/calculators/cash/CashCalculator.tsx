@@ -11,7 +11,7 @@ import {
   TooltipProvider
 } from "@/components/ui/tooltip"
 import { useZakatStore } from '@/store/zakatStore'
-import { evaluateExpression } from '@/lib/utils'
+import { evaluateExpression, formatCurrency as formatCurrencyBase } from '@/lib/utils'
 import { FAQ } from '@/components/ui/faq'
 import { ASSET_FAQS } from '@/config/faqs'
 import { useCurrencyStore } from '@/lib/services/currency'
@@ -22,6 +22,8 @@ import { ForeignCurrencyEntry } from '@/store/types'
 import { CalculatorNav } from '@/components/ui/calculator-nav'
 import { useForeignCurrency } from '@/hooks/useForeignCurrency'
 import { CashValues as StoreCashValues } from '@/store/types'
+import { useStoreHydration } from '@/hooks/useStoreHydration'
+import { useCalculatorReset } from '@/hooks/useCalculatorReset'
 import {
   CashCalculatorProps,
   ForeignCurrencyInputProps,
@@ -34,7 +36,6 @@ import {
   EventHandlerProps,
   FormatHelpers
 } from './types'
-import { ExtendedWindow } from '@/types'
 
 const CASH_KEYS: CashKey[] = [
   'cash_on_hand',
@@ -146,15 +147,8 @@ const createFormatHelpers = (currency: string): FormatHelpers => {
     return `${currency} ${formatNumber(num)}`
   }
 
-  const formatCurrency = (value: number): string => {
-    if (value === 0) return '-'
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value)
-  }
+  const formatCurrency = (value: number): string =>
+    value === 0 ? '-' : formatCurrencyBase(value, currency)
 
   const formatTruncatedCurrency = (value: number): React.ReactNode => {
     if (value === 0) return '-'
@@ -313,16 +307,9 @@ const ForeignCurrencyInput: React.FC<ForeignCurrencyInputProps> = ({
   convertAmount
 }) => {
   // Format currency for display
-  const formatCurrency = useCallback((value: number): string => {
-    if (value === 0) return '-'
-
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value)
-  }, [currency])
+  const formatCurrency = useCallback((value: number): string =>
+    value === 0 ? '-' : formatCurrencyBase(value, currency)
+  , [currency])
 
   return (
     <div className="space-y-6 w-full">
@@ -454,7 +441,7 @@ export function CashCalculator({
   )
 
   // Add a state to track if store has been hydrated
-  const [storeHydrated, setStoreHydrated] = useState(false)
+  const isHydrated = useStoreHydration()
 
   const { rates, fetchRates, convertAmount, isLoading, error } = useCurrencyStore()
 
@@ -497,58 +484,25 @@ export function CashCalculator({
 
   const { handleCurrencyChange, handleDisplayOnlyRefresh } = eventHandlers
 
-  // Add a listener for the store hydration event
+  // Post-hydration initialization
   useEffect(() => {
-    const handleHydrationComplete = () => {
-      console.log('CashCalculator: Store hydration complete event received')
-      setStoreHydrated(true)
-
-      // After hydration, safely initialize form values from store with a small delay
-      setTimeout(() => {
-        console.log('CashCalculator: Initializing values from store after hydration');
-
-        // Set initial values from store
-        if (cashValues) {
-          // Set hawl status first
-          setCashHawlMet(cashHawlMet);
-          onHawlUpdate(cashHawlMet);
-
-          // Notify parent component of current values
-          if (onUpdateValues) {
-            // Check if we're using a TypeScript compatible version
-            const typeSafeUpdate = {
-              cash_on_hand: cashValues.cash_on_hand || 0,
-              checking_account: cashValues.checking_account || 0,
-              savings_account: cashValues.savings_account || 0,
-              digital_wallets: cashValues.digital_wallets || 0,
-              foreign_currency: cashValues.foreign_currency || 0,
-              foreign_currency_entries: cashValues.foreign_currency_entries || []
-            };
-
-            onUpdateValues(typeSafeUpdate);
-          }
-
-          console.log('CashCalculator: Values initialized from store after hydration');
-        }
-      }, 50); // Small delay to ensure store is fully ready
-    }
-
-    // Listen for the custom hydration event
-    window.addEventListener('store-hydration-complete', handleHydrationComplete)
-
-    // Check if hydration already happened
-    if (typeof window !== 'undefined') {
-      // Safe way to check for custom property without TypeScript errors
-      const win = window as ExtendedWindow;
-      if (win.hasDispatchedHydrationEvent) {
-        handleHydrationComplete();
+    if (!isHydrated) return
+    if (cashValues) {
+      setCashHawlMet(cashHawlMet);
+      onHawlUpdate(cashHawlMet);
+      if (onUpdateValues) {
+        const typeSafeUpdate = {
+          cash_on_hand: cashValues.cash_on_hand || 0,
+          checking_account: cashValues.checking_account || 0,
+          savings_account: cashValues.savings_account || 0,
+          digital_wallets: cashValues.digital_wallets || 0,
+          foreign_currency: cashValues.foreign_currency || 0,
+          foreign_currency_entries: cashValues.foreign_currency_entries || []
+        };
+        onUpdateValues(typeSafeUpdate);
       }
     }
-
-    return () => {
-      window.removeEventListener('store-hydration-complete', handleHydrationComplete)
-    }
-  }, [cashValues, onHawlUpdate, onUpdateValues, cashHawlMet, setCashHawlMet])
+  }, [isHydrated, cashValues, onHawlUpdate, onUpdateValues, cashHawlMet, setCashHawlMet])
 
   // Optimize currency change event listeners
   useEffect(() => {
@@ -558,13 +512,11 @@ export function CashCalculator({
 
     // Listen for events
     window.addEventListener('currency-changed', currencyChangeHandler);
-    window.addEventListener('zakat-calculators-refresh', currencyChangeHandler);
     window.addEventListener('calculator-values-refresh', currencyChangeHandler);
     window.addEventListener('currency-display-refresh', displayRefreshHandler);
 
     return () => {
       window.removeEventListener('currency-changed', currencyChangeHandler);
-      window.removeEventListener('zakat-calculators-refresh', currencyChangeHandler);
       window.removeEventListener('calculator-values-refresh', currencyChangeHandler);
       window.removeEventListener('currency-display-refresh', displayRefreshHandler);
     };
@@ -604,7 +556,7 @@ export function CashCalculator({
   // Sync with store values - only after hydration is complete
   useEffect(() => {
     // Only run this effect after hydration to prevent wiping out values during initialization
-    if (!storeHydrated) return
+    if (!isHydrated) return
 
     const newInputValues = CASH_KEYS.reduce((acc, key) => ({
       ...acc,
@@ -622,61 +574,29 @@ export function CashCalculator({
     if (hasChanges) {
       setInputValues(newInputValues)
     }
-  }, [cashValues, inputValues, storeHydrated])
+  }, [cashValues, inputValues, isHydrated])
 
-  // Add a listener to detect store resets
-  useEffect(() => {
-    // Only process resets after hydration is complete to prevent false resets
-    if (!storeHydrated) return;
+  // Handle store resets
+  const handleStoreReset = useCallback(() => {
+    const emptyInputs = CASH_KEYS.reduce((acc, key) => ({
+      ...acc,
+      [key]: ''
+    }), {} as InputValues);
 
-    const handleReset = (event?: Event) => {
-      console.log('CashCalculator: Store reset event detected');
+    setInputValues(emptyInputs);
+    setRawInputValues({} as RawInputValues);
+    setCashValue('foreign_currency_entries', []);
+    setCashValue('foreign_currency', 0);
 
-      // Check if this is still during initial page load
-      if (typeof window !== 'undefined') {
-        // Safe way to check for custom property without TypeScript errors
-        const win = window as typeof window & { isInitialPageLoad?: boolean };
-        if (win.isInitialPageLoad) {
-          console.log('CashCalculator: Ignoring reset during initial page load');
-          return;
-        }
-      }
+    setTimeout(() => {
+      onUpdateValues({
+        total: 0,
+        zakatable: 0
+      });
+    }, 100);
+  }, [setCashValue, onUpdateValues])
 
-      // This is a user-initiated reset, so clear all local state
-      console.log('CashCalculator: Clearing local state due to user-initiated reset');
-
-      // Clear inputs - use empty strings for all fields to ensure they're blank in the UI
-      const emptyInputs = CASH_KEYS.reduce((acc, key) => ({
-        ...acc,
-        [key]: ''
-      }), {} as InputValues);
-
-      setInputValues(emptyInputs);
-      setRawInputValues({} as RawInputValues);
-
-      // Clear foreign currency entries in both the store and local state
-      setCashValue('foreign_currency_entries', []);
-      setCashValue('foreign_currency', 0);
-
-      // Ensure the total is updated after reset
-      setTimeout(() => {
-        onUpdateValues({
-          total: 0,
-          zakatable: 0
-        });
-      }, 100);
-    };
-
-    // Listen for both possible reset event names
-    window.addEventListener('store-reset', handleReset);
-    window.addEventListener('zakat-store-reset', handleReset);
-
-    // Cleanup
-    return () => {
-      window.removeEventListener('store-reset', handleReset);
-      window.removeEventListener('zakat-store-reset', handleReset);
-    };
-  }, [storeHydrated, setCashValue, onUpdateValues, setInputValues, setRawInputValues]);
+  useCalculatorReset(isHydrated, handleStoreReset)
 
   // Optimize the value change handler with useCallback
   const handleValueChange = useCallback((categoryId: string, event: React.ChangeEvent<HTMLInputElement>) => {
