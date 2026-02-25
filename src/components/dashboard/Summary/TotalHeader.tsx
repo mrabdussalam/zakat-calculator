@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/tooltip"
 import { motion, useMotionValue, useTransform, animate } from "framer-motion"
 import { useEffect } from "react"
+import { useTranslations } from 'next-intl'
 
 // Animated number component
 function AnimatedNumber({ value, currency = 'USD' }: { value: number, currency?: string }) {
@@ -56,13 +57,14 @@ interface TotalHeaderProps {
 }
 
 export function TotalHeader({ totalAssets, breakdown, nisabStatus, currency }: TotalHeaderProps) {
+  const t = useTranslations('summary')
   const isZakatDue = breakdown.combined.zakatDue > 0;
 
   return (
     <div className="flex flex-col gap-4 bg-white rounded-lg">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <div className="text-sm text-gray-500">Total Assets</div>
+          <div className="text-sm text-gray-500">{t('totalAssets')}</div>
           <div className="text-xl sm:text-2xl font-medium">
             <motion.span
               initial={false}
@@ -77,7 +79,7 @@ export function TotalHeader({ totalAssets, breakdown, nisabStatus, currency }: T
           </div>
         </div>
         <div>
-          <div className="text-sm text-gray-500">Zakat Due</div>
+          <div className="text-sm text-gray-500">{t('zakatDue')}</div>
           <div>
             <div className="text-xl sm:text-2xl font-medium">
               <motion.span
@@ -92,7 +94,7 @@ export function TotalHeader({ totalAssets, breakdown, nisabStatus, currency }: T
               </motion.span>
             </div>
             <div className="text-xs sm:text-sm text-gray-500">
-              {!isZakatDue ? 'No Zakat due (Below Nisab or no zakatable assets)' : '2.5% of eligible assets'}
+              {!isZakatDue ? t('belowNisab') : t('eligibleAssets')}
             </div>
           </div>
         </div>

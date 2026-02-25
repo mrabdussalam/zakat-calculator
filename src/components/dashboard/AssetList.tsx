@@ -11,6 +11,17 @@ import { DebtIcon } from "@/components/ui/icons/debt"
 import { motion } from "framer-motion"
 import { ASSET_COLOR_VARIANTS } from '@/config/colors'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useTranslations } from 'next-intl'
+
+const ASSET_I18N_KEYS: Record<string, string> = {
+  'cash': 'cash',
+  'precious-metals': 'preciousMetals',
+  'stocks': 'stocks',
+  'retirement': 'retirement',
+  'real-estate': 'realEstate',
+  'crypto': 'crypto',
+  'debt': 'debt',
+}
 
 // Asset types with their display properties
 export const ASSETS = [
@@ -65,6 +76,8 @@ interface AssetListProps {
 }
 
 export function AssetList({ selectedAsset, onAssetSelect, isCollapsed }: AssetListProps) {
+  const t = useTranslations('assetList')
+
   return (
     <div className={cn(
       "space-y-2.5 rounded-3xl",
@@ -131,17 +144,17 @@ export function AssetList({ selectedAsset, onAssetSelect, isCollapsed }: AssetLi
                         "text-sm transition-colors",
                         isSelected ? "text-gray-900 font-semibold" : "text-gray-800 font-medium"
                       )}>
-                        {asset.name}
+                        {ASSET_I18N_KEYS[asset.id] ? t(`${ASSET_I18N_KEYS[asset.id]}.name`) : asset.name}
                       </div>
-                      <div className="text-xs text-gray-600 mt-1">{asset.description}</div>
+                      <div className="text-xs text-gray-600 mt-1">{ASSET_I18N_KEYS[asset.id] ? t(`${ASSET_I18N_KEYS[asset.id]}.description`) : asset.description}</div>
                     </div>
                   )}
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={5} className={!isCollapsed ? "hidden" : undefined}>
                 <div>
-                  <div className="font-medium">{asset.name}</div>
-                  <div className="text-xs text-gray-500">{asset.description}</div>
+                  <div className="font-medium">{ASSET_I18N_KEYS[asset.id] ? t(`${ASSET_I18N_KEYS[asset.id]}.name`) : asset.name}</div>
+                  <div className="text-xs text-gray-500">{ASSET_I18N_KEYS[asset.id] ? t(`${ASSET_I18N_KEYS[asset.id]}.description`) : asset.description}</div>
                 </div>
               </TooltipContent>
             </Tooltip>

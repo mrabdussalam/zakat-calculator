@@ -8,6 +8,7 @@ import { useNisabStatus } from "@/hooks/useNisabStatus";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ExclamationTriangleIcon } from '@radix-ui/react-icons';
+import { useTranslations } from 'next-intl';
 
 interface NisabStatusProps {
   nisabStatus: {
@@ -24,15 +25,16 @@ interface NisabStatusProps {
 }
 
 export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
+  const t = useTranslations('summary');
   const [isExpanded, setIsExpanded] = useState(false);
   const { convertedValues, isFetching, isOfflineMode, errorMessage, retryCount, meetsNisab, componentKey, handleRefresh, getNisabStatusMessage, getUserFriendlyErrorMessage, hasSuspiciouslyLowValues } = useNisabStatus(nisabStatus, currency);
   const friendlyErrorMessage = getUserFriendlyErrorMessage();
   const nisabInfoText = useMemo(() => {
     if (isOfflineMode || isFetching) {
-      return "Using local metal price data for nisab calculations. Live prices unavailable.";
+      return t('offlineModeGeneric');
     }
-    return "Nisab is the minimum amount of wealth that must be owned before Zakat becomes obligatory. It is calculated based on the value of either gold (85g) or silver (612.36g), whichever is lower.";
-  }, [isOfflineMode, isFetching]);
+    return t('nisabTooltip');
+  }, [isOfflineMode, isFetching, t]);
   const { metalPrices, isFetchingNisab } = useZakatStore();
 
   // Check if we're dealing with PKR values that might be suspicious
@@ -138,10 +140,10 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
           />
           <div className="font-medium text-gray-900">
             {errorMessage
-              ? "Nisab Status"
+              ? t('nisabStatus')
               : meetsNisab
-                ? "Meets Nisab"
-                : "Below Nisab"}
+                ? t('meetsNisab')
+                : t('belowNisabStatus')}
           </div>
           {(isFetching || isFetchingNisab) && (
             <div className="h-3 w-3 ml-1 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600"></div>
@@ -149,7 +151,7 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
           {errorMessage && (
             <div className="flex items-center gap-1 text-amber-600">
               <WifiOff className="h-3 w-3" />
-              <span className="text-[10px]">Using local calculation</span>
+              <span className="text-[10px]">{t('usingLocalCalculation')}</span>
             </div>
           )}
         </div>
@@ -229,9 +231,9 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
                   className="rounded-lg p-3 bg-white/50 backdrop-blur-sm"
                 >
                   <div className="text-xs text-gray-500 mb-1 flex items-center">
-                    Gold Nisab (85g)
+                    {t('goldNisab')}
                     {!convertedValues.isDirectGoldPrice && (
-                      <span className="ml-1 text-amber-500 text-[10px] px-1 py-0.5 rounded bg-amber-100/60">converted</span>
+                      <span className="ml-1 text-amber-500 text-[10px] px-1 py-0.5 rounded bg-amber-100/60">{t('converted')}</span>
                     )}
                   </div>
                   <div className="font-medium text-gray-700">
@@ -242,9 +244,9 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
                   className="rounded-lg p-3 bg-white/50 backdrop-blur-sm"
                 >
                   <div className="text-xs text-gray-500 mb-1 flex items-center">
-                    Silver Nisab (612.36g)
+                    {t('silverNisab')}
                     {!convertedValues.isDirectSilverPrice && (
-                      <span className="ml-1 text-amber-500 text-[10px] px-1 py-0.5 rounded bg-amber-100/60">converted</span>
+                      <span className="ml-1 text-amber-500 text-[10px] px-1 py-0.5 rounded bg-amber-100/60">{t('converted')}</span>
                     )}
                   </div>
                   <div className="font-medium text-gray-700">
@@ -261,10 +263,9 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
                 >
                   <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="font-medium">Currency Conversion Issue</p>
+                    <p className="font-medium">{t('currencyConversionIssue')}</p>
                     <p className="text-xs mt-1">
-                      There may be an issue with the PKR nisab values. The values appear suspiciously low.
-                      Please try refreshing the page or temporarily switch to USD for more accurate calculations.
+                      {t('currencyConversionIssueText')}
                     </p>
                   </div>
                 </motion.div>
@@ -297,18 +298,18 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
                   {errorMessage ? (
                     <span className="flex items-center gap-1">
                       <WifiOff className="h-3 w-3" />
-                      Using local calculation
+                      {t('usingLocalCalculation')}
                     </span>
                   ) : (
                     <>
-                      Prices last updated:{" "}
+                      {t('pricesLastUpdated')}{" "}
                       {metalPrices?.lastUpdated
                         ? new Date(metalPrices.lastUpdated).toLocaleString()
                         : new Date().toLocaleString()}
                       {nisabStatus.currency &&
                         nisabStatus.currency !== currency && (
                           <span className="ml-1 text-amber-500">
-                            (converted from {nisabStatus.currency})
+                            {t('convertedFrom', { currency: nisabStatus.currency })}
                           </span>
                         )}
                     </>
@@ -339,8 +340,7 @@ export function NisabStatus({ nisabStatus, currency }: NisabStatusProps) {
                 >
                   <WifiOff className="h-4 w-4 mr-2" />
                   <span>
-                    Using offline nisab calculation. Live metal prices
-                    unavailable in Replit environment.
+                    {t('offlineMode')}
                   </span>
                 </motion.div>
               )}

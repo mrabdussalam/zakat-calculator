@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { ASSET_COLORS } from "@/config/colors"
 import { motion, AnimatePresence } from "framer-motion"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useTranslations } from 'next-intl'
 
 export interface AssetRowProps {
   title: string
@@ -32,6 +33,8 @@ export function AssetRow({
   isExpanded,
   onToggle
 }: AssetRowProps) {
+  const t = useTranslations('summary')
+
   const hasDetails = breakdown &&
     Object.keys(breakdown.items).length > 0 &&
     Object.values(breakdown.items).some(item => item.value !== 0)
@@ -126,11 +129,11 @@ export function AssetRow({
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs p-3 bg-gray-800">
                       <div className="space-y-2">
-                        <p className="font-medium text-white">Receivables:</p>
-                        <p className="text-white">Debts owed to you that you are confident will be repaid are considered zakatable assets. This includes personal loans to friends or family.</p>
+                        <p className="font-medium text-white">{t('debtReceivables')}</p>
+                        <p className="text-white">{t('debtReceivablesDesc')}</p>
 
-                        <p className="font-medium text-white">Liabilities:</p>
-                        <p className="text-white">Liabilities, such as debts you owe, are deducted from your total zakatable assets to determine your net zakatable wealth. While liabilities reduce your overall zakatable assets, they do not specifically reduce the zakatable amount of receivables. Instead, they decrease your total zakatable wealth, which includes receivables and other assets.</p>
+                        <p className="font-medium text-white">{t('debtLiabilities')}</p>
+                        <p className="text-white">{t('debtLiabilitiesDesc')}</p>
                       </div>
                     </TooltipContent>
                   </Tooltip>
@@ -140,7 +143,7 @@ export function AssetRow({
                 {displayPercentage}%
               </span>
               {!hawlMet && (
-                <span className="hidden sm:inline-block text-xs text-amber-600 flex-shrink-0">(Hawl not met)</span>
+                <span className="hidden sm:inline-block text-xs text-amber-600 flex-shrink-0">({t('hawlNotMet')})</span>
               )}
             </div>
           </div>

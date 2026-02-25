@@ -1,0 +1,393 @@
+{
+  "common": {
+    "appName": "Zakat Calculator",
+    "loading": "Loading...",
+    "reset": "Reset",
+    "close": "Close",
+    "back": "Back",
+    "home": "Home",
+    "about": "About",
+    "contact": "Contact",
+    "feedback": "Feedback",
+    "github": "GitHub",
+    "contribute": "Contribute on GitHub",
+    "reportBug": "Report a Bug",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "closeSummary": "Close summary",
+    "viewSummary": "View Summary",
+    "distributeZakat": "Distribute Zakat",
+    "startCalculation": "Start Calculation",
+    "selectAsset": "Select an asset to begin",
+    "convertingValues": "Converting values to {currency}...",
+    "allRightsReserved": "All rights reserved.",
+    "contributors": "Contributors",
+    "exportCsv": "Export CSV"
+  },
+  "home": {
+    "title": "Zakat Calculator",
+    "quranVerse": "وَأَقِيمُوا الصَّلَاةَ وَآتُوا الزَّكَاةَ وَأَقْرِضُوا اللَّهَ قَرْضًا حَسَنًا ۚ وَمَا تُقَدِّمُوا لِأَنفُسِكُم مِّنْ خَيْرٍ تَجِدُوهُ عِندَ اللَّهِ هُوَ خَيْرًا وَأَعْظَمَ أَجْرًا",
+    "quranTranslation": "\"And establish prayer and give zakat and loan Allah a goodly loan. And whatever good you put forward for yourselves—you will find it with Allah. It is better and greater in reward.\"",
+    "quranReference": "Surah Al-Muzzammil [73:20]",
+    "currencyPrompt": "Choose the currency you'll use for calculations",
+    "whatIsZakat": "What is Zakat?",
+    "zakatDescription": "Zakat is one of the five pillars of Islam. It is a mandatory charitable contribution, calculated as 2.5% of your eligible wealth, to be given to those in need.",
+    "howItWorks": "How it works",
+    "steps": {
+      "step1": "Select your preferred currency and settings",
+      "step2": "Add your assets (cash, gold, investments, etc.)",
+      "step3": "Get instant calculation of your Zakat",
+      "step4": "Generate detailed report for your records"
+    },
+    "supportedAssets": "Supported Assets",
+    "assets": {
+      "cash": "Cash & Bank Accounts",
+      "gold": "Gold & Silver",
+      "stocks": "Stocks & Investments",
+      "crypto": "Cryptocurrency",
+      "realEstate": "Real Estate",
+      "retirement": "Retirement Accounts"
+    },
+    "disclaimer": "For personalized advice, especially in complex situations, consulting a knowledgeable scholar or a trusted Islamic financial advisor is recommended."
+  },
+  "about": {
+    "title": "About",
+    "overview": "Traditional Zakat calculators often lack the sophistication needed for today's complex financial situations. Interactive Zakat Calculator bridges this gap by handling nuances like partial ownership, rental income, and investment distinctions—giving you confidence in your calculations without the hassle.",
+    "openSource": "This calculator is an open source project, and contributions are welcome! Whether you're interested in improving calculation accuracy, enhancing the UI, or fixing bugs, your help is appreciated.",
+    "designPrinciples": "Design Principles",
+    "principles": {
+      "privacy": {
+        "title": "Privacy first design",
+        "description": "No sign-up or account is required—your data stays on your device. All calculations occur locally in your browser without any back-end storage."
+      },
+      "comprehensive": {
+        "title": "Comprehensive coverage",
+        "description": "Quickly calculate Zakat on various asset types—cash, stocks (active vs. passive investments), precious metals, real estate, crypto, and more."
+      },
+      "feedback": {
+        "title": "Real-time, interactive feedback",
+        "description": "See immediate updates as you adjust figures (e.g., gold weight, stock quantities) using auto-fetched current market prices via API."
+      },
+      "summaries": {
+        "title": "Visual Summaries",
+        "description": "View an overall breakdown of Zakatable vs. exempt amounts, so you understand precisely how each asset contributes."
+      }
+    },
+    "methodology": "Our Methodology",
+    "methodologyText1": "Interactive Zakat Calculator follows established Islamic principles for Zakat calculation. Our methodology is based on scholarly consensus regarding zakatable assets and calculation methods.",
+    "methodologyText2": "We've worked hard to incorporate sources and guidelines from prominent scholars like Joe Bradford to make sure it's accurate and reliable (Check out his {link}). However, any feedback will help—please let us know if you run into any issues.",
+    "methodologyLinkText": "best selling Zakat Guide on Amazon",
+    "disclaimer": "Disclaimer",
+    "disclaimerText": "While we make every effort to ensure accuracy, Interactive Zakat Calculator is a tool to assist in calculations and should not replace scholarly advice for complex situations. For personalized guidance, please consult with a qualified Islamic scholar or financial advisor.",
+    "analyticsDisclaimer": "We use Google Analytics to understand how users interact with the calculator. No personal financial data is ever collected or transmitted. All Zakat calculations remain entirely local in your browser.",
+    "contactTitle": "Contact",
+    "contactText": "For bugs, feedback, or questions, please reach out to:",
+    "copyright": "© {year} Interactive Zakat Calculator."
+  },
+  "dashboard": {
+    "assets": "Assets",
+    "summary": "Summary",
+    "loadingState": "Loading...",
+    "restoring": "Please wait while we restore your calculations"
+  },
+  "summary": {
+    "totalAssets": "Total Assets",
+    "zakatDue": "Zakat Due",
+    "belowNisab": "No Zakat due (Below Nisab or no zakatable assets)",
+    "eligibleAssets": "2.5% of eligible assets",
+    "nisabStatus": "Nisab Status",
+    "meetsNisab": "Meets Nisab",
+    "belowNisabStatus": "Below Nisab",
+    "nisabTooltip": "Nisab is the minimum amount of wealth that must be owned before Zakat becomes obligatory. It is calculated based on the value of either gold (85g) or silver (612.36g), whichever is lower.",
+    "goldNisab": "Gold Nisab (85g)",
+    "silverNisab": "Silver Nisab (612.36g)",
+    "pricesLastUpdated": "Prices last updated:",
+    "usingLocalCalculation": "Using local calculation",
+    "convertedFrom": "(converted from {currency})",
+    "converted": "converted",
+    "offlineMode": "Using offline nisab calculation. Live metal prices unavailable in Replit environment.",
+    "offlineModeGeneric": "Using local metal price data for nisab calculations. Live prices unavailable.",
+    "currencyConversionIssue": "Currency Conversion Issue",
+    "currencyConversionIssueText": "There may be an issue with the PKR nisab values. The values appear suspiciously low. Please try refreshing the page or temporarily switch to USD for more accurate calculations.",
+    "reconnectAttempt": "Tried {count} {count, plural, one {time} other {times}} to reconnect.",
+    "assetBreakdown": {
+      "cashBank": "Cash & Bank",
+      "preciousMetals": "Precious Metals",
+      "stocks": "Stocks & Investments",
+      "retirement": "Retirement Accounts",
+      "realEstate": "Real Estate",
+      "crypto": "Cryptocurrency",
+      "debt": "Debt & Liabilities"
+    },
+    "tableHeaders": {
+      "category": "Category",
+      "assetValue": "Asset Value",
+      "zakatableAmount": "Zakatable Amount",
+      "zakatDue": "Zakat Due"
+    },
+    "hawlMet": "Hawl Met",
+    "hawlNotMet": "Hawl Not Met",
+    "exempt": "Exempt",
+    "totalRow": "Total",
+    "netAmount": "Net Amount (After Tax & Penalties)",
+    "debtReceivables": "Receivables:",
+    "debtReceivablesDesc": "Money owed to you counts toward your zakatable wealth if you reasonably expect repayment. Include these amounts in your total assets.",
+    "debtLiabilities": "Liabilities:",
+    "debtLiabilitiesDesc": "Outstanding debts you owe reduce your total zakatable wealth. These are subtracted from your assets before calculating Zakat."
+  },
+  "assetList": {
+    "cash": {
+      "name": "Cash",
+      "description": "Bank accounts & savings"
+    },
+    "preciousMetals": {
+      "name": "Precious Metals",
+      "description": "Gold & silver holdings"
+    },
+    "stocks": {
+      "name": "Stocks",
+      "description": "Stocks & mutual funds"
+    },
+    "retirement": {
+      "name": "Retirement",
+      "description": "401(k) & IRA accounts"
+    },
+    "realEstate": {
+      "name": "Real Estate",
+      "description": "Properties & rentals"
+    },
+    "crypto": {
+      "name": "Cryptocurrency",
+      "description": "Digital assets"
+    },
+    "debt": {
+      "name": "Debt & Liabilities",
+      "description": "Receivables & debts"
+    }
+  },
+  "calculatorNav": {
+    "cash": "Cash & Cash Equivalents",
+    "preciousMetals": "Precious Metals",
+    "stocks": "Stocks & Investments",
+    "retirement": "Retirement Accounts",
+    "realEstate": "Real Estate",
+    "crypto": "Cryptocurrencies"
+  },
+  "cash": {
+    "title": "Cash & Cash Equivalents",
+    "categories": {
+      "cashOnHand": {
+        "name": "Cash on Hand",
+        "description": "Physical cash in your possession"
+      },
+      "checkingAccount": {
+        "name": "Checking Account",
+        "description": "Balance in your checking account(s)"
+      },
+      "savingsAccount": {
+        "name": "Savings Account",
+        "description": "Balance in your savings account(s)"
+      },
+      "digitalWallets": {
+        "name": "Digital Wallets (PayPal, Venmo, Apple Pay, etc.)",
+        "description": "Balance in digital payment services and mobile wallets"
+      },
+      "foreignCurrency": {
+        "name": "Foreign Currency",
+        "description": "Any foreign currency holdings (converted to your local currency)"
+      }
+    },
+    "expenses": {
+      "title": "Deductible Expenses",
+      "creditCard": {
+        "name": "Credit Card Bills",
+        "description": "Outstanding credit card balances"
+      },
+      "utilityBills": {
+        "name": "Utility Bills",
+        "description": "Pending utility payments"
+      },
+      "shortTermLoans": {
+        "name": "Short Term Loans",
+        "description": "Loans due within the year"
+      },
+      "unpaidZakat": {
+        "name": "Unpaid Zakat",
+        "description": "Previous unpaid Zakat obligations"
+      }
+    },
+    "hawlStatus": "Hawl Status",
+    "addForeignCurrency": "Add Foreign Currency",
+    "removeCurrency": "Remove",
+    "convertingCurrency": "Converting...",
+    "conversionError": "Conversion error"
+  },
+  "metals": {
+    "title": "Precious Metals",
+    "goldPurity": {
+      "24K": "24K (99.9% pure)",
+      "22K": "22K (91.7% pure)",
+      "21K": "21K (87.5% pure)",
+      "18K": "18K (75.0% pure)"
+    },
+    "weightUnit": "Weight Unit",
+    "fetchingPrices": "Fetching prices...",
+    "pricesUpdated": "Prices updated",
+    "refreshPrices": "Refresh Prices",
+    "showInvestmentGold": "Include Investment Gold",
+    "goldLabel": "Gold",
+    "silverLabel": "Silver"
+  },
+  "stocks": {
+    "title": "Stocks & Investments",
+    "tabs": {
+      "activeTrading": "Active Trading",
+      "passiveInvestments": "Passive Investments",
+      "dividendEarnings": "Dividend Earnings",
+      "investmentFunds": "Investment Funds"
+    },
+    "addStock": "Add Stock",
+    "removeStock": "Remove",
+    "searchStock": "Search stock...",
+    "noResults": "No results found.",
+    "shares": "Shares",
+    "currentPrice": "Current Price",
+    "totalValue": "Total Value",
+    "refreshPrices": "Refresh Prices",
+    "quickMethod": "Quick Method (30%)",
+    "detailedMethod": "Detailed CRI Method",
+    "marketValue": "Market Value",
+    "zakatableValue": "Zakatable Value"
+  },
+  "retirement": {
+    "title": "Retirement Accounts",
+    "accountTypes": {
+      "401k": "401(k)",
+      "ira": "IRA",
+      "roth": "Roth IRA",
+      "pension": "Pension"
+    },
+    "balance": "Account Balance",
+    "taxRate": "Tax Rate (%)",
+    "penaltyRate": "Early Withdrawal Penalty (%)",
+    "isWithdrawn": "Already Withdrawn",
+    "withdrawnAmount": "Withdrawn Amount",
+    "calculationError": "Calculation Error",
+    "calculationErrorDesc": "There was an error calculating your retirement breakdown. Please check your inputs."
+  },
+  "realEstate": {
+    "title": "Real Estate",
+    "propertyTypes": {
+      "rental": {
+        "title": "Rental Property",
+        "description": "Net rental income is zakatable after expenses",
+        "tooltip": "Calculate Zakat on net rental income (income minus expenses) if Hawl is met"
+      },
+      "primary": {
+        "title": "Primary Residence",
+        "description": "Personal residence is exempt from Zakat",
+        "tooltip": "Primary residence for personal use is not subject to Zakat"
+      },
+      "sale": {
+        "title": "Property for Sale",
+        "description": "Property intended for sale is zakatable",
+        "tooltip": "Full market value is zakatable if property is actively for sale and Hawl is met"
+      },
+      "vacant": {
+        "title": "Vacant Land",
+        "description": "Zakatable if intended for sale",
+        "tooltip": "Land value is zakatable if intended for sale and Hawl requirement is met"
+      }
+    }
+  },
+  "crypto": {
+    "title": "Cryptocurrencies",
+    "addCoin": "Add Coin",
+    "symbol": "Symbol",
+    "quantity": "Quantity",
+    "currentPrice": "Current Price",
+    "totalValue": "Total Value",
+    "refreshPrices": "Refresh Prices",
+    "removeCoin": "Remove",
+    "hawlStatus": "Hawl Status",
+    "loadingPrices": "Loading prices...",
+    "errorFetching": "Error fetching price"
+  },
+  "report": {
+    "title": "Generate Report",
+    "description": "Download a detailed PDF report of your Zakat calculation",
+    "assetsIncluded": "Assets Included",
+    "calculationDate": "Calculation Date",
+    "generateButton": "Generate PDF Report",
+    "generating": "Generating...",
+    "error": "Unable to generate report. Please try again."
+  },
+  "distribution": {
+    "title": "Zakat Distribution",
+    "returnToDashboard": "Return to Dashboard",
+    "recipientCategories": "Recipient Categories",
+    "allocateDescription": "Allocate your Zakat across these eight categories of eligible recipients (asnaf). Hover over any category to learn more about it.",
+    "modes": {
+      "equal": "Distribute Equally",
+      "scholar": "Scholar Recommended",
+      "custom": "Custom"
+    },
+    "categories": {
+      "poor": {
+        "name": "The Poor (Fuqara)",
+        "description": "Those who have little or no income and cannot meet their basic needs."
+      },
+      "needy": {
+        "name": "The Needy (Masakin)",
+        "description": "Those who have some means but still cannot meet all their essential needs."
+      },
+      "administrators": {
+        "name": "Zakat Administrators",
+        "description": "Those who collect and distribute Zakat."
+      },
+      "reconciliation": {
+        "name": "For Reconciliation (Muallafat-ul-Quloob)",
+        "description": "Those whose hearts are inclined toward Islam or whose goodwill is sought."
+      },
+      "freeing_captives": {
+        "name": "Freeing Captives (Riqab)",
+        "description": "Historically for freeing slaves; now applied to freeing those in bondage or oppression."
+      },
+      "indebted": {
+        "name": "Those in Debt (Gharimeen)",
+        "description": "People burdened with debt who cannot repay it."
+      },
+      "cause_of_allah": {
+        "name": "In the Cause of Allah (Fi Sabilillah)",
+        "description": "Efforts and projects that serve the greater good of the community and uphold Islamic values."
+      },
+      "travelers": {
+        "name": "Travelers (Ibn as-Sabil)",
+        "description": "Travelers who are stranded or in need while away from home."
+      }
+    }
+  },
+  "hawl": {
+    "label": "Hawl Status",
+    "met": "Hawl Met",
+    "notMet": "Hawl Not Met",
+    "tooltip": "Hawl refers to the completion of one full Islamic lunar year (approximately 354 days) during which the wealth has been in your possession and above the Nisab threshold.",
+    "description": "Has this wealth been in your possession for one full lunar year?"
+  },
+  "nisab": {
+    "label": "Nisab",
+    "status": "Nisab Status",
+    "meets": "Meets Nisab",
+    "below": "Below Nisab",
+    "tooltip": "Nisab is the minimum amount of wealth that must be owned before Zakat becomes obligatory. It is calculated based on the value of either gold (85g) or silver (612.36g), whichever is lower.",
+    "goldThreshold": "Gold Nisab (85g)",
+    "silverThreshold": "Silver Nisab (612.36g)"
+  },
+  "languageSwitcher": {
+    "label": "Language",
+    "languages": {
+      "en": "English",
+      "ru": "Русский"
+    }
+  }
+}

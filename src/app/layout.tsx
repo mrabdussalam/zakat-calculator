@@ -12,6 +12,9 @@ import { HydrationGuard } from '@/components/ui/HydrationGuard'
 import { HydrationStatus } from '@/components/ui/HydrationStatus'
 import { HydrationTester } from '@/components/ui/HydrationTester'
 import { PageTransition } from '@/components/ui/PageTransition'
+import { LocaleProvider } from "@/i18n/LocaleProvider";
+import { defaultLocale, isValidLocale, type Locale } from "@/i18n/config";
+import { cookies } from "next/headers";
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 const isDevelopment =
@@ -24,13 +27,20 @@ export const metadata: Metadata = {
   description: "Calculate your Zakat with confidence",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const cookieLocale = cookieStore.get('zakat-locale')?.value;
+  const locale: Locale =
+    cookieLocale && isValidLocale(cookieLocale) ? cookieLocale : defaultLocale;
+
+  const messages = (await import(`../../messages/${locale}.json`)).default;
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head />
       <body className={`${inter.variable} ${syne.variable} ${anglecia.variable} antialiased`}>
         {GA_ID && (
@@ -55,35 +65,36 @@ export default function RootLayout({
             />
           </>
         )}
-        <ClientHydration />
-        <HydrationGuard fallback={
-          <div className="flex h-screen w-full items-center justify-center">
-            <div className="text-center">
-              <h2 className="text-lg font-medium">Loading...</h2>
-              <p className="text-muted-foreground">Please wait while we restore your calculations</p>
+        <LocaleProvider initialLocale={locale} initialMessages={messages}>
+          <ClientHydration />
+          <HydrationGuard fallback={
+            <div className="flex h-screen w-full items-center justify-center">
+              <div className="text-center">
+                <h2 className="text-lg font-medium">Loading...</h2>
+                <p className="text-muted-foreground">Please wait while we restore your calculations</p>
+              </div>
             </div>
-          </div>
-        }>
-          <CurrencyProvider>
-            <PageTransition>
-              {children}
-            </PageTransition>
-          </CurrencyProvider>
-        </HydrationGuard>
+          }>
+            <CurrencyProvider>
+              <PageTransition>
+                {children}
+              </PageTransition>
+            </CurrencyProvider>
+          </HydrationGuard>
 
-        <Suspense fallback={null}>
-          <Analytics />
-        </Suspense>
-        <ToastInitializer />
+          <Suspense fallback={null}>
+            <Analytics />
+          </Suspense>
+          <ToastInitializer />
 
-        {/* State Debugger (only in development) */}
-        {isDevelopment && (
-          <>
-            <ClientDebugger />
-            <HydrationStatus />
-            <HydrationTester />
-          </>
-        )}
+          {isDevelopment && (
+            <>
+              <ClientDebugger />
+              <HydrationStatus />
+              <HydrationTester />
+            </>
+          )}
+        </LocaleProvider>
       </body>
     </html>
   );

@@ -220,6 +220,26 @@ Testing structure for calculator-related functionality:
 - `src/tests/integration/` - Integration tests for store and components
 - `src/tests/e2e/` - End-to-end tests for complete user flows
 
+## Internationalization (i18n)
+
+The application uses [`next-intl`](https://next-intl-docs.vercel.app/) for internationalization.
+
+### Supported Languages
+
+| Language | Code | Status |
+|----------|------|--------|
+| English  | `en` | Complete |
+| Russian  | `ru` | Complete |
+
+### Adding a New Language
+
+1. Create a new translation file `messages/<code>.json` (copy `messages/en.json` as a starting point)
+2. Translate all string values in the new file
+3. Add the locale code to the `locales` array in `src/i18n/config.ts`
+4. Add the language name and flag emoji to `LANGUAGE_NAMES` and `LANGUAGE_FLAGS` in `src/components/ui/LanguageSwitcher.tsx`
+
+Translation files live in `messages/` at the project root. The i18n infrastructure is in `src/i18n/` (config, provider, server request handler). Currency formatting always uses the user's selected currency regardless of locale.
+
 ## Documentation
 
 For more detailed documentation on specific areas:

@@ -2,14 +2,15 @@
 
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { ArrowRight, Loader2, ChevronDown } from "lucide-react"
+import { ArrowRight, Loader2 } from "lucide-react"
 import { Noto_Naskh_Arabic } from 'next/font/google'
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Label } from "@/components/ui/form/label"
 import { cn } from "@/lib/utils"
 import { CurrencySelector } from "@/components/ui/CurrencySelector"
 import { useZakatStore } from "@/store/zakatStore"
+import { useTranslations } from 'next-intl'
+import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher"
 
 const notoNaskhArabic = Noto_Naskh_Arabic({
   weight: ['400', '500', '600', '700'],
@@ -43,6 +44,8 @@ const itemVariants = {
 }
 
 export default function HomePage() {
+  const t = useTranslations('home')
+  const tc = useTranslations('common')
   const [isLoading, setIsLoading] = useState(false)
   // Initialize with saved currency from localStorage
   const [selectedCurrency, setSelectedCurrency] = useState(() => {
@@ -151,12 +154,13 @@ export default function HomePage() {
           {/* Hero Section with About button */}
           <motion.div variants={itemVariants} className="flex justify-between items-center">
             <h1 className="page-title">
-              Zakat Calculator
+              {t('title')}
             </h1>
             <div className="flex items-center gap-2">
+              <LanguageSwitcher />
               <Link href="/about">
                 <Button variant="ghost" size="sm" className="rounded-full">
-                  About
+                  {tc('about')}
                 </Button>
               </Link>
             </div>
@@ -165,14 +169,14 @@ export default function HomePage() {
           {/* Quranic Verse */}
           <motion.div variants={itemVariants} className="rounded-xl border border-gray-100 p-6 space-y-4">
             <p className={`text-lg sm:text-xl text-gray-900 leading-[2] text-right font-semibold ${notoNaskhArabic.className}`} dir="rtl">
-              وَأَقِيمُوا الصَّلَاةَ وَآتُوا الزَّكَاةَ وَأَقْرِضُوا اللَّهَ قَرْضًا حَسَنًا ۚ وَمَا تُقَدِّمُوا لِأَنفُسِكُم مِّنْ خَيْرٍ تَجِدُوهُ عِندَ اللَّهِ هُوَ خَيْرًا وَأَعْظَمَ أَجْرًا
+              {t('quranVerse')}
             </p>
             <div className="space-y-2">
               <p className="text-sm text-gray-600">
-                "And establish prayer and give zakat and loan Allah a goodly loan. And whatever good you put forward for yourselves—you will find it with Allah. It is better and greater in reward."
+                {t('quranTranslation')}
               </p>
               <p className="text-xs text-gray-500">
-                Surah Al-Muzzammil [73:20]
+                {t('quranReference')}
               </p>
             </div>
           </motion.div>
@@ -180,7 +184,7 @@ export default function HomePage() {
           {/* Currency Selection */}
           <motion.div variants={itemVariants} className="space-y-4">
             <div className="space-y-1">
-              <p className="text-sm text-gray-600">Choose the currency you'll use for calculations</p>
+              <p className="text-sm text-gray-600">{t('currencyPrompt')}</p>
             </div>
 
             <CurrencySelector
@@ -208,11 +212,11 @@ export default function HomePage() {
                   {isLoading ? (
                     <div className="flex items-center">
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Loading...
+                      {tc('loading')}
                     </div>
                   ) : (
                     <div className="flex items-center">
-                      Start Calculation
+                      {tc('startCalculation')}
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </div>
                   )}
@@ -225,10 +229,9 @@ export default function HomePage() {
           <motion.div variants={itemVariants} className="grid gap-4">
             {/* What is Zakat */}
             <div className="rounded-xl bg-gray-100/80 p-6 space-y-2">
-              <h2 className="text-xl font-medium tracking-tight text-gray-900">What is Zakat?</h2>
+              <h2 className="text-xl font-medium tracking-tight text-gray-900">{t('whatIsZakat')}</h2>
               <p className="text-sm text-gray-600">
-                Zakat is one of the five pillars of Islam. It is a mandatory charitable contribution,
-                calculated as 2.5% of your eligible wealth, to be given to those in need.
+                {t('zakatDescription')}
               </p>
             </div>
           </motion.div>
@@ -238,13 +241,13 @@ export default function HomePage() {
             {/* How it Works */}
             <div className="space-y-6">
               <div className="space-y-3">
-                <h2 className="text-xl font-medium tracking-tight text-gray-900">How it works</h2>
+                <h2 className="text-xl font-medium tracking-tight text-gray-900">{t('howItWorks')}</h2>
                 <div className="space-y-3">
                   {[
-                    'Select your preferred currency and settings',
-                    'Add your assets (cash, gold, investments, etc.)',
-                    'Get instant calculation of your Zakat',
-                    'Generate detailed report for your records'
+                    t('steps.step1'),
+                    t('steps.step2'),
+                    t('steps.step3'),
+                    t('steps.step4')
                   ].map((step, index) => (
                     <div key={index} className="flex items-start gap-3">
                       <div className="flex-none flex items-center justify-center w-5 h-5 rounded-full bg-gray-900 text-white text-xs font-medium">
@@ -258,16 +261,16 @@ export default function HomePage() {
 
               {/* Supported Assets */}
               <div className="space-y-3 pt-4 border-t border-gray-100">
-                <h2 className="text-xl font-medium tracking-tight text-gray-900">Supported Assets</h2>
+                <h2 className="text-xl font-medium tracking-tight text-gray-900">{t('supportedAssets')}</h2>
                 <div className="grid grid-cols-2 gap-y-2 gap-x-4">
-                  {[
-                    'Cash & Bank Accounts',
-                    'Gold & Silver',
-                    'Stocks & Investments',
-                    'Cryptocurrency',
-                    'Real Estate',
-                    'Retirement Accounts'
-                  ].map((asset) => (
+                  {([
+                    t('assets.cash'),
+                    t('assets.gold'),
+                    t('assets.stocks'),
+                    t('assets.crypto'),
+                    t('assets.realEstate'),
+                    t('assets.retirement')
+                  ] as string[]).map((asset) => (
                     <div key={asset} className="flex items-center gap-2 text-xs text-gray-600">
                       <div className="w-1 h-1 rounded-full bg-gray-400" />
                       {asset}
@@ -279,8 +282,7 @@ export default function HomePage() {
           </motion.div>
 
           <motion.div variants={itemVariants} className="text-xs text-gray-500">
-            For personalized advice, especially in complex situations, consulting a knowledgeable scholar
-            or a trusted Islamic financial advisor is recommended.
+            {t('disclaimer')}
           </motion.div>
 
           {/* Separator */}
@@ -289,7 +291,7 @@ export default function HomePage() {
           {/* Contact Information */}
           <motion.div variants={itemVariants} className="text-gray-600 text-xs leading-tight">
             <p className="mb-1 text-xs">
-              <strong>Contributors:</strong>{" "}
+              <strong>{tc('contributors')}:</strong>{" "}
               <a
                 href="https://www.linkedin.com/in/imabdussalam/"
                 target="_blank"
@@ -324,10 +326,9 @@ export default function HomePage() {
             <div className="flex items-center space-x-3">
               <Link href="mailto:abdussalam.rafiq@gmail.com">
                 <Button variant="ghost" size="sm" className="rounded-full">
-                  Contact
+                  {tc('contact')}
                 </Button>
               </Link>
-              {/* Dot separator between buttons */}
               <div className="w-1 h-1 rounded-full bg-gray-400"></div>
               <Button
                 variant="ghost"
@@ -338,9 +339,8 @@ export default function HomePage() {
                   window.open("https://docs.google.com/forms/d/e/1FAIpQLSfD2nnRNka_P4GU-YyUuyOahFCNpJe8yHsLs3jlyLkZqRMiig/viewform?embedded=true", "_blank");
                 }}
               >
-                Feedback
+                {tc('feedback')}
               </Button>
-              {/* Dot separator between buttons */}
               <div className="w-1 h-1 rounded-full bg-gray-400"></div>
               <Button
                 variant="ghost"
@@ -351,7 +351,7 @@ export default function HomePage() {
                   window.open("https://github.com/mrabdussalam/zakat-calculator", "_blank");
                 }}
               >
-                GitHub
+                {tc('github')}
               </Button>
             </div>
           </motion.div>
